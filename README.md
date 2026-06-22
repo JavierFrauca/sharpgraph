@@ -126,7 +126,7 @@ Buscando _"¿quién llama a IUserService?"_ hacia atrás, el DFS llega al `Handl
 
 ## Benchmark de tokens
 
-¿Cuánto ahorra de verdad? En [`bench/`](bench/README.md) hay una batería reproducible que
+¿Cuánto ahorra de verdad? En [`docs/BENCHMARK.md`](docs/BENCHMARK.md) hay una batería reproducible que
 compara, con cuenta exacta de tokens (`tiktoken`), **LocalGraph vs CodeGraph vs grep+lectura**
 sobre tus propios repos. Resumen de la batería interna (2 repos .NET, 31 preguntas):
 
@@ -135,7 +135,7 @@ sobre tus propios repos. Resumen de la batería interna (2 repos .NET, 31 pregun
 - **Comprensión de flujo** (`flow`): **~45×** más barato que reconstruir la cadena leyendo ficheros.
 - **Leer código completo**: paridad (`understand` gana en clases grandes). **Literales**: gana grep.
 
-Cómo reproducirlo sobre tu código: ver [bench/README.md](bench/README.md).
+Cómo reproducirlo sobre tu código: ver [docs/BENCHMARK.md](docs/BENCHMARK.md).
 
 ---
 
@@ -152,4 +152,4 @@ Requiere .NET 10 SDK y Claude Code instalados.
 
 ## Instalación para usuarios finales
 
-Ver [INSTALL.md](INSTALL.md).
+Ver [docs/INSTALL.md](docs/INSTALL.md).

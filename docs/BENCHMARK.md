@@ -29,10 +29,11 @@ cp bench/questions.example.py bench/questions.py   # edítalo con tus repos y s�
 cd bench && python benchmark.py [ruta_opcional_al_LocalGraph.exe]
 ```
 
-Genera `RESULTS.md` con: resumen, desglose por categoría, tabla por pregunta y conclusiones.
+Genera `bench/RESULTS.md` con: resumen, desglose por categoría, tabla por pregunta y conclusiones.
 
-`questions.py` y `RESULTS.md` quedan fuera de git (son específicos de tus repos);
-parte de [`questions.example.py`](questions.example.py), que documenta el esquema completo.
+Los scripts viven en [`../bench/`](../bench/). `bench/questions.py` y `bench/RESULTS.md` quedan
+fuera de git (son específicos de tus repos); parte de
+[`questions.example.py`](../bench/questions.example.py), que documenta el esquema completo.
 
 ## Qué encontramos (batería interna)
 
