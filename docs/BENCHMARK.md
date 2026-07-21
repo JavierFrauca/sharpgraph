@@ -14,6 +14,9 @@ Solo se mide **coste** (no calidad), y una herramienta solo "gana" una pregunta 
 **responde de verdad**: en preguntas de literal, por ejemplo, únicamente grep es elegible
 (los grafos no indexan literales); los resultados vacíos se marcan y no cuentan como victoria.
 
+> Para una comparativa de **calidad** (outputs reales de ambas herramientas
+> comentados pregunta por pregunta), ver [docs/CALIDAD.md](CALIDAD.md).
+
 ---
 
 ## Resultados públicos — CleanArchitecture (110 ficheros .cs)
