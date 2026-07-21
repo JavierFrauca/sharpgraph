@@ -44,7 +44,7 @@ builder.Services.AddSingleton(store);
 builder.Services.AddSingleton(watcher);
 builder.Services.AddMcpServer(options =>
 {
-    options.ServerInfo = new() { Name = "LocalGraph", Version = "2.0.0" };
+    options.ServerInfo = new() { Name = "LocalGraph", Version = "2.1.0" };
     options.ServerInstructions = """
         LocalGraph indexa proyectos C# en un grafo de dependencias y permite
         navegarlo SIN leer ficheros de código fuente — y ahora también recuperar

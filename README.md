@@ -10,6 +10,48 @@ Permite responder preguntas como _"¿desde qué endpoint se llama a este servici
 
 ---
 
+## Quickstart (5 minutos)
+
+1. **Descarga el binario** para tu plataforma desde la última [Release](https://github.com/JavierFrauca/localgraph/releases):
+   - Windows: `LocalGraph-win-x64.zip`
+   - macOS (Apple Silicon): `LocalGraph-osx-arm64.tar.gz`
+   - Linux: `LocalGraph-linux-x64.tar.gz`
+2. **Descomprime** en cualquier carpeta.
+3. **Registra el servidor MCP** en tu cliente (elige uno):
+   - **Claude Code** (Windows): `.\install.ps1`
+   - **Claude Code** (macOS/Linux): `./install.sh`
+   - **Otros clientes** (Cursor, Cline, Continue, Zed): pasa `-Client <cursor|cline|...>` al instalador, o sigue [`docs/CLIENTS.md`](docs/CLIENTS.md) para registrarlo a mano.
+4. **Reinicia tu cliente MCP** y abre un proyecto C#.
+5. **Pídele al LLM**:
+   ```
+   scan this C# project
+   ```
+   Y a continuación:
+   ```
+   trace to endpoints from IApplicationDbContext
+   ```
+   o
+   ```
+   show me the flow of TodoService.CreateAsync
+   ```
+
+Si `scan()` devuelve 0 tipos, verifica que apuntas a una carpeta con `.cs` (las carpetas `obj/`, `bin/` se ignoran automáticamente).
+
+¿No te convence? Mira la [comparativa](docs/COMPARATIVA.md) con CodeGraph, Sourcegraph MCP y code-graph-mcp, el [benchmark de tokens](docs/BENCHMARK.md), o la demo:
+
+```powershell
+# Windows PowerShell
+.\demo.ps1
+```
+```bash
+# macOS / Linux
+./demo.sh
+```
+
+La demo escanea [CleanArchitecture](https://github.com/JasonTaylorDev/CleanArchitecture) y responde 5 preguntas en segundos.
+
+---
+
 ## El problema que resuelve
 
 En proyectos grandes con CQRS y MediatR, la cadena de llamadas no es directa:

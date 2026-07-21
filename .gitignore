@@ -17,6 +17,8 @@ __pycache__/
 # Benchmark: entradas y salidas específicas del usuario (repos/símbolos privados)
 bench/questions.py
 bench/RESULTS.md
+# Benchmark público: el repo externo a clonar para reproducir, nunca se commitea
+bench/_external/
 
 # Documento de comparativa interno (referencias a repos privados)
 docs/Comparativa_MCP_CodeGraph_vs_LocalGraph_vs_SinMCP.md
