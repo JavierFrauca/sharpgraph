@@ -222,11 +222,18 @@ public class GraphTools(CodeGraph graph, GraphStore store, ProjectWatcher watche
         ficheros enteros. Es la herramienta clave para ahorrar tokens: en vez de
         abrir un fichero de 400 líneas, recupera solo lo que necesitas.
 
-        Dos modos:
-          - get_source(typeName)           → esquema del tipo: summary + firmas de
-                                             todos sus miembros con sus líneas.
-          - get_source(typeName, member)   → el cuerpo de ESE miembro, con números
-                                             de línea, truncado a maxBodyLines.
+        Tres modos:
+          - get_source(typeName)               → esquema del tipo: summary + firmas de
+                                                 todos sus miembros con sus líneas.
+          - get_source(typeName, member)       → el cuerpo de ESE miembro, con números
+                                                 de línea, truncado a maxBodyLines.
+          - get_source(typeName, maxLines: N)  → el cuerpo COMPLETO del tipo truncado
+                                                 a N líneas. Ideal para "enséñame esta
+                                                 clase" sin el overhead de understand.
+
+        Si pasas includeBodies=true, en vez de truncar por línea trunca por miembro:
+        devuelve los cuerpos completos de los primeros miembros hasta agotar el
+        presupuesto de líneas.
 
         Ejemplo de salida (modo miembro):
           // GrossService.cs:142  GrossService.CalculateGross
@@ -239,9 +246,34 @@ public class GraphTools(CodeGraph graph, GraphStore store, ProjectWatcher watche
         """)]
     public string GetSource(
         [Description("Nombre del tipo (ej: GrossService).")] string typeName,
-        [Description("Opcional: nombre del miembro/método. Si se omite, devuelve el esquema del tipo.")] string? member = null,
-        [Description("Máximo de líneas del cuerpo a devolver (defecto 60).")] int maxBodyLines = 60)
-        => graph.GetSource(typeName, member, Math.Clamp(maxBodyLines, 5, 400));
+        [Description("Opcional: nombre del miembro/método. Si se omite y maxBodyLines=0, devuelve esquema.")] string? member = null,
+        [Description("Máximo de líneas del cuerpo (defecto 60 para miembro, 200 para tipo completo).")] int maxBodyLines = 60,
+        [Description("Si true y no hay member, devuelve cuerpos de los primeros miembros públicos hasta el presupuesto.")] bool includeBodies = false)
+        => graph.GetSource(typeName, member, Math.Clamp(maxBodyLines, 5, 600), includeBodies);
+
+    [McpServerTool, Description("""
+        Lee un fichero .cs del proyecto escaneado, con números de línea y marcas
+        de región por tipo definido. Compite con `explore` de CodeGraph para el caso
+        "enséñame este fichero". A diferencia de get_source/understand, devuelve el
+        fichero entero (no un solo tipo), truncado a maxLines.
+
+        Útil cuando necesitas ver el contexto alrededor de un tipo, imports, o
+        múltiples tipos en el mismo fichero. Las líneas se anotan con el tipo
+        definido cuando empieza un nuevo tipo.
+
+        Ejemplo:
+          // TodoItems.cs (120 líneas)
+          // ── MyApp.CreateTodoItemCommand ──
+            13  public class CreateTodoItemCommand : IRequest<int>
+            14  {
+            ...
+          // ── MyApp.CreateTodoItemCommandHandler ──
+            30  public class CreateTodoItemCommandHandler ...
+        """)]
+    public string ReadFile(
+        [Description("Ruta del fichero .cs (relativa al proyecto o absoluta).")] string filePath,
+        [Description("Máximo de líneas a devolver (10-800, defecto 200).")] int maxLines = 200)
+        => graph.ReadFile(filePath, Math.Clamp(maxLines, 10, 800));
 
     [McpServerTool, Description("""
         COMPRENDER un tipo de un vistazo, en UNA sola llamada. Pensada para "¿cómo
