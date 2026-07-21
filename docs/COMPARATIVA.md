@@ -6,7 +6,8 @@ un ganador universal: cada una tiene un ángulo distinto.
 
 > Esta es la versión pública de la comparativa interna que mantiene el proyecto. Los
 > ratios cuantitativos provienen de [`BENCHMARK.md`](BENCHMARK.md), reproducible sobre
-> cualquier repositorio propio con `bench/benchmark.py`.
+> cualquier repositorio propio con `bench/benchmark.py`. La comparativa de **calidad**
+> (outputs reales lado a lado) está en [`CALIDAD.md`](CALIDAD.md).
 
 ---
 
