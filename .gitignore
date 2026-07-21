@@ -26,3 +26,6 @@ docs/Comparativa_MCP_CodeGraph_vs_LocalGraph_vs_SinMCP.md
 # Logs sueltos de desarrollo
 scan_output.txt
 test_nopath.txt
+
+# ZCode CLI (archivos locales del agente, no del proyecto)
+.zcode/
