@@ -24,8 +24,8 @@ Batería de **12 preguntas** sobre
 
 ### Resumen ejecutivo
 
-- **Total tokens (12 preguntas)** — LocalGraph: **1494** · CodeGraph: **5637** (3.8×) · sin-MCP: **11808** (7.9×)
-- **Preguntas ganadas (menos tokens)** — LocalGraph: **9/12** · CodeGraph: **1/12** · sin-MCP: **2/12** (grep para literales)
+- **Total tokens (13 preguntas)** — LocalGraph: **1715** · CodeGraph: **6101** (3.6×) · sin-MCP: **12039** (7.0×)
+- **Preguntas ganadas (menos tokens)** — LocalGraph: **9/13** · CodeGraph: **1/13** · sin-MCP: **3/13** (grep para clase/string)
 
 ### Desglose por categoría
 
@@ -33,7 +33,7 @@ Batería de **12 preguntas** sobre
 |---|---|---|---|---|---|
 | **LG** (navegar/localizar/DI/MediatR) | 7 | 992 | 3428 | 10737 | LocalGraph (6/7) |
 | **FLOW** (comprensión de flujo) | 2 | 56 | 1147 | 575 | LocalGraph (2/2) |
-| **CG** (leer/entender código) | 2 | 428 | 928 | 462 | sin-MCP (1/2) |
+| **CG** (leer/entender código) | 3 | 649 | 1392 | 693 | LocalGraph (1/3) |
 | **GREP** (literales) | 1 | 18† | 134† | 34 | sin-MCP (1/1) |
 
 > † = la herramienta **no responde** (los grafos no indexan literales). Su coste no cuenta.
@@ -51,7 +51,8 @@ Batería de **12 preguntas** sobre
 | Q07 | FLOW | ¿Cómo funciona CreateTodoItemCommandHandler.Handle? | **33** | 464 | 183 | LocalGraph |
 | Q08 | FLOW | ¿Qué hace GetTodosQueryHandler.Handle? | **23** | 683 | 392 | LocalGraph |
 | Q09 | CG | Cuerpo del método Handle | **146** | 464 | 231 | LocalGraph |
-| Q10 | CG | Clase completa + contexto (understand) | 282 | 464 | **231** | sin-MCP |
+| Q10 | CG | Clase completa (get_source, maxLines) | **236** | 464 | 231 | sin-MCP |
+| Q10b | CG | Clase + contexto (understand v2.2 mejorado) | **267** | 464 | 231 | sin-MCP |
 | Q11 | LG | Búsqueda semántica (persistencia) | **102** | 204 | 564 | LocalGraph |
 | Q12 | GREP | String literal "Todo Lists" | 18† | 134† | **34** | sin-MCP |
 
@@ -67,9 +68,14 @@ Batería de **12 preguntas** sobre
   (33 y 23 tokens) siguiendo bindings DI. CodeGraph necesita `explore` del fichero
   entero (464-683 tokens) para el mismo entendimiento. ~15-20× más barato.
 
-- **Leer código** (Q09-Q10): aquí hay casi paridad. `get_source` (Q09, 146 tok) gana
-  a leer el fichero. `understand` (Q10, 282 tok) pierde contra leer el fichero en una
-  clase pequeña, pero ganaría en una clase grande.
+- **Leer código** (Q09-Q10b): la nueva `get_source(type, maxLines: N)` (Q10, 236 tok)
+  **empata** con grep+lectura (231 tok) en "enséñame la clase completa". Solo 5 tokens
+  de diferencia (la línea de cabecera). Para un solo método (Q09, 146 tok), gana.
+  `understand` mejorado con framing condicional (Q10b, 267 tok) pierde por 36 tok en
+  esta clase pequeña (24 líneas) contra leer el fichero, pero gana contra
+  CodeGraph explore (464 tok) y entrega contexto del grafo que grep no puede dar
+  (DI, callers, dependencias). En clases grandes (100+ líneas), `understand` ganaría
+  por su truncado inteligente por miembro.
 
 - **Literales** (Q12): grep gana (34 tok). Los grafos no indexan literales. Es la
   herramienta correcta.

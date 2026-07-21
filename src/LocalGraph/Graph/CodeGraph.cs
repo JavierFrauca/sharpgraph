@@ -500,6 +500,56 @@ public sealed class CodeGraph
         }
     }
 
+    /// <summary>
+    /// Mejora 5: leer un fichero .cs entero del proyecto escaneado, numerado,
+    /// truncado a maxLines. Compite con CodeGraph `explore` en el caso "muéstrame
+    /// este fichero". Solo se aceptan ficheros que el scanner haya indexado
+    /// previamente (están en el grafo).
+    /// </summary>
+    public string ReadFile(string filePath, int maxLines)
+    {
+        lock (_lock)
+        {
+            maxLines = Math.Clamp(maxLines, 10, 800);
+            // normalizar: acepta path relativo al proyecto o absoluto
+            var candidate = filePath;
+            if (!File.Exists(candidate) && CurrentPath is not null)
+            {
+                candidate = Path.Combine(CurrentPath, filePath);
+                // si CurrentPath es un fichero (.sln/.csproj), usar su directorio
+                if (!File.Exists(candidate) && File.Exists(CurrentPath))
+                    candidate = Path.Combine(Path.GetDirectoryName(CurrentPath)!, filePath);
+            }
+            if (!File.Exists(candidate))
+                return $"File not found in project: {filePath}. Current project: {CurrentPath ?? "(none)"}";
+
+            // aceptar solo .cs (por seguridad)
+            if (!candidate.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
+                return $"Only .cs files are supported: {candidate}";
+
+            string[] lines;
+            try { lines = File.ReadAllLines(candidate); }
+            catch (Exception ex) { return $"Could not read {candidate}: {ex.Message}"; }
+
+            var sb = new StringBuilder();
+            sb.AppendLine($"// {Path.GetFileName(candidate)} ({lines.Length} líneas)");
+            var end = Math.Min(maxLines, lines.Length);
+            for (var i = 0; i < end; i++)
+            {
+                var lineNum = i + 1;
+                // anotar los tipos definidos que empiezan en esta línea
+                var typeHere = _nodes.Values.Where(n => _files.TryGetValue(n.Name, out var f) &&
+                    f.Equals(candidate, StringComparison.OrdinalIgnoreCase) && n.StartLine == lineNum).ToList();
+                if (typeHere.Count > 0)
+                    sb.AppendLine($"// ── {string.Join(", ", typeHere.Select(t => t.Name))} ──");
+                sb.AppendLine($"{lineNum,5}  {lines[i]}");
+            }
+            if (lines.Length > maxLines)
+                sb.AppendLine($"  … +{lines.Length - maxLines} líneas");
+            return sb.ToString();
+        }
+    }
+
     private void BuildDocsLocked()
     {
         foreach (var node in _nodes.Values)
@@ -741,7 +791,7 @@ public sealed class CodeGraph
 
     // ---- NUEVO: recuperación de código fuente (elimina el paso Read) ----
 
-    public string GetSource(string typeName, string? member, int maxBodyLines)
+    public string GetSource(string typeName, string? member, int maxBodyLines, bool includeBodies = false)
     {
         lock (_lock)
         {
@@ -758,6 +808,7 @@ public sealed class CodeGraph
             catch (Exception ex) { return $"Could not read {file}: {ex.Message}"; }
 
             var members = _members.TryGetValue(typeName, out var ms) ? ms : [];
+            var node = _nodes.GetValueOrDefault(typeName);
 
             if (member is not null)
             {
@@ -770,9 +821,17 @@ public sealed class CodeGraph
                 return RenderSlice(typeName, file, hit, lines, maxBodyLines);
             }
 
-            // Sin miembro: esquema del tipo (firma + summary + firmas de miembros).
+            // Mejora 1: Sin miembro y maxBodyLines > 0 → cuerpo del tipo truncado.
+            // Compite con "enséñame esta clase" sin el overhead de understand.
+            if (maxBodyLines > 0 && node is not null)
+            {
+                var start = Math.Clamp(node.StartLine, 1, Math.Max(1, lines.Length));
+                var end = Math.Clamp(node.EndLine, start, Math.Max(1, lines.Length));
+                return RenderTypeBody(typeName, members, file, lines, node, start, end, maxBodyLines, includeBodies);
+            }
+
+            // Sin miembro y sin maxBodyLines → esquema (legacy, mantiene compat).
             var sb = new StringBuilder();
-            var node = _nodes.GetValueOrDefault(typeName);
             sb.AppendLine($"// {Path.GetFileName(file)}  ({typeName})");
             if (node?.Summary is not null) sb.AppendLine($"/// {node.Summary}");
             sb.AppendLine($"<{node?.Kind.ToString().ToLowerInvariant() ?? "type"}> {typeName}  (L{node?.StartLine}-{node?.EndLine})");
@@ -783,6 +842,66 @@ public sealed class CodeGraph
             sb.AppendLine("Tip: get_source(typeName, member) devuelve el cuerpo de un miembro concreto.");
             return sb.ToString();
         }
+    }
+
+    /// <summary>
+    /// Mejora 1/3: Renderiza el cuerpo completo de un tipo, truncado por línea
+    /// (maxBodyLines) o con cuerpos de miembros (includeBodies=true).
+    /// </summary>
+    private static string RenderTypeBody(string typeName, List<MemberSpan> members,
+        string file, string[] lines, NodeDef node, int start, int end,
+        int maxBodyLines, bool includeBodies)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"// {Path.GetFileName(file)}:{node.StartLine}  {typeName} (L{start}-{end})");
+
+        if (includeBodies && members.Count > 0)
+        {
+            // Mejora 3: devolver los cuerpos de los primeros N miembros públicos,
+            // sin cortarlos a la mitad. El presupuesto se reparte entre miembros.
+            var publicMembers = members.Where(m => m.IsPublic)
+                .OrderBy(m => m.StartLine).ToList();
+            var remaining = maxBodyLines;
+            var shown = 0;
+            foreach (var m in publicMembers)
+            {
+                if (remaining <= 0)
+                {
+                    sb.AppendLine($"  … +{publicMembers.Count - shown} miembros más (pasa member para verlos):");
+                    foreach (var rest in publicMembers.Skip(shown).Take(8))
+                        sb.AppendLine($"    L{rest.StartLine,-5} {rest.Signature}");
+                    break;
+                }
+                var bodyLen = m.EndLine - m.StartLine + 1;
+                var showEnd = bodyLen <= remaining ? m.EndLine : m.StartLine + remaining - 1;
+                for (var i = m.StartLine; i <= showEnd && i <= lines.Length; i++)
+                    sb.AppendLine($"{i,5}  {lines[i - 1]}");
+                if (bodyLen > remaining)
+                {
+                    sb.AppendLine($"  … (truncado a {remaining} de {bodyLen} líneas)");
+                    remaining = 0;
+                }
+                else
+                    remaining -= bodyLen;
+                shown++;
+            }
+        }
+        else
+        {
+            // Truncado simple por línea
+            var truncated = end - start + 1 > maxBodyLines;
+            var shownEnd = truncated ? start + maxBodyLines - 1 : end;
+            for (var i = start; i <= shownEnd && i <= lines.Length; i++)
+                sb.AppendLine($"{i,5}  {lines[i - 1]}");
+            if (truncated)
+            {
+                var memberList = members.Where(m => m.StartLine > shownEnd).OrderBy(m => m.StartLine).ToList();
+                sb.AppendLine($"  … +{end - shownEnd} líneas. Miembros restantes:");
+                foreach (var m in memberList)
+                    sb.AppendLine($"    L{m.StartLine,-5} {m.Signature}");
+            }
+        }
+        return sb.ToString();
     }
 
     private static string RenderSlice(string typeName, string file, MemberSpan m, string[] lines, int maxBodyLines)
@@ -821,27 +940,46 @@ public sealed class CodeGraph
 
             var sb = new StringBuilder();
             var file = _files.GetValueOrDefault(typeName);
-            sb.AppendLine($"== Understand: {Display(typeName)} ==  [{(file is null ? "?" : Path.GetFileName(file))}]");
-            sb.AppendLine($"kind: {node.Kind.ToString().ToLowerInvariant()}" + (node.Summary is not null ? $"  |  {node.Summary}" : ""));
+            var members = (_members.GetValueOrDefault(typeName) ?? []).OrderBy(m => m.StartLine).ToList();
+            var bodyLines = node.EndLine - node.StartLine + 1;
 
-            // DI
-            if (_diByService.TryGetValue(typeName, out var asSvc))
-                sb.AppendLine($"DI: {Display(typeName)} → {string.Join(", ", asSvc.Select(d => $"{Display(d.ImplementationType)} [{d.Lifetime}]").Distinct())}");
-            if (_diByImpl.TryGetValue(typeName, out var asImpl))
-                sb.AppendLine($"DI: registrado como {string.Join(", ", asImpl.Select(d => $"{Display(d.ServiceType)} [{d.Lifetime}]").Distinct())}");
+            // Mejora 2: framing condicional. Clases pequeñas (<50 líneas) llevan
+            // solo una cabecera compacta de 1 línea; las grandes llevan el bloque
+            // completo (DI, used-by, uses).
+            if (bodyLines < 50)
+            {
+                // Header compacto: tipo + resumen + adyacencia en 1 línea
+                var summary = node.Summary is not null ? $" | {node.Summary}" : "";
+                var graphCtx = UnderstandCompactContext(typeName);
+                sb.AppendLine($"// {Path.GetFileName(file ?? "?")}:{node.StartLine}  {node.Kind.ToString().ToLowerInvariant()} " +
+                              $"{Display(typeName)} (L{node.StartLine}-{node.EndLine}){summary}");
+                if (!string.IsNullOrWhiteSpace(graphCtx))
+                    sb.AppendLine($"// graph: {graphCtx}");
+                sb.AppendLine();
+            }
+            else
+            {
+                sb.AppendLine($"== Understand: {Display(typeName)} ==  [{(file is null ? "?" : Path.GetFileName(file))}]");
+                sb.AppendLine($"kind: {node.Kind.ToString().ToLowerInvariant()}" + (node.Summary is not null ? $"  |  {node.Summary}" : ""));
 
-            // endpoints directos + cercanos (compacto)
-            var eps = FormatEndpoints(typeName);
-            var nearbyEps = FindNearbyEndpoints(typeName, 4, 4);
-            if (eps.Count > 0) sb.AppendLine($"endpoints: {string.Join(" | ", eps)}");
-            else if (nearbyEps.Count > 0) sb.AppendLine($"endpoints (vía cadena): {string.Join(" | ", nearbyEps.Take(3))}");
+                // DI
+                if (_diByService.TryGetValue(typeName, out var asSvc))
+                    sb.AppendLine($"DI: {Display(typeName)} → {string.Join(", ", asSvc.Select(d => $"{Display(d.ImplementationType)} [{d.Lifetime}]").Distinct())}");
+                if (_diByImpl.TryGetValue(typeName, out var asImpl))
+                    sb.AppendLine($"DI: registrado como {string.Join(", ", asImpl.Select(d => $"{Display(d.ServiceType)} [{d.Lifetime}]").Distinct())}");
 
-            // used by (callers) y uses (deps), compacto con relación dominante
-            sb.AppendLine($"used by: {CompactNeighbors(typeName, _in.GetValueOrDefault(typeName), reverse: true)}");
-            sb.AppendLine($"uses: {CompactDeps(typeName)}");
+                // endpoints directos + cercanos (compacto)
+                var eps = FormatEndpoints(typeName);
+                var nearbyEps = FindNearbyEndpoints(typeName, 4, 4);
+                if (eps.Count > 0) sb.AppendLine($"endpoints: {string.Join(" | ", eps)}");
+                else if (nearbyEps.Count > 0) sb.AppendLine($"endpoints (vía cadena): {string.Join(" | ", nearbyEps.Take(3))}");
 
-            // cuerpo completo del tipo
-            sb.AppendLine();
+                // Mejora 6: compresión de contexto. "used by" y "uses" en 1 línea compacta.
+                sb.AppendLine($"graph: {UnderstandCompactContext(typeName)}");
+                sb.AppendLine();
+            }
+
+            // cuerpo del tipo
             if (file is not null && File.Exists(file))
             {
                 string[] lines;
@@ -849,20 +987,81 @@ public sealed class CodeGraph
                 catch { lines = []; }
                 var start = Math.Clamp(node.StartLine, 1, Math.Max(1, lines.Length));
                 var end = Math.Clamp(node.EndLine, start, Math.Max(1, lines.Length));
-                var truncated = end - start + 1 > bodyBudget;
-                var shownEnd = truncated ? start + bodyBudget - 1 : end;
-                sb.AppendLine($"--- source {Display(typeName)} (L{start}-{end}) ---");
+                var shownEnd = end;
+
+                // Mejora 4: chunking por miembro. No cortar miembros a la mitad.
+                // La línea de corte se alinea al final del último miembro que quepa.
+                if (end - start + 1 > bodyBudget)
+                {
+                    var rawCut = start + bodyBudget - 1;
+                    // buscar el miembro más cercano cuyo EndLine <= rawCut
+                    var bestEnd = start - 1;
+                    foreach (var m in members)
+                    {
+                        if (m.EndLine <= rawCut && m.EndLine > bestEnd)
+                            bestEnd = m.EndLine;
+                    }
+                    if (bestEnd >= start)
+                        shownEnd = bestEnd;
+                    else
+                        shownEnd = rawCut; // fallback: ningún miembro completo cabe
+                }
+
+                if (shownEnd > end) shownEnd = end;
                 for (var i = start; i <= shownEnd && i <= lines.Length; i++)
                     sb.AppendLine($"{i,5}  {lines[i - 1]}");
-                if (truncated)
+                if (shownEnd < end)
                 {
-                    sb.AppendLine($"  … +{end - shownEnd} líneas. Miembros restantes (usa get_source para su cuerpo):");
-                    foreach (var m in (_members.GetValueOrDefault(typeName) ?? []).Where(m => m.StartLine > shownEnd).OrderBy(m => m.StartLine))
+                    sb.AppendLine($"  … +{end - shownEnd} líneas. Miembros restantes:");
+                    foreach (var m in members.Where(m => m.StartLine > shownEnd).OrderBy(m => m.StartLine))
                         sb.AppendLine($"    L{m.StartLine,-5} {m.Signature}");
                 }
             }
             return sb.ToString();
         }
+    }
+
+    /// <summary>
+    /// Mejora 6: contexto comprimido del grafo en 1 línea.
+    /// ← callers (con relación) | → deps (con relación) [+ DI]
+    /// </summary>
+    private string UnderstandCompactContext(string typeName)
+    {
+        var parts = new List<string>();
+
+        // used by (callers)
+        var callers = _in.GetValueOrDefault(typeName);
+        if (callers is not null && callers.Count > 0)
+        {
+            var topCallers = callers.Where(n => !IsTestType(n))
+                .OrderByDescending(Rank).Take(5).Select(n =>
+                    $"{Display(n)}[{DominantRelation(n, typeName).Label()}]");
+            var extra = callers.Count(n => !IsTestType(n)) - 5;
+            var callersStr = string.Join(", ", topCallers) + (extra > 0 ? $" +{extra}" : "");
+            parts.Add($"← {callersStr}");
+        }
+        else
+            parts.Add("← none");
+
+        // uses (deps)
+        if (_out.TryGetValue(typeName, out var edges) && edges.Count > 0)
+        {
+            var topDeps = edges.GroupBy(e => e.To, StringComparer.OrdinalIgnoreCase)
+                .Select(g => (To: g.Key, Rel: g.Select(e => e.Relation).OrderByDescending(RelationRank).First()))
+                .Take(5).Select(x => $"{Display(x.To)}[{x.Rel.Label()}]");
+            var depsStr = string.Join(", ", topDeps);
+            parts.Add($"→ {depsStr}");
+        }
+        else
+            parts.Add("→ none");
+
+        // DI hint
+        if (_diByService.TryGetValue(typeName, out var asSvc))
+            parts.Add($"DI⇒{string.Join(",", asSvc.Select(d => Display(d.ImplementationType)).Distinct())}");
+        if (_diByImpl.TryGetValue(typeName, out var asImpl))
+            parts.Add($"DI⇐{string.Join(",", asImpl.Select(d => Display(d.ServiceType)).Distinct())}");
+
+        return string.Join(" | ", parts);
     }
 
     // ---- NUEVO: flow — destila la secuencia de llamadas (comprensión de flujo) ----

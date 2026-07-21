@@ -102,8 +102,16 @@ Q = [
          grep=["class CreateTodoItemCommandHandler"], read_files=[
              "src/Application/TodoItems/Commands/CreateTodoItem/CreateTodoItem.cs"]),
 
-    dict(id="Q10", repo="CA", favor="CG", type="understand",
-         q="Enséñame la clase CreateTodoItemCommandHandler completa y su contexto",
+    dict(id="Q10", repo="CA", favor="CG", type="source",
+         q="Enséñame la clase CreateTodoItemCommandHandler completa (modo tipo, compite con explore)",
+         lg=[("get_source", {"typeName": "CreateTodoItemCommandHandler", "maxBodyLines": 400})],
+         cg={"mode": "explore", "files": [
+             "src/Application/TodoItems/Commands/CreateTodoItem/CreateTodoItem.cs"]},
+         grep=["class CreateTodoItemCommandHandler"], read_files=[
+             "src/Application/TodoItems/Commands/CreateTodoItem/CreateTodoItem.cs"]),
+
+    dict(id="Q10b", repo="CA", favor="CG", type="understand",
+         q="Enséñame la clase CreateTodoItemCommandHandler con contexto (understand)",
          lg=[("understand", {"typeName": "CreateTodoItemCommandHandler", "bodyBudget": 250})],
          cg={"mode": "explore", "files": [
              "src/Application/TodoItems/Commands/CreateTodoItem/CreateTodoItem.cs"]},
