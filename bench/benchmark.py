@@ -1,23 +1,60 @@
 #!/usr/bin/env python
 """
 Benchmark de tokens a 3 bandas — LocalGraph vs CodeGraph vs sin-MCP — sobre los
-repos y preguntas que definas en questions.py (copia questions.example.py).
+repos y preguntas que definas en un módulo de preguntas.
 
-Uso:  python benchmark.py [ruta_exe_localgraph]
+Uso:  python benchmark.py [ruta_exe_localgraph] [modulo_questions]
+  - modulo_questions es opcional; por defecto usa 'questions' (bench/questions.py).
+  - Puedes pasar 'questions.cleanarchitecture' para usar la batería pública sobre
+    el repo CleanArchitecture (clónalo antes en bench/_external/CleanArchitecture).
+
 Requiere: pip install tiktoken; `codegraph init` en cada repo (para la columna CodeGraph);
-y un questions.py con tus repos/símbolos. Ver bench/README.md.
+y un módulo de questions con REPOS y Q. Ver bench/README.md y bench/questions.example.py.
 """
-import json, subprocess, sys, threading, time, os, re, glob
+import json, subprocess, sys, threading, time, os, re, glob, importlib
 import tiktoken
 import cg
 
 try: sys.stdout.reconfigure(encoding="utf-8")
 except Exception: pass
 
+# Resolución de argumentos: argv[1] = exe opcional, argv[2] = módulo de questions opcional
+_args = sys.argv[1:]
+QUESTIONS_MODULE = "questions"
+QUESTIONS_PATH = None
+EXE = None
+for a in _args:
+    # detectar primero el módulo de questions (.py o nombre questions.xxx)
+    if a.endswith(".py") or a.startswith("questions"):
+        if os.path.isfile(a):
+            QUESTIONS_PATH = a
+        else:
+            QUESTIONS_MODULE = a.replace("-", "_").replace(".py", "")
+    elif a.endswith(".exe") or a == "LocalGraph" or os.path.isfile(a):
+        EXE = a
+if EXE is None:
+    EXE = os.path.join(os.path.dirname(__file__), "..", "publish", "LocalGraph.exe")
+    if not os.path.isfile(EXE):
+        EXE = os.path.join(os.path.dirname(__file__), "..", "src", "LocalGraph",
+                           "bin", "Release", "net10.0", "win-x64", "LocalGraph.exe")
+
 try:
-    from questions import Q, REPOS
-except ModuleNotFoundError:
-    print("Falta bench/questions.py — copia questions.example.py a questions.py y edítalo con tus repos y símbolos.")
+    if QUESTIONS_PATH:
+        # Cargar desde path de archivo explícito
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("questions_loaded", QUESTIONS_PATH)
+        Q_mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(Q_mod)
+    else:
+        Q_mod = importlib.import_module(QUESTIONS_MODULE)
+    Q, REPOS = Q_mod.Q, Q_mod.REPOS
+except ModuleNotFoundError as e:
+    print(f"Falta el módulo de preguntas '{QUESTIONS_MODULE}' (path={QUESTIONS_PATH}): {e}")
+    print("Copia questions.example.py a questions.py y edítalo, o usa la batería pública:")
+    print("  python benchmark.py publish/LocalGraph.exe questions.cleanarchitecture.py")
+    sys.exit(1)
+except FileNotFoundError as e:
+    print(f"No se encuentra el fichero de preguntas: {e}")
     sys.exit(1)
 
 ENC = tiktoken.get_encoding("cl100k_base")

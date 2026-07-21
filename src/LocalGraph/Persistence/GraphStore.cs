@@ -15,8 +15,9 @@ public sealed class GraphStore
     /// <summary>
     /// Versión del extractor. Súbela cuando cambie la lógica de parsing/modelo:
     /// invalida cachés viejas aunque el contenido de los ficheros no haya cambiado.
+    /// v7: FileFragment gana ReturnSignatures, PendingCallSites, PendingLocals (Fase B).
     /// </summary>
-    private const int ParserVersion = 6;
+    private const int ParserVersion = 7;
 
     private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = false };
 
