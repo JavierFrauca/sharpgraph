@@ -1,6 +1,12 @@
 # LocalGraph
 
-Servidor MCP que construye un grafo de dependencias de un proyecto C# y lo expone como herramientas para LLMs. Permite responder preguntas como _"¿desde qué endpoint se llama a este servicio?"_ sin necesidad de leer decenas de ficheros.
+**Servidor MCP que indexa proyectos C# (.NET) en un grafo de dependencias y lo expone a LLMs para navegar código sin leer ficheros enteros.** Token-efficient navigation of .NET codebases: MediatR/CQRS, DI, ASP.NET Core routing.
+
+- **Lenguaje:** C# únicamente (vía Roslyn AST).
+- **Tesis:** minimizar tokens. El agente navega por relaciones (callers, DI, endpoints, flujo de llamadas) usando metadatos compactos en vez de volcar ficheros enteros.
+- **Clientes:** cualquiera que hable MCP por stdio (Claude Code, Cursor, Cline, Continue, Zed…). Ver [`docs/CLIENTS.md`](docs/CLIENTS.md).
+
+Permite responder preguntas como _"¿desde qué endpoint se llama a este servicio?"_ en milisegundos y sin abrir decenas de ficheros.
 
 ---
 
@@ -124,6 +130,32 @@ Buscando _"¿quién llama a IUserService?"_ hacia atrás, el DFS llega al `Handl
 
 ---
 
+## Limitaciones conocidas
+
+LocalGraph parsea con **Roslyn AST sin modelo semántico** (sin compilar). Es una decisión
+consciente para mantener escaneo paralelo y arranque instantáneo (~250 ms para proyectos
+medianos), a costa de precisión en construcciones que requieren resolver tipos por compilación:
+
+- **Sobrecargas de métodos** no se distinguen (se enlaza por nombre).
+- **Métodos de extensión**: no se resuelven como aristas de llamada reales.
+- **Lambdas complejas / `dynamic` / reflexión**: la inferencia de tipos en `var` es
+  best-effort (cubierta para `new T()`, `GetRequiredService<T>()`, casts; no para casos
+  arbitrarios).
+- **Invocaciones indirectas** (factory patterns, reflexión, dispatch dinámico) no dejan
+  arista `Call` resuelta.
+- **Routing**: la sustitución del token `[controller]` no se lowercasesa como hace ASP.NET
+  en runtime (`PayrollController` → `Payroll`, no `payroll`).
+
+Cuando la precisión AST no alcance, la salida de las herramientas (líneas, callers, callees)
+sigue siendo una guía válida; y `get_source(tipo, miembro)` recupera el código real para
+inspección manual puntual sin necesidad de aristas perfectas.
+
+**Casos conocidos donde esto importa:** la batería interna de tests documentó un símbolo
+(`RunInitialIndexAsync`) cuyos call-sites no se resolvieron por combinación de estos límites
+AST. Es el tipo de cosa que `find_call_sites` no encontrará y `get_source` o grep sí.
+
+---
+
 ## Benchmark de tokens
 
 ¿Cuánto ahorra de verdad? En [`docs/BENCHMARK.md`](docs/BENCHMARK.md) hay una batería reproducible que
@@ -142,14 +174,22 @@ Cómo reproducirlo sobre tu código: ver [docs/BENCHMARK.md](docs/BENCHMARK.md).
 ## Desarrollo
 
 ```powershell
-# Compilar y publicar (detiene el proceso en ejecucion si existe)
+# Compilar y publicar para win-x64 (atóajo local; detiene el proceso en ejecucion si existe)
 .\publish.ps1
+
+# Compilar para las 3 plataformas soportadas y empaquetar (dist/LocalGraph-<rid>.{zip,tar.gz})
+.\publish-all.ps1
+
+# Ejecutar los tests
+dotnet test
 ```
 
-Requiere .NET 10 SDK y Claude Code instalados.
+Requiere .NET 10 SDK. Para auto-escaneo al cambiar de proyecto, Claude Code instalado.
 
 ---
 
 ## Instalación para usuarios finales
 
-Ver [docs/INSTALL.md](docs/INSTALL.md).
+- **Windows**: `install.ps1` (ver [docs/INSTALL.md](docs/INSTALL.md))
+- **macOS / Linux**: `install.sh`
+- **Registro en cada cliente MCP** (Claude Code, Cursor, Cline, Continue, Zed…): [docs/CLIENTS.md](docs/CLIENTS.md)
