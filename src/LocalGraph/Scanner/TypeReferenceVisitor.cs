@@ -44,6 +44,21 @@ public sealed class TypeReferenceVisitor : CSharpSyntaxWalker
         "Send", "Publish", "Enqueue", "Schedule", "PublishAsync", "SendAsync", "Dispatch"
     };
 
+    // Indicadores de tipo de receptor: si el receptor del Send/Publish resuelve a un tipo
+    // cuyo nombre contiene alguno de estos fragmentos, se trata como bus de mensajes
+    // (MediatR, MassTransit, NServiceBus, Rebus…). Si NO coincide, la invocación se
+    // descarta como MediatR spurio (p.ej. smtp.Send(email), order.Dispatch()).
+    // El matching es por subcadena sobre el nombre simple/cualificado del tipo resuelto.
+    private static readonly HashSet<string> BusTypeHints = new(StringComparer.Ordinal)
+    {
+        "Mediator", "IMediator", "ISender", "IPublisher",
+        "Bus", "IBus", "IPublishEndpoint", "ISendEndpoint",
+        "MessageSession", "IMessageSession",
+        "IBusControl", "IPublishEndpoint",
+        "IBusAdvancedApi",
+        "Dispatcher", "IDispatcher"
+    };
+
     // Métodos de registro DI con 2 args de tipo: AddScoped<I,C>(), TryAddSingleton<I,C>()...
     private static readonly Dictionary<string, string> DiMethods = new(StringComparer.Ordinal)
     {
@@ -414,6 +429,23 @@ public sealed class TypeReferenceVisitor : CSharpSyntaxWalker
         if (node.Expression is not MemberAccessExpressionSyntax ma) return;
         if (!SendMethods.Contains(ma.Name.Identifier.Text)) return;
 
+        // Filtro de receptor: solo contar como MediatR/bus si el receptor resuelve
+        // (por nombre de campo/local/var) a un tipo que parezca un bus. Esto evita
+        // falsos positivos como smtp.Send(email) o order.Dispatch().
+        // Si el receptor NO resuelve (sin info de tipo), se mantiene el comportamiento
+        // histórico (contar) para no perder cobertura en código no tipado explícitamente.
+        var receiverName = ma.Expression switch
+        {
+            IdentifierNameSyntax id => id.Identifier.Text,
+            _ => null
+        };
+        if (receiverName is not null)
+        {
+            var receiverType = LookupLocal(receiverName);
+            if (receiverType is not null && !LooksLikeBus(receiverType))
+                return;
+        }
+
         var firstArg = node.ArgumentList.Arguments.FirstOrDefault()?.Expression;
         string? messageType = firstArg switch
         {
@@ -425,6 +457,18 @@ public sealed class TypeReferenceVisitor : CSharpSyntaxWalker
         if (messageType is null || !IsMeaningful(messageType)) return;
 
         AddEdge(messageType, EdgeRelation.Sends, LineOf(node), CurrentMemberIsPublic, _currentMember);
+    }
+
+    /// <summary>¿El nombre de tipo del receptor parece un bus de mensajes?</summary>
+    private static bool LooksLikeBus(string typeName)
+    {
+        // nos quedamos con el segmento final (sin namespace) para el matching de hints
+        var idx = typeName.LastIndexOf('.');
+        var simple = idx < 0 ? typeName : typeName[(idx + 1)..];
+        foreach (var hint in BusTypeHints)
+            if (simple.Contains(hint, StringComparison.Ordinal))
+                return true;
+        return false;
     }
 
     // ---- Detección DI: services.AddScoped<IFoo, Foo>() ----

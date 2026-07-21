@@ -788,6 +788,14 @@ public sealed class CodeGraph
             sb.AppendLine($"{indent}→ {Display(c.CalleeType)}.{c.CalleeMember}()  :{c.Line}{implNote}");
             count++;
 
+            // Deduplicación de ciclos: la clave es "{recurseType}.{member}".
+            // IMPORTANTE: se usa recurseType (el tipo con el que realmente recursamos,
+            // tras aplicar el rebind DI) y NO c.CalleeType. Esto es lo que corta los
+            // ciclos A.M -> IB.M (=> B.M) -> IA.M (=> A.M): la segunda visita a A.M
+            // encuentra "A.M" ya en visited y no desciende. El Remove al final permite
+            // que el MISMO tipo+miembro pueda aparecer por otra rama distinta (paths
+            // independientes que convergen), que es legítimo.
+            // Test de regresión: FlowCycleTests.Flow_On_Di_Cycle_Follows_Rebind_And_Stops_At_Cycle_Contract.
             var sig = $"{recurseType}.{c.CalleeMember}";
             if (level + 1 < maxDepth && _nodes.ContainsKey(recurseType) && visited.Add(sig))
             {
