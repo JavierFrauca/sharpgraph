@@ -108,6 +108,33 @@ public sealed record DiBinding(
     int Line);
 
 /// <summary>
+/// Signatura de un miembro (método o propiedad) con su tipo de retorno/propiedad
+/// en forma de nombre simple. Permite al grafo resolver receptores encadenados
+/// (p.ej. <c>_factory.Get().RunAsync()</c>) conociendo que <c>IFactory.Get()</c>
+/// devuelve <c>IService</c>. Sin esto, los call-sites encadenados se pierden.
+/// </summary>
+public sealed record MemberReturnSignature(
+    string TypeName,         // FQN del tipo que declara el miembro
+    string MemberName,       // nombre del método o propiedad
+    MemberReturnKind Kind,   // method | property
+    string ReturnSimpleType, // nombre simple del tipo de retorno/propiedad (a resolver)
+    string Ns);
+
+public enum MemberReturnKind { Method, Property }
+
+/// <summary>
+/// Un paso del receptor en un call-site encadenado pendiente de resolver.
+/// El grafo recorre la secuencia para inferir el tipo del receptor final.
+/// </summary>
+public enum PendingReceiverStepKind { Local, MethodReturn, PropertyAccess }
+
+public sealed record PendingReceiverStep(
+    PendingReceiverStepKind Kind,
+    string Name,             // local/field/param | method name | property name
+    string? Ns,              // namespace de contexto si aplica
+    string? TypeSimpleName); // para Local: nombre simple del tipo del local; null en otros kinds
+
+/// <summary>
 /// Todo lo que se extrae de UN fichero .cs. La unidad de incrementalidad:
 /// al cambiar un fichero se reemplaza su fragmento y se reconstruye el índice.
 /// </summary>
@@ -125,4 +152,46 @@ public sealed class FileFragment
     public List<CallSite> CallSites { get; init; } = [];
     public List<DiBinding> DiBindings { get; init; } = [];
     public List<MemberSpan> Members { get; init; } = [];
+    /// <summary>
+    /// Signaturas de métodos/propiedades con su tipo de retorno. El grafo los usa
+    /// para resolver receptores encadenados (<c>a.B().C()</c>) en RebuildLocked.
+    /// </summary>
+    public List<MemberReturnSignature> ReturnSignatures { get; init; } = [];
+    /// <summary>
+    /// Call-sites con receptor encadenado pendiente de resolver por el grafo.
+    /// Cada uno lleva la secuencia de pasos del receptor (Local/Method/Property)
+    /// que el grafo recorre para inferir el tipo del receptor final.
+    /// </summary>
+    public List<PendingCallSite> PendingCallSites { get; init; } = [];
+    /// <summary>
+    /// Locales de tipo <c>var x = expr;</c> cuyo tipo no se pudo inferir en el visitor
+    /// (p.ej. <c>var x = await _factory.GetAsync();</c>). El grafo los resuelve en
+    /// RebuildLocked y los registra en una tabla especial para que los call-sites
+    /// que los usen como receptor se resuelvan también.
+    /// </summary>
+    public List<PendingLocal> PendingLocals { get; init; } = [];
 }
+
+/// <summary>
+/// Un local declarado con <c>var</c> cuyo tipo no se pudo inferir durante el parseo.
+/// Lleva la secuencia de pasos del inicializador para que el grafo la resuelva.
+/// </summary>
+public sealed record PendingLocal(
+    string DeclaringType,      // FQN del tipo que contiene el método (o "&lt;top-level&gt;")
+    string DeclaringMember,    // método que contiene la declaración
+    string LocalName,          // nombre de la variable (svc, x, ...)
+    IReadOnlyList<PendingReceiverStep> Initializer, // pasos del inicializador
+    string Ns);
+
+/// <summary>
+/// Call-site cuyo receptor es una expresión encadenada (factory, member-access
+/// profundo, indexer) que el visitor no puede resolver sin tabla de símbolos
+/// global. El grafo lo resuelve en RebuildLocked caminando <see cref="Receiver"/>.
+/// </summary>
+public sealed record PendingCallSite(
+    string CallerType,
+    string CallerMember,
+    string CalleeMember,
+    IReadOnlyList<PendingReceiverStep> Receiver,
+    string Ns,
+    int Line);

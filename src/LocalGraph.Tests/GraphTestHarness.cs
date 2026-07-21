@@ -43,6 +43,26 @@ internal static class GraphTestHarness
     public static FileFragment? ParseSnippet(string code, string fileName = "snippet.cs")
         => ParseFixture(fileName, code);
 
+    /// <summary>
+    /// Construye un grafo a partir de uno o varios snippets C# inline. Útil para
+    /// tests que necesitan ejercitar la resolución del grafo (Fase B: receptores
+    /// encadenados que requieren tabla de símbolos global).
+    /// </summary>
+    public static CodeGraph BuildFromSnippet(string code, params string[] moreCodes)
+    {
+        var graph = new CodeGraph();
+        var fragments = new List<FileFragment>();
+        var primary = ParseFixture("snippet0.cs", code);
+        if (primary is not null) fragments.Add(primary);
+        for (var i = 0; i < moreCodes.Length; i++)
+        {
+            var f = ParseFixture($"snippet{i + 1}.cs", moreCodes[i]);
+            if (f is not null) fragments.Add(f);
+        }
+        graph.MergeFragments(fragments);
+        return graph;
+    }
+
     private static FileFragment? ParseFixture(string fileName, string code)
     {
         var hash = System.Security.Cryptography.SHA1.HashData(System.Text.Encoding.UTF8.GetBytes(code));

@@ -134,25 +134,44 @@ Buscando _"¿quién llama a IUserService?"_ hacia atrás, el DFS llega al `Handl
 
 LocalGraph parsea con **Roslyn AST sin modelo semántico** (sin compilar). Es una decisión
 consciente para mantener escaneo paralelo y arranque instantáneo (~250 ms para proyectos
-medianos), a costa de precisión en construcciones que requieren resolver tipos por compilación:
+medianos), a costa de precisión en construcciones que requieren resolver tipos por compilación.
+
+### Patrones de call-site que SÍ se resuelven
+
+La detección de invocaciones (`find_call_sites`) cubre, además del caso básico
+`_svc.Metodo()`, los siguientes patrones comunes en código real:
+
+- ✅ **Null-conditional**: `_svc?.Metodo()`
+- ✅ **Factory / chaining**: `_factory.Get().Metodo()`, `a.B().C().M()`
+- ✅ **Member-access profundo**: `_outer.Inner.Metodo()`
+- ✅ **var con await no genérico**: `var svc = await _factory.GetAsync(); svc.Metodo()`
+- ✅ **Lambdas**: `() => svc.Metodo()`, `Task.Run(() => svc.Metodo())`
+
+La resolución de receptores complejos se hace en **dos pasadas**: el visitor
+serializa la expresión del receptor como una secuencia de pasos (`Local`,
+`MethodReturn`, `PropertyAccess`) y el grafo la resuelve en el rebuild usando
+una tabla de signaturas de retorno indexada por `(tipo, miembro)`.
+
+### Lo que NO se resuelve (trade-off AST)
 
 - **Sobrecargas de métodos** no se distinguen (se enlaza por nombre).
 - **Métodos de extensión**: no se resuelven como aristas de llamada reales.
-- **Lambdas complejas / `dynamic` / reflexión**: la inferencia de tipos en `var` es
-  best-effort (cubierta para `new T()`, `GetRequiredService<T>()`, casts; no para casos
-  arbitrarios).
-- **Invocaciones indirectas** (factory patterns, reflexión, dispatch dinámico) no dejan
-  arista `Call` resuelta.
-- **Routing**: la sustitución del token `[controller]` no se lowercasesa como hace ASP.NET
-  en runtime (`PayrollController` → `Payroll`, no `payroll`).
+- **Indexer receiver** (`_map[key].M()`): requiere resolver el tipo del elemento
+  del contenedor genérico (`Dictionary<K, V>` → `V`), fuera de alcance sin modelo
+  semántico. Usar `find_callers` como aproximación estructural.
+- **Top-level statements** en `Program.cs` sin clase envolvente: el visitor no
+  mantiene tabla de locals fuera de un tipo contenedor, así que `LookupLocal`
+  devuelve null. Requeriría tabla de locals a nivel fragmento.
+- **DI chaining sobre tipos externos** (`host.Services.GetRequiredService<T>()`):
+  los tipos BCL/NuGet (`IHost`, `IServiceProvider`) no están en el grafo y sus
+  signaturas de retorno no se conocen.
+- **Lambdas complejas / `dynamic` / reflexión** arbitrarias.
+- **Routing**: la sustitución del token `[controller]` no se lowercasesa como hace
+  ASP.NET en runtime (`PayrollController` → `Payroll`, no `payroll`).
 
-Cuando la precisión AST no alcance, la salida de las herramientas (líneas, callers, callees)
-sigue siendo una guía válida; y `get_source(tipo, miembro)` recupera el código real para
-inspección manual puntual sin necesidad de aristas perfectas.
-
-**Casos conocidos donde esto importa:** la batería interna de tests documentó un símbolo
-(`RunInitialIndexAsync`) cuyos call-sites no se resolvieron por combinación de estos límites
-AST. Es el tipo de cosa que `find_call_sites` no encontrará y `get_source` o grep sí.
+Cuando la precisión AST no alcance, la salida de las herramientas (líneas, callers,
+callees) sigue siendo una guía válida; y `get_source(tipo, miembro)` recupera el
+código real para inspección manual puntual sin necesidad de aristas perfectas.
 
 ---
 

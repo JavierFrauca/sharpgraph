@@ -215,6 +215,9 @@ public sealed class TypeReferenceVisitor : CSharpSyntaxWalker
         if (CurrentType is null) { base.VisitPropertyDeclaration(node); return; }
         RegisterLocal(node.Identifier.Text, node.Type);
         AddRefs(node.Type, EdgeRelation.PropertyType, IsPublic(node.Modifiers), LineOf(node));
+        // B.2 — captura del tipo de propiedad para resolución de receptores encadenados
+        // (p.ej. _outer.Inner.M(): el grafo resuelve Inner como IService).
+        AddReturnSignature(node.Identifier.Text, MemberReturnKind.Property, node.Type);
         base.VisitPropertyDeclaration(node);
     }
 
@@ -248,6 +251,10 @@ public sealed class TypeReferenceVisitor : CSharpSyntaxWalker
                 if (p.Type is not null) RegisterLocal(p.Identifier.Text, p.Type);
         }
 
+        // B.1 — captura del tipo de retorno para resolución de receptores encadenados
+        // (p.ej. _factory.Get().M(): el grafo resuelve Get como IService).
+        AddReturnSignature(node.Identifier.Text, MemberReturnKind.Method, node.ReturnType);
+
         base.VisitMethodDeclaration(node);
         _memberVisibilityStack.Pop();
         _currentMember = null;
@@ -268,14 +275,51 @@ public sealed class TypeReferenceVisitor : CSharpSyntaxWalker
         else
         {
             // var: inferir el tipo desde el inicializador (new T(), factorías DI Get<T>(), cast).
+            // Si no podemos inferirlo (p.ej. var x = await _factory.GetAsync();), serializamos
+            // el inicializador como pending local para que el grafo lo resuelva en rebuild
+            // usando la tabla de signaturas de retorno (Fase B).
             foreach (var v in node.Variables)
             {
                 var inferred = InferInitializerType(v.Initializer?.Value);
                 if (inferred is not null && IsMeaningful(inferred) && CurrentLocals is not null)
+                {
                     CurrentLocals[v.Identifier.Text] = inferred;
+                }
+                else
+                {
+                    var pendingInit = TrySerializeInitializer(v.Initializer?.Value);
+                    if (pendingInit is not null && pendingInit.Count > 0)
+                    {
+                        _fragment.PendingLocals.Add(new PendingLocal(
+                            CurrentType ?? "<top-level>",
+                            _currentMember ?? "(top-level)",
+                            v.Identifier.Text,
+                            pendingInit,
+                            CurrentNs));
+                        // Marcador temporal: el local existe con tipo "?pending" para que
+                        // DetectCall no haga early-return en LookupLocal, y emita un pending
+                        // call-site que el grafo podrá resolver tras resolver el local.
+                        if (CurrentLocals is not null)
+                            CurrentLocals[v.Identifier.Text] = "?pending:" + v.Identifier.Text;
+                    }
+                }
             }
         }
         base.VisitVariableDeclaration(node);
+    }
+
+    /// <summary>
+    /// Serializa el inicializador de un var como secuencia de pasos resoluble por
+    /// el grafo. Cubre await _factory.GetAsync(), _factory.Get(), a.B.C, etc.
+    /// Devuelve null si el patrón no es serializable.
+    /// </summary>
+    private List<PendingReceiverStep>? TrySerializeInitializer(ExpressionSyntax? expr)
+    {
+        if (expr is null) return null;
+        var steps = new List<PendingReceiverStep>();
+        if (!TrySerializeReceiverInto(expr, steps)) return null;
+        steps.Reverse();
+        return steps;
     }
 
     /// <summary>
@@ -332,12 +376,56 @@ public sealed class TypeReferenceVisitor : CSharpSyntaxWalker
         // procesa el cuerpo del handler bajo ese contexto (para que las llamadas
         // a servicios dentro del lambda se atribuyan al endpoint y la traza funcione).
         if (TryHandleMinimalApi(node)) return;
-        if (CurrentType is not null)
-        {
-            DetectSend(node);
-            DetectCall(node);
-        }
+
+        // A.6 — Top-level statements (Program.cs sin clase envolvente): DetectCall/
+        // DetectSend tenían un guard CurrentType is not null que descartaba toda
+        // invocación en código top-level. Ahora se detectan siempre; cuando no hay
+        // tipo contenedor el call-site se atribuye al marcador sintético <top-level>.
+        DetectSend(node);
+        DetectCall(node);
+
         base.VisitInvocationExpression(node);
+    }
+
+    /// <summary>
+    /// A.1 — null-conditional: x?.M() se representa como ConditionalAccessExpression
+    /// cuya WhenNotNull es un InvocationExpressionSyntax cuyo Expression es un
+    /// MemberBindingExpressionSyntax (".M"), NO un MemberAccessExpressionSyntax.
+    /// Roslyn NO visita el InvocationExpression interno (lo hace como member binding),
+    /// así que hay que extraerlo y procesarlo a mano con el receiver del ConditionalAccess.
+    /// Cubre: x?.M(), x?.M().N(), a?.b?.M() y combinaciones.
+    /// Test: CallSiteCoverageTests.NullConditional_Receiver_Is_Resolved.
+    /// </summary>
+    public override void VisitConditionalAccessExpression(ConditionalAccessExpressionSyntax node)
+    {
+        ProcessConditionalAccess(node.Expression, node.WhenNotNull);
+        base.VisitConditionalAccessExpression(node);
+    }
+
+    /// <summary>Procesa recursivamente patrones null-conditional extrayendo invocaciones.</summary>
+    private void ProcessConditionalAccess(ExpressionSyntax receiver, ExpressionSyntax whenNotNull)
+    {
+        // Extraer el nombre simple del receptor (best-effort): IdentifierName o
+        // MemberAccess final.
+        var receiverName = receiver switch
+        {
+            IdentifierNameSyntax id => id.Identifier.Text,
+            MemberAccessExpressionSyntax ma => ma.Name?.Identifier.Text,
+            _ => null
+        };
+
+        switch (whenNotNull)
+        {
+            case InvocationExpressionSyntax inv when inv.Expression is MemberBindingExpressionSyntax mb:
+                // x?.M() — el receptor es el del ConditionalAccess; el método, el del binding.
+                if (receiverName is not null)
+                    DetectCallWith(receiverName, mb.Name?.Identifier.Text, inv);
+                break;
+            case ConditionalAccessExpressionSyntax inner:
+                // a?.b?.M() — encadenado: recursamos al siguiente nivel.
+                ProcessConditionalAccess(inner.Expression, inner.WhenNotNull);
+                break;
+        }
     }
 
     private static readonly Dictionary<string, string> MinimalApiMaps = new(StringComparer.Ordinal)
@@ -404,22 +492,121 @@ public sealed class TypeReferenceVisitor : CSharpSyntaxWalker
         if (node.Expression is not MemberAccessExpressionSyntax ma) return;
         var method = ma.Name.Identifier.Text;
 
-        // receptor: _grossService.Calculate()  ó  this.foo.Calculate()
-        var receiver = ma.Expression switch
+        // receptor simple: _grossService.Calculate()  ó  this.foo.Calculate()
+        var simpleReceiver = ma.Expression switch
         {
             IdentifierNameSyntax id => id.Identifier.Text,
             MemberAccessExpressionSyntax inner when inner.Expression is ThisExpressionSyntax
                 => inner.Name.Identifier.Text,
             _ => null
         };
-        if (receiver is null) return;
+        if (simpleReceiver is not null)
+        {
+            DetectCallWith(simpleReceiver, method, node);
+            return;
+        }
 
-        var calleeType = LookupLocal(receiver);
-        if (calleeType is null || !IsMeaningful(calleeType)) return;
+        // B — Receptor complejo (chaining/factory/member-access profundo/indexer):
+        // el visitor no puede resolver el tipo sin tabla de símbolos global. Serializa
+        // los pasos del receptor como PendingCallSite; el grafo los resuelve en rebuild.
+        var pendingReceiver = TrySerializeReceiver(ma.Expression);
+        if (pendingReceiver is null || pendingReceiver.Count == 0) return;
 
+        var callerType = CurrentType ?? "<top-level>";
+        var callerMember = _currentMember ?? "(top-level)";
+        _fragment.PendingCallSites.Add(new PendingCallSite(
+            callerType, callerMember, method, pendingReceiver, CurrentNs, LineOf(node)));
+    }
+
+    /// <summary>
+    /// Serializa la expresión del receptor de una invocación en una secuencia de
+    /// pasos resolubles por el grafo: Local (campo/var/param), MethodReturn
+    /// (X.Y() donde Y es método), PropertyAccess (X.Y donde Y es propiedad).
+    /// Cubre: a.B().M(), a.B().C().M(), obj.Prop.M(), Factory&lt;T&gt;().M(), etc.
+    /// Devuelve null si el patrón no es serializable (p.ej. ternarios, lambdas).
+    /// </summary>
+    private List<PendingReceiverStep>? TrySerializeReceiver(ExpressionSyntax expr)
+    {
+        var steps = new List<PendingReceiverStep>();
+        if (!TrySerializeReceiverInto(expr, steps)) return null;
+        // la serialización es de outside-in (llamada externa primero); invertimos
+        // para que el grafo la recorra del local hacia afuera.
+        steps.Reverse();
+        return steps;
+    }
+
+    private bool TrySerializeReceiverInto(ExpressionSyntax expr, List<PendingReceiverStep> steps)
+    {
+        switch (expr)
+        {
+            // _factory.Get()            → MethodReturn("Get") + Local("_factory")
+            // _factory.Get().Inner      → PropertyAccess("Inner") + MethodReturn("Get") + Local("_factory")
+            case InvocationExpressionSyntax inv when inv.Expression is MemberAccessExpressionSyntax ma:
+                steps.Add(new PendingReceiverStep(PendingReceiverStepKind.MethodReturn, ma.Name.Identifier.Text, CurrentNs, null));
+                return TrySerializeReceiverInto(ma.Expression, steps);
+
+            // obj.Prop                  → PropertyAccess("Prop") + ...obj
+            case MemberAccessExpressionSyntax ma:
+                steps.Add(new PendingReceiverStep(PendingReceiverStepKind.PropertyAccess, ma.Name.Identifier.Text, CurrentNs, null));
+                return TrySerializeReceiverInto(ma.Expression, steps);
+
+            // _svc                      → Local("_svc", type: IService)
+            // this.foo                  → Local("foo") (this. ya se trata arriba)
+            case IdentifierNameSyntax id:
+                // El tipo del local lo resolvemos vía LookupLocal (campo/param/var registrado).
+                // Si no se conoce, dejamos TypeSimpleName=null y el grafo no podrá avanzar
+                // desde este paso (best-effort; el pending se descarta).
+                var localType = LookupLocal(id.Identifier.Text);
+                steps.Add(new PendingReceiverStep(PendingReceiverStepKind.Local, id.Identifier.Text, CurrentNs, localType));
+                return true;
+
+            // await X                   → unfold: serializar X (await no cambia el tipo)
+            case AwaitExpressionSyntax aw:
+                return TrySerializeReceiverInto(aw.Expression, steps);
+
+            // Patrones no soportados: ternarios, lambdas, binary, element access, etc.
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// Registra un call-site a partir del nombre del receptor (campo/local/parámetro)
+    /// y del nombre del método. Comparte lógica entre DetectCall (MemberAccess) y
+    /// el handler de null-conditional (ConditionalAccess + MemberBinding).
+    /// </summary>
+    private void DetectCallWith(string receiverName, string? method, SyntaxNode location)
+    {
+        if (string.IsNullOrEmpty(method)) return;
+
+        // A.6: si no hay tipo contenedor (top-level statements), atribuimos el
+        // call-site al marcador sintético <top-level> para no perder el callee.
+        var callerType = CurrentType ?? "<top-level>";
+        var callerMember = _currentMember ?? "(top-level)";
+
+        var calleeType = LookupLocal(receiverName);
+        if (calleeType is null) return;
+
+        // B.3 — Si el local es un var pendiente (var x = await ...;), el tipo real
+        // se resolverá en rebuild. Emitimos un PendingCallSite cuyo receptor es
+        // [Local: x, type=null], y el grafo lo resuelve consultando primero la
+        // tabla de PendingLocals ya resuelta.
+        if (calleeType.StartsWith("?pending:", StringComparison.Ordinal))
+        {
+            var localName = calleeType["?pending:".Length..];
+            var receiver = new List<PendingReceiverStep>
+            {
+                new(PendingReceiverStepKind.Local, localName, CurrentNs, null)
+            };
+            _fragment.PendingCallSites.Add(new PendingCallSite(
+                callerType, callerMember, method!, receiver, CurrentNs, LineOf(location)));
+            return;
+        }
+
+        if (!IsMeaningful(calleeType)) return;
         _fragment.CallSites.Add(new CallSite(
-            CurrentType!, _currentMember ?? "?", calleeType, method, CurrentNs, LineOf(node)));
-        AddEdge(calleeType, EdgeRelation.Call, LineOf(node), CurrentMemberIsPublic, _currentMember);
+            callerType, callerMember, calleeType, method!, CurrentNs, LineOf(location)));
+        AddEdge(calleeType, EdgeRelation.Call, LineOf(location), CurrentMemberIsPublic, _currentMember);
     }
 
     // ---- Detección MediatR / bus: _mediator.Send(new XCommand()) ----
@@ -536,9 +723,25 @@ public sealed class TypeReferenceVisitor : CSharpSyntaxWalker
 
     private void AddEdge(string to, EdgeRelation relation, int line, bool isPublic, string? fromMember = null)
     {
-        if (CurrentType is null || !IsMeaningful(to) || string.IsNullOrWhiteSpace(to)) return;
+        if (!IsMeaningful(to) || string.IsNullOrWhiteSpace(to)) return;
+        // A.6 — top-level statements: si no hay tipo contenedor, atribuimos al
+        // marcador sintético <top-level> para no perder la arista en el grafo.
+        var from = CurrentType ?? "<top-level>";
         // From = tipo declarado actual (FQN, ya resuelto); To = referencia simple (a resolver).
-        _fragment.Edges.Add(new TypeEdge(CurrentType, true, to, false, CurrentNs, relation, line, fromMember));
+        _fragment.Edges.Add(new TypeEdge(from, true, to, false, CurrentNs, relation, line, fromMember));
+    }
+
+    /// <summary>
+    /// Registra la signatura de retorno de un método/propiedad para que el grafo
+    /// pueda resolver receptores encadenados (Fase B). Solo se guarda el primer
+    /// nombre significativo del tipo de retorno (descendiendo genéricos).
+    /// </summary>
+    private void AddReturnSignature(string memberName, MemberReturnKind kind, TypeSyntax? returnType)
+    {
+        if (CurrentType is null || returnType is null) return;
+        var simple = ExtractNames(returnType).FirstOrDefault(IsMeaningful);
+        if (simple is null) return;
+        _fragment.ReturnSignatures.Add(new MemberReturnSignature(CurrentType, memberName, kind, simple, CurrentNs));
     }
 
     private void ProcessBaseList(BaseListSyntax? baseList, bool isPublicType, string typeName)

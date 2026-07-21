@@ -29,6 +29,12 @@ public sealed class CodeGraph
     private readonly Dictionary<string, List<DiBinding>> _diByService = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, List<DiBinding>> _diByImpl = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, List<MemberSpan>> _members = new(StringComparer.OrdinalIgnoreCase);
+    // B — signaturas de retorno (método/propiedad) indexadas por (tipo, miembro) para
+    // resolver receptores encadenados. Clave: "TypeName|MemberName" -> ReturnSimpleType.
+    private readonly Dictionary<string, List<MemberReturnSignature>> _returnsByMember = new(StringComparer.OrdinalIgnoreCase);
+    // B.3 — Locales var pendientes ya resueltos, indexados por (declaringType|declaringMember|localName).
+    // Se rellena ANTES de procesar PendingCallSites para que estos puedan usarlos.
+    private readonly Dictionary<string, string> _resolvedLocals = new(StringComparer.OrdinalIgnoreCase);
 
     // BM25 sobre tipos públicos.
     private readonly List<Doc> _docs = [];
@@ -109,7 +115,7 @@ public sealed class CodeGraph
     {
         _nodes.Clear(); _files.Clear(); _out.Clear(); _in.Clear();
         _endpoints.Clear(); _callsByCallee.Clear(); _callsByCaller.Clear(); _diByService.Clear();
-        _diByImpl.Clear(); _members.Clear();
+        _diByImpl.Clear(); _members.Clear(); _returnsByMember.Clear(); _resolvedLocals.Clear();
         _docs.Clear(); _docFrequency.Clear(); _totalDocLength = 0;
         _rank.Clear(); _fqnBySimple.Clear(); _ambiguous.Clear();
 
@@ -138,6 +144,16 @@ public sealed class CodeGraph
             {
                 if (!_members.TryGetValue(m.TypeName, out var list)) _members[m.TypeName] = list = [];
                 list.Add(m);
+            }
+
+            // B — indexa signaturas de retorno: (tipo, miembro) -> tipo de retorno simple.
+            // Resuelve el tipo declarado a FQN para que el lookup posterior funcione
+            // con el mismo nombre con el que se indexan los nodos.
+            foreach (var sig in frag.ReturnSignatures)
+            {
+                if (!_returnsByMember.TryGetValue(SignatureKey(sig.TypeName, sig.MemberName), out var list))
+                    _returnsByMember[SignatureKey(sig.TypeName, sig.MemberName)] = list = [];
+                list.Add(sig);
             }
         }
 
@@ -184,6 +200,40 @@ public sealed class CodeGraph
                 if (!_diByImpl.TryGetValue(impl, out var i)) _diByImpl[impl] = i = [];
                 i.Add(resolved);
             }
+
+            // B.3 — resuelve primero los PendingLocals (var x = <expr>) para que los
+            // PendingCallSites que los usen como receptor puedan resolverlos.
+            foreach (var pl in frag.PendingLocals)
+            {
+                var localType = ResolvePendingInitializer(pl.Initializer, frag);
+                if (localType is null) continue;
+                _resolvedLocals[PendingLocalKey(pl.DeclaringType, pl.DeclaringMember, pl.LocalName)] = localType;
+            }
+
+            // B — resuelve call-sites pendientes cuyo receptor era complejo (factory,
+            // chaining, member-access profundo). Camina los pasos desde el local
+            // inicial hasta inferir el tipo final del receptor y, si lo logra,
+            // registra el call-site y la arista Call como cualquier otro.
+            foreach (var pcs in frag.PendingCallSites)
+            {
+                var calleeType = ResolvePendingReceiver(pcs, frag);
+                if (calleeType is null) continue;
+                var resolved = new CallSite(pcs.CallerType, pcs.CallerMember, calleeType, pcs.CalleeMember, pcs.Ns, pcs.Line);
+                if (!_callsByCallee.TryGetValue(calleeType, out var list)) _callsByCallee[calleeType] = list = [];
+                list.Add(resolved);
+                if (!_callsByCaller.TryGetValue(pcs.CallerType, out var cl)) _callsByCaller[pcs.CallerType] = cl = [];
+                cl.Add(resolved);
+
+                // arista Call (From=caller FQN o <top-level>, To=callee resuelto)
+                if (!string.IsNullOrWhiteSpace(pcs.CallerType) &&
+                    !pcs.CallerType.Equals(calleeType, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!_out.TryGetValue(pcs.CallerType, out var outList)) _out[pcs.CallerType] = outList = [];
+                    outList.Add(new TypeEdge(pcs.CallerType, true, calleeType, true, pcs.Ns, EdgeRelation.Call, pcs.Line, pcs.CallerMember));
+                    if (!_in.TryGetValue(calleeType, out var inSet)) _in[calleeType] = inSet = new(StringComparer.OrdinalIgnoreCase);
+                    inSet.Add(pcs.CallerType);
+                }
+            }
         }
 
         BuildDocsLocked();
@@ -202,10 +252,10 @@ public sealed class CodeGraph
     /// Resuelve un nombre simple a su FQN usando namespace de contexto + usings del fichero.
     /// Si no es un tipo de la solución (BCL/NuGet) o no se puede desambiguar, devuelve el nombre tal cual.
     /// </summary>
-    private string Resolve(string raw, string ns, FileFragment frag)
+    private string Resolve(string raw, string ns, FileFragment? frag)
     {
         var simple = LastSegment(raw);
-        if (frag.Aliases.TryGetValue(simple, out var aliasTarget))
+        if (frag is not null && frag.Aliases.TryGetValue(simple, out var aliasTarget))
             simple = LastSegment(aliasTarget);
 
         if (!_fqnBySimple.TryGetValue(simple, out var candidates) || candidates.Count == 0)
@@ -217,8 +267,9 @@ public sealed class CodeGraph
         foreach (var c in candidates)
             if (c.Ns.Equals(ns, StringComparison.Ordinal)) return c.Fqn;
         // 2) namespace importado por un using
-        foreach (var c in candidates)
-            if (frag.Usings.Contains(c.Ns, StringComparer.Ordinal)) return c.Fqn;
+        if (frag is not null)
+            foreach (var c in candidates)
+                if (frag.Usings.Contains(c.Ns, StringComparer.Ordinal)) return c.Fqn;
         // 3) prefijo de namespace compartido más largo con el contexto
         var best = candidates[0];
         var bestShared = -1;
@@ -238,6 +289,110 @@ public sealed class CodeGraph
         var i = 0;
         while (i < n && pa[i].Equals(pb[i], StringComparison.Ordinal)) i++;
         return i;
+    }
+
+    /// <summary>Clave para indexar/consultar signaturas de retorno por (tipo, miembro).</summary>
+    private static string SignatureKey(string typeName, string memberName)
+        => typeName + "|" + memberName;
+
+    /// <summary>
+    /// Camina los pasos de un PendingCallSite para inferir el tipo del receptor
+    /// final. Empieza resolviendo el primer paso (Local → tipo conocido del
+    /// fragmento) y avanza consultando las signaturas de retorno indexadas
+    /// (MethodReturn / PropertyAccess). Devuelve el FQN del tipo final, o null
+    /// si no se puede inferir.
+    /// </summary>
+    private string? ResolvePendingReceiver(PendingCallSite pcs, FileFragment frag)
+    {
+        if (pcs.Receiver.Count == 0) return null;
+        var first = pcs.Receiver[0];
+        if (first.Kind != PendingReceiverStepKind.Local) return null;
+
+        string? currentType;
+        // El Local step lleva el nombre simple del tipo del receptor (campo/param/var),
+        // resuelto por el visitor con LookupLocal. Si lo trae, lo usamos.
+        if (!string.IsNullOrWhiteSpace(first.TypeSimpleName))
+        {
+            currentType = Resolve(first.TypeSimpleName, pcs.Ns, frag);
+        }
+        else
+        {
+            // B.3 — Local sin tipo (var x = await ...; x.M()): el tipo se resolvió antes
+            // en este mismo rebuild a partir del PendingLocal. Si no está, no podemos avanzar.
+            var key = PendingLocalKey(pcs.CallerType, pcs.CallerMember, first.Name);
+            if (!_resolvedLocals.TryGetValue(key, out var resolved)) return null;
+            currentType = resolved;
+        }
+
+        for (var i = 1; i < pcs.Receiver.Count; i++)
+        {
+            var step = pcs.Receiver[i];
+            currentType = StepReturnType(currentType, step.Name, step.Kind);
+            if (currentType is null) return null;
+        }
+        return currentType;
+    }
+
+    /// <summary>Resuelve el tipo de un inicializador de var serializado como pasos.</summary>
+    private string? ResolvePendingInitializer(IReadOnlyList<PendingReceiverStep> init, FileFragment frag)
+    {
+        if (init.Count == 0) return null;
+        var first = init[0];
+        if (first.Kind != PendingReceiverStepKind.Local) return null;
+        if (string.IsNullOrWhiteSpace(first.TypeSimpleName)) return null;
+        var currentType = Resolve(first.TypeSimpleName, first.Ns ?? "", frag);
+        for (var i = 1; i < init.Count; i++)
+        {
+            var step = init[i];
+            currentType = StepReturnType(currentType, step.Name, step.Kind);
+            if (currentType is null) return null;
+        }
+        return currentType;
+    }
+
+    private static string PendingLocalKey(string declaringType, string declaringMember, string localName)
+        => $"{declaringType}|{declaringMember}|{localName}";
+
+    /// <summary>
+    /// Dado el tipo actual y un paso (método o propiedad), devuelve el tipo de
+    /// retorno/propiedad declarado, consultando las signaturas indexadas.
+    /// La signatura se indexa por el FQN del tipo declarante (p.ej. "MyApp.IFactory"),
+    /// pero currentType puede llegar como nombre simple si no estaba en la tabla
+    /// global (BCL/NuGet). Probamos FQN, simple, y por sufijo para cubrir ambos.
+    /// </summary>
+    private string? StepReturnType(string? currentType, string memberName, PendingReceiverStepKind kind)
+    {
+        if (string.IsNullOrWhiteSpace(currentType)) return null;
+
+        var candidates = new List<MemberReturnSignature>();
+        // 1) FQN exacto
+        if (_returnsByMember.TryGetValue(SignatureKey(currentType, memberName), out var exact))
+            candidates.AddRange(exact);
+        // 2) nombre simple (si currentType no estaba en la tabla global)
+        if (currentType.Contains('.'))
+        {
+            var simple = LastSegment(currentType);
+            if (_returnsByMember.TryGetValue(SignatureKey(simple, memberName), out var bySimple))
+                candidates.AddRange(bySimple);
+        }
+        // 3) sufijo: la signatura se declaró como "MyApp.IFactory" pero currentType
+        //    llegó como "IFactory" (caso típico). Buscamos claves que terminen en ".IFactory|Get".
+        if (candidates.Count == 0)
+        {
+            var suffix = "|" + LastSegment(currentType) + "|" + memberName;
+            foreach (var key in _returnsByMember.Keys)
+                if (key.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+                {
+                    var parts = key.Split('|');
+                    if (parts.Length == 2 && parts[1] == memberName)
+                        candidates.AddRange(_returnsByMember[key]);
+                }
+        }
+        if (candidates.Count == 0) return null;
+        // Si hay varias signaturas (overloads), tomamos la primera; sin modelo semántico
+        // no podemos distinguir por tipos de argumento. Best-effort.
+        var sig = candidates[0];
+        return Resolve(sig.ReturnSimpleType, sig.Ns, null);
     }
 
     /// <summary>Nombre para mostrar: simple salvo que colisione, entonces el FQN.</summary>
