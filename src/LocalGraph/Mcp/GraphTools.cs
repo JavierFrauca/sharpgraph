@@ -13,7 +13,9 @@ namespace LocalGraph.Mcp;
 public class GraphTools(CodeGraph graph, GraphStore store, ProjectWatcher watcher)
 {
     [McpServerTool, Description("""
-        PRIMERA CONFIGURACIÓN — llama a esta herramienta la primera vez que usas LocalGraph.
+        PRIMERA CONFIGURACIÓN — llama a esta herramienta la primera vez que usas LocalGraph
+        CON Claude Code. (Solo aplica a Claude Code: otros clientes no soportan el hook
+        CwdChanged y esta herramienta no tendrá efecto en ellos. Ver docs/CLIENTS.md.)
 
         Configura el escaneo automático de proyectos: edita el fichero
         ~/.claude/settings.json añadiendo un hook 'CwdChanged' que invoca scan()
@@ -29,6 +31,19 @@ public class GraphTools(CodeGraph graph, GraphStore store, ProjectWatcher watche
         var settingsPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             ".claude", "settings.json");
+
+        // Si no estamos en Claude Code (no existe la carpeta ~/.claude y no hay settings),
+        // no intentar escribir ciegamente: devolver aviso en vez de fallar o crear basura.
+        var claudeDir = Directory.GetParent(settingsPath)?.FullName;
+        if (claudeDir is not null && !Directory.Exists(claudeDir))
+        {
+            return "Esta herramienta configura el hook CwdChanged de Claude Code en " +
+                   $"{settingsPath}, pero la carpeta {claudeDir} no existe: parece que " +
+                   "no estás usando Claude Code. En otros clientes, registra el servidor " +
+                   "MCP manualmente (ver docs/CLIENTS.md) y llama a scan(path) cuando " +
+                   "necesites indexar un proyecto.";
+        }
+
         Directory.CreateDirectory(Path.GetDirectoryName(settingsPath)!);
 
         var raw = File.Exists(settingsPath) ? File.ReadAllText(settingsPath) : "{}";
