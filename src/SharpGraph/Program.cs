@@ -1,3 +1,4 @@
+using SharpGraph.Cli;
 using SharpGraph.Graph;
 using SharpGraph.Mcp;
 using SharpGraph.Persistence;
@@ -11,6 +12,16 @@ var graph = new CodeGraph();
 var store = new GraphStore();
 var watcher = new ProjectWatcher(graph, store);
 
+// ── Bifurcación CLI vs MCP ──────────────────────────────────────────────────
+// Si el primer argumento es un subcomando CLI conocido (scan, stats, callers,
+// setup, help, etc.), ejecutamos modo CLI y salimos. Si no, arrancamos modo
+// MCP (stdio server para LLMs) como siempre.
+if (args.Length > 0 && CliDispatcher.IsCliCommand(args[0]))
+{
+    Environment.Exit(await CliDispatcher.Run(args, graph, store, watcher));
+}
+
+// ── Modo MCP ────────────────────────────────────────────────────────────────
 var path = args.FirstOrDefault();
 if (path is not null)
 {
