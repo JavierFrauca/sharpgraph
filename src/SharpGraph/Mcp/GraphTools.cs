@@ -10,7 +10,7 @@ using ModelContextProtocol.Server;
 namespace SharpGraph.Mcp;
 
 [McpServerToolType]
-public class GraphTools(CodeGraph graph, GraphStore store, ProjectWatcher watcher)
+public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watcher)
 {
     [McpServerTool, Description("""
         PRIMERA CONFIGURACIÓN — llama a esta herramienta la primera vez que usas SharpGraph
@@ -253,7 +253,7 @@ public class GraphTools(CodeGraph graph, GraphStore store, ProjectWatcher watche
 
     [McpServerTool, Description("""
         Lee un fichero .cs del proyecto escaneado, con números de línea y marcas
-        de región por tipo definido. Compite con `explore` de CodeGraph para el caso
+        de región por tipo definido. Compite con `explore` de GraphEngine para el caso
         "enséñame este fichero". A diferencia de get_source/understand, devuelve el
         fichero entero (no un solo tipo), truncado a maxLines.
 

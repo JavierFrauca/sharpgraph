@@ -8,46 +8,50 @@ namespace SharpGraph.Graph;
 /// reconstrucción incremental: al cambiar un fichero se reemplaza su
 /// fragmento y se reindexan los derivados.
 /// </summary>
-public sealed class CodeGraph
+public sealed class GraphEngine
 {
     private sealed record Doc(string Type, Dictionary<string, int> Tf, int Length);
 
     private readonly Lock _lock = new();
 
+    // Comparers globales: evitan repetir `new(StringComparer.OrdinalIgnoreCase)` 18+ veces
+    private static readonly StringComparer Cmp = StringComparer.OrdinalIgnoreCase;
+    private static readonly StringComparer CmpOrd = StringComparer.Ordinal;
+
     // Fuente de verdad: fragmentos por fichero.
-    private readonly Dictionary<string, FileFragment> _fragments = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, FileFragment> _fragments = new(Cmp);
 
     // Índices derivados (reconstruidos desde _fragments).
-    private readonly Dictionary<string, NodeDef> _nodes = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, string> _files = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, List<TypeEdge>> _out = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, HashSet<string>> _in = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, List<EndpointDef>> _endpoints = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, List<CallSite>> _callsByCallee = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, NodeDef> _nodes = new(Cmp);
+    private readonly Dictionary<string, string> _files = new(Cmp);
+    private readonly Dictionary<string, List<TypeEdge>> _out = new(Cmp);
+    private readonly Dictionary<string, HashSet<string>> _in = new(Cmp);
+    private readonly Dictionary<string, List<EndpointDef>> _endpoints = new(Cmp);
+    private readonly Dictionary<string, List<CallSite>> _callsByCallee = new(Cmp);
     // llamadas SALIENTES por tipo emisor (para flow): CallerType -> call-sites
-    private readonly Dictionary<string, List<CallSite>> _callsByCaller = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, List<DiBinding>> _diByService = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, List<DiBinding>> _diByImpl = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, List<MemberSpan>> _members = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, List<CallSite>> _callsByCaller = new(Cmp);
+    private readonly Dictionary<string, List<DiBinding>> _diByService = new(Cmp);
+    private readonly Dictionary<string, List<DiBinding>> _diByImpl = new(Cmp);
+    private readonly Dictionary<string, List<MemberSpan>> _members = new(Cmp);
     // B — signaturas de retorno (método/propiedad) indexadas por (tipo, miembro) para
     // resolver receptores encadenados. Clave: "TypeName|MemberName" -> ReturnSimpleType.
-    private readonly Dictionary<string, List<MemberReturnSignature>> _returnsByMember = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, List<MemberReturnSignature>> _returnsByMember = new(Cmp);
     // B.3 — Locales var pendientes ya resueltos, indexados por (declaringType|declaringMember|localName).
     // Se rellena ANTES de procesar PendingCallSites para que estos puedan usarlos.
-    private readonly Dictionary<string, string> _resolvedLocals = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _resolvedLocals = new(Cmp);
 
     // BM25 sobre tipos públicos.
     private readonly List<Doc> _docs = [];
-    private readonly Dictionary<string, int> _docFrequency = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, int> _docFrequency = new(Cmp);
     private int _totalDocLength;
 
     // Centralidad (PageRank): cuanto más alto, más "núcleo" arquitectónico es el tipo.
-    private readonly Dictionary<string, double> _rank = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, double> _rank = new(Cmp);
 
     // Tabla de símbolos para resolución de identidad: nombre simple -> FQNs declarados.
-    private readonly Dictionary<string, List<(string Fqn, string Ns)>> _fqnBySimple = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, List<(string Fqn, string Ns)>> _fqnBySimple = new(CmpOrd);
     // Nombres simples declarados por 2+ tipos: requieren cualificación al mostrarse.
-    private readonly HashSet<string> _ambiguous = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _ambiguous = new(CmpOrd);
 
     public string? CurrentPath { get; private set; }
     public int NodeCount { get { lock (_lock) return _nodes.Count; } }
@@ -80,12 +84,12 @@ public sealed class CodeGraph
     }
 
     /// <summary>Fusiona o reemplaza el fragmento de un fichero y reindexa.</summary>
-    public void MergeFragment(FileFragment fragment, bool rebuild = true)
+    public void MergeFragment(FileFragment fragment)
     {
         lock (_lock)
         {
             _fragments[fragment.FilePath] = fragment;
-            if (rebuild) RebuildLocked();
+            RebuildLocked();
         }
     }
 
@@ -174,9 +178,9 @@ public sealed class CodeGraph
                 var resolved = e with { From = from, To = to, FromResolved = true, ToResolved = true };
                 if (!_out.TryGetValue(from, out var outList)) _out[from] = outList = [];
                 outList.Add(resolved);
-                if (!_in.TryGetValue(to, out var inSet)) _in[to] = inSet = new(StringComparer.OrdinalIgnoreCase);
+                if (!_in.TryGetValue(to, out var inSet)) _in[to] = inSet = new(Cmp);
                 inSet.Add(from);
-                _in.TryAdd(from, new(StringComparer.OrdinalIgnoreCase));
+                _in.TryAdd(from, new(Cmp));
                 _out.TryAdd(to, []);
             }
 
@@ -230,7 +234,7 @@ public sealed class CodeGraph
                 {
                     if (!_out.TryGetValue(pcs.CallerType, out var outList)) _out[pcs.CallerType] = outList = [];
                     outList.Add(new TypeEdge(pcs.CallerType, true, calleeType, true, pcs.Ns, EdgeRelation.Call, pcs.Line, pcs.CallerMember));
-                    if (!_in.TryGetValue(calleeType, out var inSet)) _in[calleeType] = inSet = new(StringComparer.OrdinalIgnoreCase);
+                    if (!_in.TryGetValue(calleeType, out var inSet)) _in[calleeType] = inSet = new(Cmp);
                     inSet.Add(pcs.CallerType);
                 }
             }
@@ -502,7 +506,7 @@ public sealed class CodeGraph
 
     /// <summary>
     /// Mejora 5: leer un fichero .cs entero del proyecto escaneado, numerado,
-    /// truncado a maxLines. Compite con CodeGraph `explore` en el caso "muéstrame
+    /// truncado a maxLines. Compite con GraphEngine `explore` en el caso "muéstrame
     /// este fichero". Solo se aceptan ficheros que el scanner haya indexado
     /// previamente (están en el grafo).
     /// </summary>
@@ -984,7 +988,10 @@ public sealed class CodeGraph
             {
                 string[] lines;
                 try { lines = File.ReadAllLines(file); }
-                catch { lines = []; }
+                catch (Exception ex)
+                {
+                    return $"Could not read source file for '{typeName}': {ex.Message}";
+                }
                 var start = Math.Clamp(node.StartLine, 1, Math.Max(1, lines.Length));
                 var end = Math.Clamp(node.EndLine, start, Math.Max(1, lines.Length));
                 var shownEnd = end;

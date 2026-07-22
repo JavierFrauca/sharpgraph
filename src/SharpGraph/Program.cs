@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-var graph = new CodeGraph();
+var graph = new GraphEngine();
 var store = new GraphStore();
 var watcher = new ProjectWatcher(graph, store);
 

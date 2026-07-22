@@ -7,13 +7,13 @@ namespace SharpGraph.Cli;
 /// <summary>
 /// Un método por subcomando CLI. Cada uno parsea argumentos posicionales
 /// y flags simples (-d, -m, -l, -n), llama al método equivalente de
-/// <see cref="CodeGraph"/> e imprime el resultado a stdout.
+/// <see cref="GraphEngine"/> e imprime el resultado a stdout.
 /// </summary>
 internal static class CliCommands
 {
     // ────────────────────────── ESCANEO ──────────────────────────
 
-    public static async Task<int> Scan(string[] args, CodeGraph graph, GraphStore store, ProjectWatcher watcher)
+    public static async Task<int> Scan(string[] args, GraphEngine graph, GraphStore store, ProjectWatcher watcher)
     {
         var path = GetPositional(args, 0) ?? ".";
 
@@ -36,7 +36,7 @@ internal static class CliCommands
         return 0;
     }
 
-    public static int Stats(CodeGraph graph)
+    public static int Stats(GraphEngine graph)
     {
         Console.WriteLine(graph.Stats());
         return 0;
@@ -44,7 +44,7 @@ internal static class CliCommands
 
     // ────────────────────────── NAVEGACIÓN ──────────────────────────
 
-    public static int Search(string[] args, CodeGraph graph)
+    public static int Search(string[] args, GraphEngine graph)
     {
         var pattern = GetPositional(args, 0);
         if (pattern is null) { Console.Error.WriteLine("Uso: sharpgraph search <patrón>"); return 1; }
@@ -52,7 +52,7 @@ internal static class CliCommands
         return 0;
     }
 
-    public static int Callers(string[] args, CodeGraph graph)
+    public static int Callers(string[] args, GraphEngine graph)
     {
         var type = GetPositional(args, 0);
         if (type is null) { Console.Error.WriteLine("Uso: sharpgraph callers <tipo> [-d <depth>]"); return 1; }
@@ -61,7 +61,7 @@ internal static class CliCommands
         return 0;
     }
 
-    public static int Usages(string[] args, CodeGraph graph)
+    public static int Usages(string[] args, GraphEngine graph)
     {
         var type = GetPositional(args, 0);
         if (type is null) { Console.Error.WriteLine("Uso: sharpgraph usages <tipo>"); return 1; }
@@ -69,7 +69,7 @@ internal static class CliCommands
         return 0;
     }
 
-    public static int Callsites(string[] args, CodeGraph graph)
+    public static int Callsites(string[] args, GraphEngine graph)
     {
         var type = GetPositional(args, 0);
         if (type is null) { Console.Error.WriteLine("Uso: sharpgraph callsites <tipo> [-m <miembro>] [-l <límite>]"); return 1; }
@@ -79,7 +79,7 @@ internal static class CliCommands
         return 0;
     }
 
-    public static int Trace(string[] args, CodeGraph graph)
+    public static int Trace(string[] args, GraphEngine graph)
     {
         var type = GetPositional(args, 0);
         if (type is null) { Console.Error.WriteLine("Uso: sharpgraph trace <tipo> [-d <depth>]"); return 1; }
@@ -88,7 +88,7 @@ internal static class CliCommands
         return 0;
     }
 
-    public static int Flow(string[] args, CodeGraph graph)
+    public static int Flow(string[] args, GraphEngine graph)
     {
         var type = GetPositional(args, 0);
         if (type is null) { Console.Error.WriteLine("Uso: sharpgraph flow <tipo> [-m <miembro>] [-d <depth>]"); return 1; }
@@ -98,7 +98,7 @@ internal static class CliCommands
         return 0;
     }
 
-    public static int Hubs(string[] args, CodeGraph graph)
+    public static int Hubs(string[] args, GraphEngine graph)
     {
         var topK = GetFlagInt(args, "-n", 15);
         var includeExternal = HasFlag(args, "--include-external");
@@ -106,7 +106,7 @@ internal static class CliCommands
         return 0;
     }
 
-    public static int Di(string[] args, CodeGraph graph)
+    public static int Di(string[] args, GraphEngine graph)
     {
         var type = GetPositional(args, 0);
         if (type is null) { Console.Error.WriteLine("Uso: sharpgraph di <tipo>"); return 1; }
@@ -116,7 +116,7 @@ internal static class CliCommands
 
     // ────────────────────────── CÓDIGO ──────────────────────────
 
-    public static int Source(string[] args, CodeGraph graph)
+    public static int Source(string[] args, GraphEngine graph)
     {
         var type = GetPositional(args, 0);
         if (type is null) { Console.Error.WriteLine("Uso: sharpgraph source <tipo> [-m <miembro>] [-l <líneas>]"); return 1; }
@@ -126,7 +126,7 @@ internal static class CliCommands
         return 0;
     }
 
-    public static int Understand(string[] args, CodeGraph graph)
+    public static int Understand(string[] args, GraphEngine graph)
     {
         var type = GetPositional(args, 0);
         if (type is null) { Console.Error.WriteLine("Uso: sharpgraph understand <tipo> [-l <budget>]"); return 1; }
@@ -135,7 +135,7 @@ internal static class CliCommands
         return 0;
     }
 
-    public static int ReadFile(string[] args, CodeGraph graph)
+    public static int ReadFile(string[] args, GraphEngine graph)
     {
         var path = GetPositional(args, 0);
         if (path is null) { Console.Error.WriteLine("Uso: sharpgraph read-file <fichero> [-l <líneas>]"); return 1; }
@@ -144,7 +144,7 @@ internal static class CliCommands
         return 0;
     }
 
-    public static int Semantic(string[] args, CodeGraph graph)
+    public static int Semantic(string[] args, GraphEngine graph)
     {
         var query = GetPositional(args, 0);
         if (query is null) { Console.Error.WriteLine("Uso: sharpgraph semantic <query> [-n <topK>]"); return 1; }
@@ -156,7 +156,7 @@ internal static class CliCommands
         return 0;
     }
 
-    public static int Explore(string[] args, CodeGraph graph)
+    public static int Explore(string[] args, GraphEngine graph)
     {
         var pattern = GetPositional(args, 0);
         if (pattern is null) { Console.Error.WriteLine("Uso: sharpgraph explore <patrón> [-d <depth>] [-l <limit>]"); return 1; }
@@ -179,6 +179,15 @@ internal static class CliCommands
     }
 
     // ────────────────────────── PARSING ──────────────────────────
+
+    /// <summary>Obtiene argumento posicional o muestra uso y devuelve error.</summary>
+    private static bool RequirePositional(string[] args, out string value, string usage)
+    {
+        value = GetPositional(args, 0)!;
+        if (value is not null) return true;
+        Console.Error.WriteLine(usage);
+        return false;
+    }
 
     /// <summary>Obtiene el n-ésimo argumento posicional (ignora flags).</summary>
     private static string? GetPositional(string[] args, int index)
