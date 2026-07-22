@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 """
-Comparativa cualitativa: ejecuta las mismas preguntas en LocalGraph y CodeGraph
+Comparativa cualitativa: ejecuta las mismas preguntas en SharpGraph y CodeGraph
 sobre CleanArchitecture y vuelca los outputs lado a lado.
 """
 import json, subprocess, sys, threading, time, os
 
-LG_EXE = os.path.join(os.path.dirname(__file__), "..", "publish", "LocalGraph.exe")
+LG_EXE = os.path.join(os.path.dirname(__file__), "..", "publish", "SharpGraph.exe")
 CA_DIR = os.path.join(os.path.dirname(__file__), "_external", "CleanArchitecture")
 CG_DIR = CA_DIR  # codegraph init ya ejecutado
 
@@ -120,7 +120,7 @@ QUESTIONS = [
      "explore", None, {"files": ["src/Application/TodoItems/Commands/CreateTodoItem/CreateTodoItem.cs"]}),
 ]
 
-print("# Comparativa cualitativa LocalGraph vs CodeGraph\n")
+print("# Comparativa cualitativa SharpGraph vs CodeGraph\n")
 print("Repo: CleanArchitecture (Jason Taylor, MIT, 110 ficheros .cs)\n")
 
 for label, desc, lg_tool, lg_args, cg_mode, cg_symbol, *rest in QUESTIONS:
@@ -128,7 +128,7 @@ for label, desc, lg_tool, lg_args, cg_mode, cg_symbol, *rest in QUESTIONS:
     print(f"## {label}")
     print(f"_Query:_ {desc}\n")
 
-    print("### LocalGraph")
+    print("### SharpGraph")
     lg_out = lg_query(lg_tool, lg_args)
     print("```")
     print(lg_out[:2000])

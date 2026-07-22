@@ -1,9 +1,9 @@
 using System.Collections.Concurrent;
-using LocalGraph.Graph;
-using LocalGraph.Persistence;
-using LocalGraph.Scanner;
+using SharpGraph.Graph;
+using SharpGraph.Persistence;
+using SharpGraph.Scanner;
 
-namespace LocalGraph.Watcher;
+namespace SharpGraph.Watcher;
 
 /// <summary>
 /// Observa los .cs bajo la raíz escaneada y actualiza el grafo en caliente,

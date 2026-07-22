@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace LocalGraph.Graph;
+namespace SharpGraph.Graph;
 
 /// <summary>
 /// Grafo de dependencias en memoria. Se construye a partir de

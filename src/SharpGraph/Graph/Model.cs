@@ -1,4 +1,4 @@
-namespace LocalGraph.Graph;
+namespace SharpGraph.Graph;
 
 /// <summary>
 /// Tipo de relación entre dos tipos. Antes se perdía (el grafo solo guardaba

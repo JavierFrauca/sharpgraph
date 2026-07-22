@@ -1,11 +1,11 @@
 #Requires -Version 7
 <#
 .SYNOPSIS
-    Publica LocalGraph para los tres RIDs soportados (win-x64, linux-x64, osx-arm64)
+    Publica SharpGraph para los tres RIDs soportados (win-x64, linux-x64, osx-arm64)
     como ejecutables autocontenidos y empaqueta cada uno para distribución.
 
 .DESCRIPTION
-    - Detiene cualquier instancia en ejecución de LocalGraph (solo Windows).
+    - Detiene cualquier instancia en ejecución de SharpGraph (solo Windows).
     - Para cada RID: dotnet publish -r <rid> --self-contained, single-file.
     - Empaqueta el resultado (zip en Windows, tar.gz en Unix) con el instalador
       correspondiente (install.ps1 / install.sh) dentro.
@@ -31,14 +31,14 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $root    = $PSScriptRoot
-$project = Join-Path $root "src\LocalGraph\LocalGraph.csproj"
+$project = Join-Path $root "src\SharpGraph\SharpGraph.csproj"
 $dist    = Join-Path $root "dist"
 
 # ── 1. Detener procesos en ejecución (best-effort, solo Windows) ─────────────
 if ($IsWindows -or ($PSVersionTable.Platform -and $PSVersionTable.Platform -eq 'Win32NT') -or -not $PSVersionTable.Platform) {
-    $running = Get-Process -Name LocalGraph -ErrorAction SilentlyContinue
+    $running = Get-Process -Name SharpGraph -ErrorAction SilentlyContinue
     if ($running) {
-        Write-Host "Deteniendo LocalGraph.exe (PID $($running.Id))..."
+        Write-Host "Deteniendo SharpGraph.exe (PID $($running.Id))..."
         $running | Stop-Process -Force
         Start-Sleep -Milliseconds 500
     }
@@ -74,7 +74,7 @@ foreach ($rid in $RIDs) {
 
     # Binario generado
     $binExt = if ($rid -like "win-*") { ".exe" } else { "" }
-    $binName = "LocalGraph$binExt"
+    $binName = "SharpGraph$binExt"
     $bin = Join-Path $out $binName
     if (-not (Test-Path $bin)) {
         Write-Error "No se encontro el binario $bin"
@@ -86,7 +86,7 @@ foreach ($rid in $RIDs) {
     if ($SkipPack) { continue }
 
     # Empaquetar
-    $archive = Join-Path $dist "LocalGraph-$rid"
+    $archive = Join-Path $dist "SharpGraph-$rid"
     if ($rid -like "win-*") {
         $zip = "$archive.zip"
         Write-Host "    Empaquetando $zip ..."

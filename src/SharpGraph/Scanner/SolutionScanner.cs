@@ -1,10 +1,10 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
-using LocalGraph.Graph;
+using SharpGraph.Graph;
 using Microsoft.CodeAnalysis.CSharp;
 
-namespace LocalGraph.Scanner;
+namespace SharpGraph.Scanner;
 
 public sealed class SolutionScanner(CodeGraph graph)
 {

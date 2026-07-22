@@ -1,10 +1,10 @@
 #Requires -Version 7
 <#
 .SYNOPSIS
-    Compila y publica LocalGraph como ejecutable autocontenido para Windows x64.
+    Compila y publica SharpGraph como ejecutable autocontenido para Windows x64.
 
 .DESCRIPTION
-    - Detiene cualquier instancia en ejecucion de LocalGraph.exe
+    - Detiene cualquier instancia en ejecucion de SharpGraph.exe
     - Limpia la carpeta publish\ anterior
     - Publica un ejecutable autocontenido (no requiere .NET en destino)
     - Actualiza el registro MCP del usuario actual
@@ -17,13 +17,13 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $root    = $PSScriptRoot
-$project = Join-Path $root "src\LocalGraph\LocalGraph.csproj"
+$project = Join-Path $root "src\SharpGraph\SharpGraph.csproj"
 $out     = Join-Path $root "publish"
 
 # ── 1. Detener procesos en ejecucion ─────────────────────────────────────────
-$running = Get-Process -Name LocalGraph -ErrorAction SilentlyContinue
+$running = Get-Process -Name SharpGraph -ErrorAction SilentlyContinue
 if ($running) {
-    Write-Host "Deteniendo LocalGraph.exe (PID $($running.Id))..."
+    Write-Host "Deteniendo SharpGraph.exe (PID $($running.Id))..."
     $running | Stop-Process -Force
     Start-Sleep -Milliseconds 500
 }
@@ -43,7 +43,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # ── 4. Verificar ejecutable generado ─────────────────────────────────────────
-$exe = Join-Path $out "LocalGraph.exe"
+$exe = Join-Path $out "SharpGraph.exe"
 if (-not (Test-Path $exe)) {
     Write-Error "No se encontro el ejecutable en $exe"
     exit 1
@@ -59,6 +59,6 @@ Write-Host "Script de instalacion incluido en $out"
 
 # ── 6. Actualizar registro MCP ────────────────────────────────────────────────
 Write-Host "Actualizando registro MCP..."
-claude mcp remove localgraph -s user 2>$null
-claude mcp add -s user localgraph $exe
+claude mcp remove sharpgraph -s user 2>$null
+claude mcp add -s user sharpgraph $exe
 Write-Host "MCP actualizado. Reinicia Claude Code para aplicar los cambios."

@@ -21,7 +21,7 @@ bench/RESULTS.md
 bench/_external/
 
 # Documento de comparativa interno (referencias a repos privados)
-docs/Comparativa_MCP_CodeGraph_vs_LocalGraph_vs_SinMCP.md
+docs/Comparativa_MCP_CodeGraph_vs_SharpGraph_vs_SinMCP.md
 
 # Logs sueltos de desarrollo
 scan_output.txt

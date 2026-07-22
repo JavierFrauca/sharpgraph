@@ -16,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\LocalGraph\LocalGraph.csproj" />
+    <ProjectReference Include="..\SharpGraph\SharpGraph.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-"""Probe rápido: ejecuta una query LocalGraph y muestra el output."""
+"""Probe rápido: ejecuta una query SharpGraph y muestra el output."""
 import json, subprocess, sys, threading, time, os
 
-EXE = os.environ.get("LG_EXE", os.path.join(os.path.dirname(__file__), "..", "publish", "LocalGraph.exe"))
+EXE = os.environ.get("LG_EXE", os.path.join(os.path.dirname(__file__), "..", "publish", "SharpGraph.exe"))
 REPO = os.environ.get("LG_REPO", os.path.join(os.path.dirname(__file__), "_external", "CleanArchitecture"))
 
 def call(tool, args, timeout_s=15):

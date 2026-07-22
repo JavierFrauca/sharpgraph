@@ -3,7 +3,7 @@
 PLANTILLA — copia este fichero a `questions.py` y edítalo con TUS repos y símbolos.
 
 Define una batería de preguntas para comparar, en tokens, tres enfoques al responderlas:
-  - LocalGraph (herramientas MCP)
+  - SharpGraph (herramientas MCP)
   - CodeGraph  (CLI `codegraph` + modelo de su `explore`)
   - sin-MCP    (grep + lectura de ficheros)
 
@@ -23,7 +23,7 @@ REPOS = {
 }
 
 Q = [
-    # --- estructura: ¿quién depende de una interfaz? (favorece a LocalGraph) ---
+    # --- estructura: ¿quién depende de una interfaz? (favorece a SharpGraph) ---
     dict(id="Q01", repo="A", favor="LG", type="deps",
          q="¿Qué depende de IOrderRepository?",
          lg=[("search", {"pattern": "IOrderRepository"}),
@@ -32,14 +32,14 @@ Q = [
              "fallback_files": ["src/App/Repositories/IOrderRepository.cs"]},
          grep=["IOrderRepository"], read_hits=True),
 
-    # --- inyección de dependencias (favorece a LocalGraph) ---
+    # --- inyección de dependencias (favorece a SharpGraph) ---
     dict(id="Q02", repo="A", favor="LG", type="di",
          q="¿Qué implementación se inyecta para IOrderService?",
          lg=[("resolve_di", {"typeName": "IOrderService"})],
          cg={"mode": "explore", "files": ["src/App/DependencyInjection.cs"]},
          grep=["IOrderService"], read_files=["src/App/DependencyInjection.cs"]),
 
-    # --- invocaciones reales de un método (favorece a LocalGraph) ---
+    # --- invocaciones reales de un método (favorece a SharpGraph) ---
     dict(id="Q03", repo="A", favor="LG", type="callsites",
          q="¿Dónde se invoca OrderService.Place?",
          lg=[("find_call_sites", {"typeName": "OrderService", "member": "Place"})],
@@ -47,7 +47,7 @@ Q = [
              "fallback_files": ["src/App/Services/OrderService.cs"]},
          grep=["Place("], grep_fixed=True, read_hits=True),
 
-    # --- comprensión de FLUJO: árbol de llamadas (favorece a LocalGraph: flow) ---
+    # --- comprensión de FLUJO: árbol de llamadas (favorece a SharpGraph: flow) ---
     dict(id="Q04", repo="A", favor="FLOW", type="flow",
          q="¿Cómo funciona OrderService.Place de principio a fin?",
          lg=[("flow", {"typeName": "OrderService", "member": "Place", "depth": 3})],
@@ -59,7 +59,7 @@ Q = [
                               "src/App/Services/PricingService.cs",
                               "src/App/Repositories/OrderRepository.cs"]),
 
-    # --- leer un método concreto (favorece a LocalGraph: get_source) ---
+    # --- leer un método concreto (favorece a SharpGraph: get_source) ---
     dict(id="Q05", repo="A", favor="CG", type="source",
          q="Enséñame el cuerpo del método Place.",
          lg=[("get_source", {"typeName": "OrderService", "member": "Place"})],
@@ -73,7 +73,7 @@ Q = [
          cg={"mode": "explore", "files": ["src/App/Services/OrderService.cs"]},
          grep=["class OrderService"], read_files=["src/App/Services/OrderService.cs"]),
 
-    # --- arquitectura / tipos núcleo (favorece a LocalGraph: hubs) ---
+    # --- arquitectura / tipos núcleo (favorece a SharpGraph: hubs) ---
     dict(id="Q07", repo="A", favor="LG", type="hubs",
          q="¿Por dónde empiezo a entender el sistema?",
          lg=[("stats", {}), ("hubs", {"topK": 12})],
@@ -90,7 +90,7 @@ Q = [
 
 # --- Referencia de campos por pregunta -------------------------------------
 # repo:        clave de REPOS
-# lg:          lista de (herramienta_MCP, argumentos) que ejecuta LocalGraph
+# lg:          lista de (herramienta_MCP, argumentos) que ejecuta SharpGraph
 # cg:          estrategia CodeGraph:
 #   {"mode":"callers"|"callees", "symbol":"X", "limit":20, "fallback_files":[...]}
 #       -> ejecuta `codegraph callers/callees X --json`; si vacío, modela `explore` de fallback_files

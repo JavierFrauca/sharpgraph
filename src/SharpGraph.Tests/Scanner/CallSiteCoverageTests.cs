@@ -1,7 +1,7 @@
-using LocalGraph.Graph;
-using LocalGraph.Scanner;
+using SharpGraph.Graph;
+using SharpGraph.Scanner;
 
-namespace LocalGraph.Tests.Scanner;
+namespace SharpGraph.Tests.Scanner;
 
 /// <summary>
 /// Batería failing-first que reproduce los patrones ALTA identificados en la

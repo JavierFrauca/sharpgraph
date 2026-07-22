@@ -1,10 +1,10 @@
 name: release
 
-# Publica LocalGraph para win-x64, linux-x64 y osx-arm64 y sube los artefactos
+# Publica SharpGraph para win-x64, linux-x64 y osx-arm64 y sube los artefactos
 # a un release de GitHub. Se dispara al publicar un tag v* (p.ej. v2.1.0).
 #
 # Antes de taggear:
-#   - actualiza Version en src/LocalGraph/LocalGraph.csproj/Program.cs (ServerInfo)
+#   - actualiza Version en src/SharpGraph/SharpGraph.csproj/Program.cs (ServerInfo)
 #   - actualiza CHANGELOG / README si procede
 #   - git tag v2.1.0 && git push origin v2.1.0
 
@@ -56,7 +56,7 @@ jobs:
 
       - name: Publish
         run: |
-          dotnet publish src/LocalGraph/LocalGraph.csproj \
+          dotnet publish src/SharpGraph/SharpGraph.csproj \
             -c Release -r ${{ matrix.rid }} --self-contained true \
             -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true \
             -o dist/${{ matrix.rid }}
@@ -69,24 +69,24 @@ jobs:
         if: matrix.archive == 'zip'
         working-directory: dist
         run: |
-          # renombramos carpeta interna a LocalGraph-${{ matrix.rid }} para que al descomprimir quede claro
-          mv ${{ matrix.rid }} LocalGraph-${{ matrix.rid }}
-          (cd LocalGraph-${{ matrix.rid }} && chmod +x LocalGraph 2>/dev/null || true)
-          zip -r LocalGraph-${{ matrix.rid }}.zip LocalGraph-${{ matrix.rid }}
+          # renombramos carpeta interna a SharpGraph-${{ matrix.rid }} para que al descomprimir quede claro
+          mv ${{ matrix.rid }} SharpGraph-${{ matrix.rid }}
+          (cd SharpGraph-${{ matrix.rid }} && chmod +x SharpGraph 2>/dev/null || true)
+          zip -r SharpGraph-${{ matrix.rid }}.zip SharpGraph-${{ matrix.rid }}
 
       - name: Package (tar.gz)
         if: matrix.archive == 'tar.gz'
         working-directory: dist
         run: |
-          mv ${{ matrix.rid }} LocalGraph-${{ matrix.rid }}
-          chmod +x LocalGraph-${{ matrix.rid }}/LocalGraph 2>/dev/null || true
-          tar -czf LocalGraph-${{ matrix.rid }}.tar.gz LocalGraph-${{ matrix.rid }}
+          mv ${{ matrix.rid }} SharpGraph-${{ matrix.rid }}
+          chmod +x SharpGraph-${{ matrix.rid }}/SharpGraph 2>/dev/null || true
+          tar -czf SharpGraph-${{ matrix.rid }}.tar.gz SharpGraph-${{ matrix.rid }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LocalGraph-${{ matrix.rid }}
-          path: dist/LocalGraph-${{ matrix.rid }}.*
+          name: SharpGraph-${{ matrix.rid }}
+          path: dist/SharpGraph-${{ matrix.rid }}.*
 
   release:
     name: github release
@@ -109,6 +109,6 @@ jobs:
         with:
           generate_release_notes: true
           files: |
-            artifacts/LocalGraph-win-x64.zip
-            artifacts/LocalGraph-linux-x64.tar.gz
-            artifacts/LocalGraph-osx-arm64.tar.gz
+            artifacts/SharpGraph-win-x64.zip
+            artifacts/SharpGraph-linux-x64.tar.gz
+            artifacts/SharpGraph-osx-arm64.tar.gz

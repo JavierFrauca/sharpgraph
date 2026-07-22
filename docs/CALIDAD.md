@@ -1,4 +1,4 @@
-# Comparativa de calidad — LocalGraph vs CodeGraph
+# Comparativa de calidad — SharpGraph vs CodeGraph
 
 > Ejecutado sobre [CleanArchitecture](https://github.com/JasonTaylorDev/CleanArchitecture)
 > (Jason Taylor, MIT, 110 ficheros .cs). Outputs reales de ambas herramientas,
@@ -11,7 +11,7 @@ El [benchmark de tokens](BENCHMARK.md) mide **coste**. Aquí medimos **calidad**
 
 ## Q01 — ¿Qué tipos dependen de IApplicationDbContext?
 
-### LocalGraph (`find_callers`, depth 1)
+### SharpGraph (`find_callers`, depth 1)
 ```
 ← CreateTodoListCommandHandler [call]
 ← CreateTodoItemCommandHandler [call]
@@ -46,7 +46,7 @@ El [benchmark de tokens](BENCHMARK.md) mide **coste**. Aquí medimos **calidad**
 
 ### Comentario
 
-| Aspecto | LocalGraph | CodeGraph |
+| Aspecto | SharpGraph | CodeGraph |
 |---|---|---|
 | Agrupación | **Por tipo** (Handler, Validator, DbContext). Un caller por entidad. | Por **símbolo individual** (campo + método). Dos entradas por handler (_context field + handler method). |
 | Relación | **Etiquetada** (`[call]`, `[ctor-param]`, `[implements]`). Dice el *porqué*. | **Genérico** (`field`, `method`). Dice el *qué*. |
@@ -54,18 +54,18 @@ El [benchmark de tokens](BENCHMARK.md) mide **coste**. Aquí medimos **calidad**
 | MediatR | Con `depth:2` muestra la cadena Handler → Command. | No modela MediatR; no hay camino desde el handler al command. |
 | Accionable | **Sí**: "todos los handlers usan IApplicationDbContext como dependencia". | **Parcial**: hay que filtrar campos y deducir la relación. |
 
-**Veredicto Q01**: LocalGraph entrega una respuesta de más alto nivel y más accionable con menos ruido.
+**Veredicto Q01**: SharpGraph entrega una respuesta de más alto nivel y más accionable con menos ruido.
 
 ---
 
 ## Q04 — ¿Quién invoca CreateTodoItemCommand? (MediatR)
 
-### LocalGraph (`find_callers`, depth 2)
+### SharpGraph (`find_callers`, depth 2)
 ```
 ← CreateTodoItemCommandHandler [handled-by]
   ← CreateTodoItemCommand [handled-by]  (wait, needs deeper)
 ```
-La traza MediatR en LocalGraph es **exacta**: la arista `HandledBy` conecta
+La traza MediatR en SharpGraph es **exacta**: la arista `HandledBy` conecta
 Command → Handler, y `Sends` conecta Handler → Controller/Mediator.
 
 ### CodeGraph (`callers`)
@@ -77,21 +77,21 @@ no existe en su grafo.
 
 ### Comentario
 
-LocalGraph modela MediatR como una **relación de primera clase**: `Sends`
+SharpGraph modela MediatR como una **relación de primera clase**: `Sends`
 (Controller → Command) y `HandledBy` (Command → Handler). CodeGraph trata
 todas las relaciones como genéricas "uses"/"used by", sin distinguir el
-patrón arquitectónico. En codebases CQRS reales, esto implica que LocalGraph
+patrón arquitectónico. En codebases CQRS reales, esto implica que SharpGraph
 puede trazar la cadena completa Controller → Command → Handler → Service,
 mientras CodeGraph solo ve símbolos aislados.
 
-**Veredicto Q04**: LocalGraph gana en precisión arquitectónica. La diferencia
+**Veredicto Q04**: SharpGraph gana en precisión arquitectónica. La diferencia
 no es de cantidad de datos sino de **significado** de los datos.
 
 ---
 
 ## Q06 — ¿Qué implementación se inyecta para IIdentityService?
 
-### LocalGraph (`resolve_di`)
+### SharpGraph (`resolve_di`)
 ```
 'IIdentityService' (servicio) se resuelve a:
   → IdentityService  [transient] (L77)
@@ -107,18 +107,18 @@ services.AddTransient<IIdentityService, IdentityService>();
 
 ### Comentario
 
-27 tokens contra ~800. Pero más importante: LocalGraph **extrajo el binding
+27 tokens contra ~800. Pero más importante: SharpGraph **extrajo el binding
 automáticamente** durante el escaneo y lo expone como consulta directa.
 CodeGraph requiere que el LLM lea el fichero de configuración y extraiga la
-información manualmente — exactamente lo que LocalGraph existe para evitar.
+información manualmente — exactamente lo que SharpGraph existe para evitar.
 
-**Veredicto Q06**: LocalGraph tiene una capacidad que CodeGraph simplemente no ofrece.
+**Veredicto Q06**: SharpGraph tiene una capacidad que CodeGraph simplemente no ofrece.
 
 ---
 
 ## Q07 — ¿Cómo funciona CreateTodoItemCommandHandler.Handle?
 
-### LocalGraph (`flow`, depth 3)
+### SharpGraph (`flow`, depth 3)
 ```
 Flow de CreateTodoItemCommandHandler.Handle (depth 3):
   → DbSet.Add()  :31
@@ -143,21 +143,21 @@ flujo:
 
 ### Comentario
 
-33 tokens de LocalGraph contienen **exactamente** la misma información que
+33 tokens de SharpGraph contienen **exactamente** la misma información que
 el LLM extraería de 37 líneas de código (~400 tokens): el handler añade una
 entidad y guarda cambios. La diferencia es que `flow` da el árbol de llamadas
 **directamente**, sin obligar al LLM a leer código fuente.
 
-**Veredicto Q07**: LocalGraph destila el flujo de ejecución a su esencia.
+**Veredicto Q07**: SharpGraph destila el flujo de ejecución a su esencia.
 CodeGraph entrega el código fuente y delega la comprensión al LLM. Son
-filosofías distintas: LocalGraph responde "qué orquesta este método",
+filosofías distintas: SharpGraph responde "qué orquesta este método",
 CodeGraph responde "aquí está el código, léelo tú".
 
 ---
 
 ## Q09 — Enséñame el cuerpo del método Handle
 
-### LocalGraph (`get_source`, member=Handle)
+### SharpGraph (`get_source`, member=Handle)
 ```csharp
 // CreateTodoItem.cs:28  CreateTodoItemCommandHandler.Handle
    28  public async Task<int> Handle(CreateTodoItemCommand request,
@@ -182,18 +182,18 @@ relevantes para la pregunta.
 
 ### Comentario
 
-146 tokens de LocalGraph contienen **solo el método preguntado**. CodeGraph
+146 tokens de SharpGraph contienen **solo el método preguntado**. CodeGraph
 devuelve 37 líneas (~464 tokens) con tipos irrelevantes que el LLM debe
-ignorar. Para "enséñame este método", LocalGraph es más preciso.
+ignorar. Para "enséñame este método", SharpGraph es más preciso.
 
-**Veredicto Q09**: LocalGraph gana en precisión quirúrgica. CodeGraph entrega
+**Veredicto Q09**: SharpGraph gana en precisión quirúrgica. CodeGraph entrega
 más de lo necesario.
 
 ---
 
 ## Resumen de calidad
 
-| Pregunta | LocalGraph | CodeGraph | Diferencia clave |
+| Pregunta | SharpGraph | CodeGraph | Diferencia clave |
 |---|---|---|---|
 | Q01 — callers DbContext | Tipos + relación + cadena MediatR | Símbolos individuales + ruido (campos) | **Nivel de abstracción** |
 | Q04 — MediatR chain | Modelado exacto (Sends/HandledBy) | No modela MediatR | **Significado arquitectónico** |
@@ -203,18 +203,18 @@ más de lo necesario.
 
 ### Patrón general
 
-LocalGraph y CodeGraph representan dos filosofías:
+SharpGraph y CodeGraph representan dos filosofías:
 
 - **CodeGraph**: "aquí están los datos brutos (callers, callees, ficheros).
   El LLM que los interprete." Genérico, multi-lenguaje, confía en la capacidad
   del modelo para extraer significado.
 
-- **LocalGraph**: "aquí está el significado (relación, binding DI, flujo,
+- **SharpGraph**: "aquí está el significado (relación, binding DI, flujo,
   cadena MediatR)." Específico de .NET, modela los patrones del framework,
   entrega conclusiones en vez de datos brutos.
 
 No hay un ganador universal:
-- Si tu código es C# con MediatR/DI/CQRS, LocalGraph da **respuestas de más
+- Si tu código es C# con MediatR/DI/CQRS, SharpGraph da **respuestas de más
   alto nivel con menos tokens**.
 - Si tu código es multi-lenguaje o necesitas flexibilidad máxima, CodeGraph
   es la opción.

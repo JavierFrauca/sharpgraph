@@ -1,4 +1,4 @@
-# Cómo funciona LocalGraph
+# Cómo funciona SharpGraph
 
 ## Visión general
 
@@ -14,7 +14,7 @@
 │  │  Hook CwdChanged  (configurado por install.ps1)          │  │
 │  │                                                          │  │
 │  │  Cuando el directorio de trabajo cambia, dispara:        │  │
-│  │    mcp_tool → localgraph → Scan → path: "${cwd}"         │  │
+│  │    mcp_tool → sharpgraph → Scan → path: "${cwd}"         │  │
 │  └───────────────────────┬──────────────────────────────────┘  │
 │                          │  (también: el LLM puede llamar      │
 │                          │   scan() manualmente en cualquier   │
@@ -32,7 +32,7 @@
                            │
                            ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  LocalGraph.exe   (proceso MCP, vive mientras Claude Code       │
+│  SharpGraph.exe   (proceso MCP, vive mientras Claude Code       │
 │                    está abierto)                                │
 │                                                                 │
 │  ┌──────────────────────────────────────────────────────────┐  │
@@ -61,7 +61,7 @@
 │  │  - herencia/baseList│                  ▼                    │
 │  │  - campos/props/ctor│   ┌────────────────────────────────┐  │
 │  │  - new T() / call   │   │  GraphStore (caché en disco)   │  │
-│  │  - [HttpGet]/routing│   │  %LOCALAPPDATA%\LocalGraph\    │  │
+│  │  - [HttpGet]/routing│   │  %LOCALAPPDATA%\SharpGraph\    │  │
 │  │  - MediatR Send/    │   │    cache\<hash>.json           │  │
 │  │    IRequestHandler  │   │  (versionado por ParserVersion)│  │
 │  │  - DI AddScoped<,>/ │   └────────────────────────────────┘  │
@@ -78,13 +78,13 @@
 
 ## ¿Dónde se persiste la información?
 
-El grafo vive en **memoria RAM** durante la sesión, pero se **cachéa en disco** entre sesiones. No hay base de datos: la caché es JSON por solución en `%LOCALAPPDATA%\LocalGraph\cache\` (ver `Persistence/GraphStore.cs`).
+El grafo vive en **memoria RAM** durante la sesión, pero se **cachéa en disco** entre sesiones. No hay base de datos: la caché es JSON por solución en `%LOCALAPPDATA%\SharpGraph\cache\` (ver `Persistence/GraphStore.cs`).
 
 ```
 Claude Code arranca
        │
        ▼
-LocalGraph.exe arranca (grafo vacío)
+SharpGraph.exe arranca (grafo vacío)
        │
        │  CwdChanged hook / scan() manual
        ▼

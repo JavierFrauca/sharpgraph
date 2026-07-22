@@ -17,7 +17,7 @@ First public beta. The first release with a published changelog; earlier
 internal history is summarized at the bottom.
 
 ### Added
-- **Tests**: xUnit test project (`src/LocalGraph.Tests/`) with 45 tests covering
+- **Tests**: xUnit test project (`src/SharpGraph.Tests/`) with 45 tests covering
   `TypeReferenceVisitor` extraction (MediatR, Minimal API, DI registrations in
   all forms, nested types, generic containers, routing, ambiguous names, false
   positives) and `CodeGraph` queries (`resolve_di`, `find_callers`,
@@ -54,7 +54,7 @@ internal history is summarized at the bottom.
   on CleanArchitecture.
 
 ### Changed
-- `LocalGraph.csproj` no longer hardcodes `win-x64`; the RID is passed at
+- `SharpGraph.csproj` no longer hardcodes `win-x64`; the RID is passed at
   publish time.
 - `ServerInfo.Version` bumped to `2.1.0`.
 - `ParserVersion` bumped to `7` (the `FileFragment` model gained
@@ -97,6 +97,6 @@ internal history is summarized at the bottom.
 
 - Initial prototype. Replaced by v2.
 
-[Unreleased]: https://github.com/JavierFrauca/localgraph/compare/v2.1.0...HEAD
-[2.1.0]: https://github.com/JavierFrauca/localgraph/releases/tag/v2.1.0
-[2.0.0]: https://github.com/JavierFrauca/localgraph/compare/v1.0.0...v2.0.0
+[Unreleased]: https://github.com/JavierFrauca/sharpgraph/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/JavierFrauca/sharpgraph/releases/tag/v2.1.0
+[2.0.0]: https://github.com/JavierFrauca/sharpgraph/compare/v1.0.0...v2.0.0

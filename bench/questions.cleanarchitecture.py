@@ -4,10 +4,10 @@ Batería PÚBLICA de preguntas para el benchmark sobre CleanArchitecture
 (https://github.com/JasonTaylorDev/CleanArchitecture, licencia MIT).
 
 Reproducible: clona el repo, instala dependencias y ejecuta
-    python benchmark.py publish/LocalGraph.exe questions.cleanarchitecture
+    python benchmark.py publish/SharpGraph.exe questions.cleanarchitecture
 
 Cada pregunta indica cómo resolverla con cada enfoque:
-  - LocalGraph (herramientas MCP)
+  - SharpGraph (herramientas MCP)
   - CodeGraph  (CLI `codegraph` + modelo de su `explore`)
   - sin-MCP    (grep + lectura de ficheros)
 
@@ -28,7 +28,7 @@ REPOS = {
 }
 
 Q = [
-    # ============ estructura / navegación (favorece LocalGraph) ============
+    # ============ estructura / navegación (favorece SharpGraph) ============
 
     dict(id="Q01", repo="CA", favor="LG", type="deps",
          q="¿Qué tipos dependen de IApplicationDbContext?",
@@ -67,7 +67,7 @@ Q = [
          grep=[], read_files=["src/AppHost/Program.cs",
                              "src/Infrastructure/DependencyInjection.cs"]),
 
-    # ============ DI (favorece LocalGraph) ============
+    # ============ DI (favorece SharpGraph) ============
 
     dict(id="Q06", repo="CA", favor="LG", type="di",
          q="¿Qué implementación se inyecta para IIdentityService?",
@@ -75,7 +75,7 @@ Q = [
          cg={"mode": "explore", "files": ["src/Infrastructure/DependencyInjection.cs"]},
          grep=["IIdentityService"], read_files=["src/Infrastructure/DependencyInjection.cs"]),
 
-    # ============ comprensión de FLUJO (favorece LocalGraph: flow) ============
+    # ============ comprensión de FLUJO (favorece SharpGraph: flow) ============
 
     dict(id="Q07", repo="CA", favor="FLOW", type="flow",
          q="¿Cómo funciona CreateTodoItemCommandHandler.Handle de principio a fin?",
