@@ -11,8 +11,8 @@ public sealed partial class GraphEngine
         var n = nodes.Count;
         if (n == 0) return;
 
-        const double d = 0.85;
-        const int iterations = 20;
+        const double d = 0.85;      // damping factor estándar de PageRank (Brin & Page, 1998)
+        const int iterations = 20; // converge en ~10-15 iteraciones para grafos <1000 nodos; 20 da margen
 
         var outTargets = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         foreach (var node in nodes)
@@ -79,6 +79,9 @@ public sealed partial class GraphEngine
             return sb.ToString();
         }
     }
+
+    /// <summary>Hubs incluyendo tipos externos/BCL (infraestructura transversal).</summary>
+    public string HubsWithExternal(int topK = 15) => Hubs(topK, includeExternal: true);
 
     private void BuildDocsLocked()
     {
