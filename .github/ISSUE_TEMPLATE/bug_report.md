@@ -35,7 +35,7 @@ assignees: ''
 
 ## Entorno
 
-- LocalGraph version: <!-- commit hash o tag, p.ej. v2.1.0 / 097ba4b -->
+- SharpGraph version: <!-- commit hash o tag, p.ej. v2.1.0 / 097ba4b -->
 - OS: <!-- Windows 11 / macOS 14 / Ubuntu 24.04 -->
 - Arquitectura: <!-- x64 / arm64 -->
 - Cliente MCP: <!-- Claude Code / Cursor / Cline / Continue / Zed / otro -->

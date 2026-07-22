@@ -1,10 +1,10 @@
 using System.Xml.Linq;
-using LocalGraph.Graph;
+using SharpGraph.Graph;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace LocalGraph.Scanner;
+namespace SharpGraph.Scanner;
 
 /// <summary>
 /// Recorre el AST de un fichero y construye un <see cref="FileFragment"/> aislado

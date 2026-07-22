@@ -1,6 +1,6 @@
-# Cómo registrar LocalGraph en cada cliente MCP
+# Cómo registrar SharpGraph en cada cliente MCP
 
-LocalGraph es un **servidor MCP por stdio**: cualquier cliente que soporte el protocolo
+SharpGraph es un **servidor MCP por stdio**: cualquier cliente que soporte el protocolo
 puede usarlo. Aquí tienes los snippets de configuración verificados para los más comunes.
 
 > La forma más fácil es usar los instaladores:
@@ -10,7 +10,7 @@ puede usarlo. Aquí tienes los snippets de configuración verificados para los m
 > Estos snippets son la alternativa manual y la referencia de qué fichero toca cada uno.
 
 En todos los casos, `command` es la ruta al binario descargado para tu plataforma
-(`LocalGraph.exe` en Windows, `LocalGraph` en macOS/Linux).
+(`SharpGraph.exe` en Windows, `SharpGraph` en macOS/Linux).
 
 ---
 
@@ -20,7 +20,7 @@ CLI oficial de Anthropic. Es el único cliente con **auto-escaneo al cambiar de 
 (vía el hook `CwdChanged`); los demás requieren llamar a `scan(path)` manualmente.
 
 ```bash
-claude mcp add -s user localgraph /ruta/al/LocalGraph(.exe)
+claude mcp add -s user sharpgraph /ruta/al/SharpGraph(.exe)
 ```
 
 O, editando `~/.claude.json` a mano:
@@ -28,8 +28,8 @@ O, editando `~/.claude.json` a mano:
 ```jsonc
 {
   "mcpServers": {
-    "localgraph": {
-      "command": "/ruta/al/LocalGraph",
+    "sharpgraph": {
+      "command": "/ruta/al/SharpGraph",
       "args": []
     }
   }
@@ -47,11 +47,11 @@ para que el grafo se reconstruya al cambiar de carpeta de proyecto:
         "hooks": [
           {
             "type": "mcp_tool",
-            "server": "localgraph",
+            "server": "sharpgraph",
             "tool": "Scan",
             "input": { "path": "${cwd}" },
             "async": true,
-            "statusMessage": "LocalGraph indexing..."
+            "statusMessage": "SharpGraph indexing..."
           }
         ]
       }
@@ -60,7 +60,7 @@ para que el grafo se reconstruya al cambiar de carpeta de proyecto:
 }
 ```
 
-> La herramienta `configure_auto_scan()` que expone LocalGraph hace exactamente esto;
+> La herramienta `configure_auto_scan()` que expone SharpGraph hace exactamente esto;
 > es específica de Claude Code y no tiene efecto en otros clientes.
 
 ---
@@ -72,8 +72,8 @@ Fichero: `~/.cursor/mcp.json` (global) o `.cursor/mcp.json` dentro del proyecto.
 ```json
 {
   "mcpServers": {
-    "localgraph": {
-      "command": "/ruta/al/LocalGraph",
+    "sharpgraph": {
+      "command": "/ruta/al/SharpGraph",
       "args": []
     }
   }
@@ -94,8 +94,8 @@ Fichero (Linux): `~/.config/Code/User/globalStorage/saoudrizwan.claude-dev/setti
 ```json
 {
   "mcpServers": {
-    "localgraph": {
-      "command": "/ruta/al/LocalGraph",
+    "sharpgraph": {
+      "command": "/ruta/al/SharpGraph",
       "args": [],
       "env": {}
     }
@@ -114,8 +114,8 @@ Continue usa una sección `mcpServers` en `~/.continue/config.json` (experimenta
 ```json
 {
   "mcpServers": {
-    "localgraph": {
-      "command": "/ruta/al/LocalGraph",
+    "sharpgraph": {
+      "command": "/ruta/al/SharpGraph",
       "args": []
     }
   }
@@ -133,8 +133,8 @@ Fichero: `~/.config/zed/settings.json` (Linux/Windows) o `~/Library/Application 
 ```jsonc
 {
   "context_servers": {
-    "localgraph": {
-      "command": "/ruta/al/LocalGraph",
+    "sharpgraph": {
+      "command": "/ruta/al/SharpGraph",
       "args": []
     }
   }
@@ -151,9 +151,9 @@ Muchas extensiones de VS Code aceptan la convención estándar MCP. Por ejemplo,
 ```jsonc
 {
   "mcp.servers": {
-    "localgraph": {
+    "sharpgraph": {
       "type": "stdio",
-      "command": "/ruta/al/LocalGraph",
+      "command": "/ruta/al/SharpGraph",
       "args": []
     }
   }
@@ -189,6 +189,6 @@ En todos los clientes **excepto Claude Code** no hay hook `CwdChanged`. Para man
 grafo al día:
 
 1. La primera vez en un proyecto, pide al LLM `scan("/ruta")`.
-2. LocalGraph mantiene un *FileSystemWatcher* que re-parsea automáticamente los `.cs`
+2. SharpGraph mantiene un *FileSystemWatcher* que re-parsea automáticamente los `.cs`
    que modifiques mientras el servidor esté vivo. No necesitas re-escanear tras cada cambio.
 3. Si cambias de proyecto, pide `scan` de la nueva ruta (sobreescribe el grafo en memoria).

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Instala LocalGraph MCP para el cliente MCP que uses (Claude Code por defecto).
+# Instala SharpGraph MCP para el cliente MCP que uses (Claude Code por defecto).
 #
 # Sintaxis:  ./install.sh [--client <claude|cline|cursor|generic>] [--no-hook] [--install-path <dir>]
 #
 # Qué hace:
-#   1. Copia LocalGraph a ~/tools/LocalGraph/ (o --install-path)
+#   1. Copia SharpGraph a ~/tools/SharpGraph/ (o --install-path)
 #   2. Registra el servidor MCP en el cliente indicado (--client, por defecto claude)
 #   3. Si el cliente es Claude Code y no se pasa --no-hook, configura el hook
 #      CwdChanged para auto-escanear al cambiar de proyecto.
@@ -14,7 +14,7 @@
 set -euo pipefail
 
 CLIENT="claude"
-INSTALL_PATH="$HOME/tools/LocalGraph"
+INSTALL_PATH="$HOME/tools/SharpGraph"
 CONFIGURE_HOOK="true"
 
 while [[ $# -gt 0 ]]; do
@@ -30,14 +30,14 @@ while [[ $# -gt 0 ]]; do
 done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BIN_NAME="LocalGraph"
+BIN_NAME="SharpGraph"
 SRC_BIN="$SCRIPT_DIR/$BIN_NAME"
 
 if [[ ! -x "$SRC_BIN" ]]; then
     # algunos paquetes vienen sin bit de ejecución puesto tras descomprimir
     if [[ -f "$SRC_BIN" ]] && chmod +x "$SRC_BIN" 2>/dev/null; then :
     else
-        echo "No se encontro el ejecutable LocalGraph junto a este script ($SCRIPT_DIR)." >&2
+        echo "No se encontro el ejecutable SharpGraph junto a este script ($SCRIPT_DIR)." >&2
         echo "Ejecuta install.sh desde la carpeta del paquete (descomprimido)." >&2
         exit 1
     fi
@@ -46,7 +46,7 @@ fi
 mkdir -p "$INSTALL_PATH"
 cp -f "$SRC_BIN" "$INSTALL_PATH/$BIN_NAME"
 chmod +x "$INSTALL_PATH/$BIN_NAME"
-echo "OK  LocalGraph copiado a $INSTALL_PATH/$BIN_NAME"
+echo "OK  SharpGraph copiado a $INSTALL_PATH/$BIN_NAME"
 
 register_claude() {
     if ! command -v claude >/dev/null 2>&1; then
@@ -54,8 +54,8 @@ register_claude() {
         echo "Instalalo primero: https://claude.ai/code" >&2
         exit 1
     fi
-    claude mcp remove localgraph -s user 2>/dev/null || true
-    claude mcp add -s user localgraph "$INSTALL_PATH/$BIN_NAME"
+    claude mcp remove sharpgraph -s user 2>/dev/null || true
+    claude mcp add -s user sharpgraph "$INSTALL_PATH/$BIN_NAME"
     echo "OK  MCP registrado para Claude Code"
 }
 
@@ -70,14 +70,14 @@ register_cline() {
     fi
     mkdir -p "$base"
     local f="$base/cline_mcp_settings.json"
-    # si ya existe, añadimos/actualizamos la entrada localgraph; si no, creamos el esqueleto.
+    # si ya existe, añadimos/actualizamos la entrada sharpgraph; si no, creamos el esqueleto.
     if [[ -f "$f" ]]; then
-        echo "El fichero $f ya existe. Edítalo a mano y añade el servidor localgraph (ver docs/CLIENTS.md)."
+        echo "El fichero $f ya existe. Edítalo a mano y añade el servidor sharpgraph (ver docs/CLIENTS.md)."
     else
         cat > "$f" <<JSON
 {
   "mcpServers": {
-    "localgraph": {
+    "sharpgraph": {
       "command": "$INSTALL_PATH/$BIN_NAME",
       "args": [],
       "env": {}
@@ -93,12 +93,12 @@ register_cursor() {
     local f="$HOME/.cursor/mcp.json"
     mkdir -p "$(dirname "$f")"
     if [[ -f "$f" ]]; then
-        echo "El fichero $f ya existe. Edítalo a mano y añade el servidor localgraph (ver docs/CLIENTS.md)."
+        echo "El fichero $f ya existe. Edítalo a mano y añade el servidor sharpgraph (ver docs/CLIENTS.md)."
     else
         cat > "$f" <<JSON
 {
   "mcpServers": {
-    "localgraph": {
+    "sharpgraph": {
       "command": "$INSTALL_PATH/$BIN_NAME",
       "args": []
     }
@@ -132,8 +132,8 @@ if [[ "$CLIENT" == "claude" && "$CONFIGURE_HOOK" == "true" ]]; then
     SETTINGS="$HOME/.claude/settings.json"
     mkdir -p "$(dirname "$SETTINGS")"
 
-    if [[ -f "$SETTINGS" ]] && grep -q '"localgraph"' "$SETTINGS" 2>/dev/null; then
-        echo "--  Hook/auto-config de localgraph ya presente en $SETTINGS"
+    if [[ -f "$SETTINGS" ]] && grep -q '"sharpgraph"' "$SETTINGS" 2>/dev/null; then
+        echo "--  Hook/auto-config de sharpgraph ya presente en $SETTINGS"
     else
         # usa python3 si esta disponible para editar el JSON de forma segura; si no, instructiones manuales.
         if command -v python3 >/dev/null 2>&1; then
@@ -146,12 +146,12 @@ except Exception:
     cfg = {}
 hooks = cfg.setdefault("hooks", {})
 cwd = hooks.setdefault("CwdChanged", [])
-already = any(h.get("server") == "localgraph" for group in cwd for h in group.get("hooks", []))
+already = any(h.get("server") == "sharpgraph" for group in cwd for h in group.get("hooks", []))
 if not already:
     cwd.append({"hooks": [{
-        "type": "mcp_tool", "server": "localgraph", "tool": "Scan",
+        "type": "mcp_tool", "server": "sharpgraph", "tool": "Scan",
         "input": {"path": "${cwd}"}, "async": True,
-        "statusMessage": "LocalGraph indexing..."
+        "statusMessage": "SharpGraph indexing..."
     }]})
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w") as f: json.dump(cfg, f, indent=2)

@@ -1,4 +1,4 @@
-# LocalGraph
+# SharpGraph
 
 **Servidor MCP que indexa proyectos C# (.NET) en un grafo de dependencias y lo expone a LLMs para navegar código sin leer ficheros enteros.** Token-efficient navigation of .NET codebases: MediatR/CQRS, DI, ASP.NET Core routing.
 
@@ -12,10 +12,10 @@ Permite responder preguntas como _"¿desde qué endpoint se llama a este servici
 
 ## Quickstart (5 minutos)
 
-1. **Descarga el binario** para tu plataforma desde la última [Release](https://github.com/JavierFrauca/localgraph/releases):
-   - Windows: `LocalGraph-win-x64.zip`
-   - macOS (Apple Silicon): `LocalGraph-osx-arm64.tar.gz`
-   - Linux: `LocalGraph-linux-x64.tar.gz`
+1. **Descarga el binario** para tu plataforma desde la última [Release](https://github.com/JavierFrauca/sharpgraph/releases):
+   - Windows: `SharpGraph-win-x64.zip`
+   - macOS (Apple Silicon): `SharpGraph-osx-arm64.tar.gz`
+   - Linux: `SharpGraph-linux-x64.tar.gz`
 2. **Descomprime** en cualquier carpeta.
 3. **Registra el servidor MCP** en tu cliente (elige uno):
    - **Claude Code** (Windows): `.\install.ps1`
@@ -60,7 +60,7 @@ En proyectos grandes con CQRS y MediatR, la cadena de llamadas no es directa:
 [GET /salary]  ←  Controller  ──▶  Query  ◀──  Query.Handler  ──▶  ISalaryService
 ```
 
-Un LLM que intente trazar esta ruta leyendo código necesitaría abrir varios ficheros y podría perder conexiones. LocalGraph escanea el proyecto una vez y responde a esas preguntas en milisegundos.
+Un LLM que intente trazar esta ruta leyendo código necesitaría abrir varios ficheros y podría perder conexiones. SharpGraph escanea el proyecto una vez y responde a esas preguntas en milisegundos.
 
 ---
 
@@ -99,7 +99,7 @@ de modo que el LLM rara vez necesita abrir un fichero completo.
 Claude Code
     │  stdio (MCP)
     ▼
-LocalGraph.exe
+SharpGraph.exe
     ├── GraphTools       ← herramientas MCP (entrada/salida)
     ├── CodeGraph        ← grafo bidireccional en memoria
     └── SolutionScanner  ← escaneo Roslyn en paralelo
@@ -174,7 +174,7 @@ Buscando _"¿quién llama a IUserService?"_ hacia atrás, el DFS llega al `Handl
 
 ## Limitaciones conocidas
 
-LocalGraph parsea con **Roslyn AST sin modelo semántico** (sin compilar). Es una decisión
+SharpGraph parsea con **Roslyn AST sin modelo semántico** (sin compilar). Es una decisión
 consciente para mantener escaneo paralelo y arranque instantáneo (~250 ms para proyectos
 medianos), a costa de precisión en construcciones que requieren resolver tipos por compilación.
 
@@ -220,7 +220,7 @@ código real para inspección manual puntual sin necesidad de aristas perfectas.
 ## Benchmark de tokens
 
 ¿Cuánto ahorra de verdad? En [`docs/BENCHMARK.md`](docs/BENCHMARK.md) hay una batería reproducible que
-compara, con cuenta exacta de tokens (`tiktoken`), **LocalGraph vs CodeGraph vs grep+lectura**
+compara, con cuenta exacta de tokens (`tiktoken`), **SharpGraph vs CodeGraph vs grep+lectura**
 sobre tus propios repos. Resumen de la batería interna (2 repos .NET, 31 preguntas):
 
 - **Navegar / localizar / resolver** (deps, DI, call-sites, endpoints, hubs): **~7× menos
@@ -238,7 +238,7 @@ Cómo reproducirlo sobre tu código: ver [docs/BENCHMARK.md](docs/BENCHMARK.md).
 # Compilar y publicar para win-x64 (atóajo local; detiene el proceso en ejecucion si existe)
 .\publish.ps1
 
-# Compilar para las 3 plataformas soportadas y empaquetar (dist/LocalGraph-<rid>.{zip,tar.gz})
+# Compilar para las 3 plataformas soportadas y empaquetar (dist/SharpGraph-<rid>.{zip,tar.gz})
 .\publish-all.ps1
 
 # Ejecutar los tests

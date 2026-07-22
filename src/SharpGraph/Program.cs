@@ -1,8 +1,8 @@
-using LocalGraph.Graph;
-using LocalGraph.Mcp;
-using LocalGraph.Persistence;
-using LocalGraph.Scanner;
-using LocalGraph.Watcher;
+using SharpGraph.Graph;
+using SharpGraph.Mcp;
+using SharpGraph.Persistence;
+using SharpGraph.Scanner;
+using SharpGraph.Watcher;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -31,7 +31,7 @@ if (path is not null)
     }
 }
 else
-    await Console.Error.WriteLineAsync("LocalGraph ready (no path). Call scan() to index a project.");
+    await Console.Error.WriteLineAsync("SharpGraph ready (no path). Call scan() to index a project.");
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -44,9 +44,9 @@ builder.Services.AddSingleton(store);
 builder.Services.AddSingleton(watcher);
 builder.Services.AddMcpServer(options =>
 {
-    options.ServerInfo = new() { Name = "LocalGraph", Version = "2.1.0" };
+    options.ServerInfo = new() { Name = "SharpGraph", Version = "2.1.0" };
     options.ServerInstructions = """
-        LocalGraph indexa proyectos C# en un grafo de dependencias y permite
+        SharpGraph indexa proyectos C# en un grafo de dependencias y permite
         navegarlo SIN leer ficheros de código fuente — y ahora también recuperar
         código fuente puntual para ahorrar tokens.
 

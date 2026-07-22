@@ -1,4 +1,4 @@
-# LocalGraph vs CodeGraph vs Sourcegraph MCP vs code-graph-mcp
+# SharpGraph vs CodeGraph vs Sourcegraph MCP vs code-graph-mcp
 
 Comparativa **pública y anonimizada** de servidores MCP de "code graph" para navegación
 de código con LLMs. Su objetivo es ayudar a elegir herramienta según contexto, no declarar
@@ -15,7 +15,7 @@ un ganador universal: cada una tiene un ángulo distinto.
 
 | Herramienta | Ámbito | Tesis | Cuándo elegirlo |
 |---|---|---|---|
-| **LocalGraph** | **C# / .NET** | Navegación token-efficient de relaciones (MediatR, DI, endpoints) | Proyectos .NET donde el coste de contexto del agente importa |
+| **SharpGraph** | **C# / .NET** | Navegación token-efficient de relaciones (MediatR, DI, endpoints) | Proyectos .NET donde el coste de contexto del agente importa |
 | **CodeGraph** (colbymchenry) | Multi-lenguaje | Grafo de callers/callees + `explore` (fuente verbatim multi-fichero) | Multi-lenguaje, lectura profunda de código |
 | **Sourcegraph MCP** | Multi-lenguaje, escala | Búsqueda y lectura de código a escala empresarial (indexado de repos masivos) | Monorepos grandes, organización con Sourcegraph ya desplegado |
 | **code-graph-mcp** (sdsrss) | Multi-lenguaje | AST knowledge graph + semántica + call graph + HTTP routes | Multi-lenguaje con rastreo HTTP cross-lang |
@@ -23,14 +23,14 @@ un ganador universal: cada una tiene un ángulo distinto.
 **No hay un único ganador universal.** La diferencia clave es el ángulo:
 
 - **Multi-lenguaje** → CodeGraph / Sourcegraph / code-graph-mcp ganan.
-- **Profundidad .NET + tokens mínimos** → LocalGraph gana (modela MediatR/DI/routing
+- **Profundidad .NET + tokens mínimos** → SharpGraph gana (modela MediatR/DI/routing
   de forma nativa, devuelve metadatos compactos en vez de ficheros).
 
 ---
 
 ## Tabla cualitativa
 
-| Característica | LocalGraph | CodeGraph | Sourcegraph MCP | code-graph-mcp |
+| Característica | SharpGraph | CodeGraph | Sourcegraph MCP | code-graph-mcp |
 |---|---|---|---|---|
 | Lenguajes soportados | C# únicamente | ~38 | ~igual a Sourcegraph (muchos) | multi |
 | Modelado MediatR/CQRS | **Sí, exacto** (`Sends`/`HandledBy`) | No específico | No | Parcial (call graph) |
@@ -55,14 +55,14 @@ interna mezcla usos distintos; lo importante es el desglose por categoría.
 
 | Categoría de pregunta | Ganador | Margen (tokens) |
 |---|---|---|
-| **Navegar / localizar / resolver** (deps, DI, call-sites, endpoints, hubs) | **LocalGraph** | **~7× vs CodeGraph · ~16× vs grep** |
-| **Comprensión de flujo** (`flow`: árbol siguiendo DI) | **LocalGraph** | **~45×** vs leer la cadena |
+| **Navegar / localizar / resolver** (deps, DI, call-sites, endpoints, hubs) | **SharpGraph** | **~7× vs CodeGraph · ~16× vs grep** |
+| **Comprensión de flujo** (`flow`: árbol siguiendo DI) | **SharpGraph** | **~45×** vs leer la cadena |
 | **Leer la clase completa** | empate | `understand` gana en clases grandes; leer el fichero gana las pequeñas |
 | **Explicar la lógica de un método** | empate | requiere su fuente (`get_source`); techo = leerla |
 | **Literales / strings** | **grep** | los grafos no indexan literales |
 
 **Lectura.** Para el uso dominante de un agente —navegar código, localizar usos, resolver
-DI, trazar a endpoints y entender flujos— LocalGraph ahorra ~un orden de magnitud de tokens
+DI, trazar a endpoints y entender flujos— SharpGraph ahorra ~un orden de magnitud de tokens
 al entregar datos derivados del grafo en formato compacto. La filosofía CodeGraph (fuente
 verbatim multi-fichero) gana cuando el objetivo es *leer* código a fondo; ahí es paridad.
 
@@ -73,7 +73,7 @@ verbatim multi-fichero) gana cuando el objetivo es *leer* código a fondo; ahí 
 
 ## Diferencias arquitecturales
 
-### LocalGraph
+### SharpGraph
 - **AST sin compilar** (Roslyn `CSharpSyntaxTree.ParseText`), paralelo por fichero.
 - Cada `.cs` produce un `FileFragment` aislado; el grafo los fusiona.
 - Resolución de identidad por **FQN** (namespace + usings + prefijo compartido) con
@@ -95,19 +95,19 @@ verbatim multi-fichero) gana cuando el objetivo es *leer* código a fondo; ahí 
 
 ### code-graph-mcp
 - AST knowledge graph genérico con traversal de call graph y rastreo de rutas HTTP.
-- Más cercano a LocalGraph en espíritu (graph + routes), pero multi-lenguaje y sin
+- Más cercano a SharpGraph en espíritu (graph + routes), pero multi-lenguaje y sin
   modelado específico de DI/MediatR.
 
 ---
 
-## Cuándo NO elegir LocalGraph
+## Cuándo NO elegir SharpGraph
 
 - Tu código no es C# / .NET.
 - Tu caso de uso dominante es leer/comprender a fondo (CodeGraph gana o empata).
 - Necesitas buscar literales/strings frecuentemente (grep).
 - Estás en una organización con Sourcegraph ya desplegado a escala.
 
-## Cuándo elegir LocalGraph
+## Cuándo elegir SharpGraph
 
 - Tu base de código es .NET con DI/MediatR/ASP.NET Core.
 - Quieres que el agente navegue **sin leer ficheros enteros** (ahorro de tokens).

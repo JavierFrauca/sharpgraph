@@ -1,6 +1,0 @@
-<Solution>
-  <Folder Name="/src/">
-    <Project Path="src/LocalGraph/LocalGraph.csproj" />
-    <Project Path="src/LocalGraph.Tests/LocalGraph.Tests.csproj" />
-  </Folder>
-</Solution>

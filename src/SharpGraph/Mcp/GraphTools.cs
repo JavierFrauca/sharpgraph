@@ -1,19 +1,19 @@
 using System.ComponentModel;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using LocalGraph.Graph;
-using LocalGraph.Persistence;
-using LocalGraph.Scanner;
-using LocalGraph.Watcher;
+using SharpGraph.Graph;
+using SharpGraph.Persistence;
+using SharpGraph.Scanner;
+using SharpGraph.Watcher;
 using ModelContextProtocol.Server;
 
-namespace LocalGraph.Mcp;
+namespace SharpGraph.Mcp;
 
 [McpServerToolType]
 public class GraphTools(CodeGraph graph, GraphStore store, ProjectWatcher watcher)
 {
     [McpServerTool, Description("""
-        PRIMERA CONFIGURACIÓN — llama a esta herramienta la primera vez que usas LocalGraph
+        PRIMERA CONFIGURACIÓN — llama a esta herramienta la primera vez que usas SharpGraph
         CON Claude Code. (Solo aplica a Claude Code: otros clientes no soportan el hook
         CwdChanged y esta herramienta no tendrá efecto en ellos. Ver docs/CLIENTS.md.)
 
@@ -63,7 +63,7 @@ public class GraphTools(CodeGraph graph, GraphStore store, ProjectWatcher watche
         foreach (var item in cwdArray)
             if (item?["hooks"] is JsonArray inner)
                 foreach (var h in inner)
-                    if (h?["server"]?.GetValue<string>() == "localgraph")
+                    if (h?["server"]?.GetValue<string>() == "sharpgraph")
                         return "El hook CwdChanged ya estaba configurado. No se ha realizado ningún cambio.";
 
         cwdArray.Add(new JsonObject
@@ -73,11 +73,11 @@ public class GraphTools(CodeGraph graph, GraphStore store, ProjectWatcher watche
                 new JsonObject
                 {
                     ["type"] = "mcp_tool",
-                    ["server"] = "localgraph",
+                    ["server"] = "sharpgraph",
                     ["tool"] = "Scan",
                     ["input"] = new JsonObject { ["path"] = "${cwd}" },
                     ["async"] = true,
-                    ["statusMessage"] = "LocalGraph indexing..."
+                    ["statusMessage"] = "SharpGraph indexing..."
                 }
             }
         });

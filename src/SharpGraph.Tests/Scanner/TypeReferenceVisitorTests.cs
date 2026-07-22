@@ -1,7 +1,7 @@
-using LocalGraph.Graph;
-using LocalGraph.Scanner;
+using SharpGraph.Graph;
+using SharpGraph.Scanner;
 
-namespace LocalGraph.Tests.Scanner;
+namespace SharpGraph.Tests.Scanner;
 
 /// <summary>
 /// Verifica que <see cref="TypeReferenceVisitor"/> extrae correctamente cada patrón
@@ -225,7 +225,7 @@ public class PayrollController : ControllerBase {
         var ep = Assert.Single(frag.Endpoints);
         Assert.Equal("GET", ep.Verb);
         // NOTA: ASP.NET Core lowercases [controller] por convención al hacer routing real,
-        // pero LocalGraph NO lo hace (sustituye el token tal cual). El test documenta el
+        // pero SharpGraph NO lo hace (sustituye el token tal cual). El test documenta el
         // comportamiento actual; si se arregla el lowercase, actualizar la expectativa.
         Assert.Equal("/api/Payroll/{id}", ep.Route);
     }

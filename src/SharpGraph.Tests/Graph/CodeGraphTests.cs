@@ -1,6 +1,6 @@
-using LocalGraph.Graph;
+using SharpGraph.Graph;
 
-namespace LocalGraph.Tests.Graph;
+namespace SharpGraph.Tests.Graph;
 
 /// <summary>
 /// Tests de consultas de alto nivel sobre el grafo ya construido.

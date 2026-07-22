@@ -1,6 +1,6 @@
-using LocalGraph.Graph;
+using SharpGraph.Graph;
 
-namespace LocalGraph.Tests.Graph;
+namespace SharpGraph.Tests.Graph;
 
 /// <summary>
 /// Tests específicos de la herramienta <c>flow</c>: terminación, límites y ciclos.

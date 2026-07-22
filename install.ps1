@@ -1,15 +1,15 @@
 <#
 .SYNOPSIS
-    Instala LocalGraph MCP para el cliente MCP que uses (Claude Code por defecto).
+    Instala SharpGraph MCP para el cliente MCP que uses (Claude Code por defecto).
 
 .DESCRIPTION
-    - Copia LocalGraph.exe a %USERPROFILE%\tools\LocalGraph\ (o -InstallPath)
+    - Copia SharpGraph.exe a %USERPROFILE%\tools\SharpGraph\ (o -InstallPath)
     - Registra el servidor MCP en el cliente indicado (-Client: claude|cline|cursor|generic)
     - Si el cliente es Claude Code y se pasa -ConfigureHook (defecto), configura el
       hook CwdChanged para auto-escanear al cambiar de proyecto.
 
 .PARAMETER InstallPath
-    Carpeta donde se instalara LocalGraph.exe. Defecto: %USERPROFILE%\tools\LocalGraph
+    Carpeta donde se instalara SharpGraph.exe. Defecto: %USERPROFILE%\tools\SharpGraph
 
 .PARAMETER Client
     Cliente MCP objetivo. Defecto: claude.
@@ -20,10 +20,10 @@
 .EXAMPLE
     .\install.ps1
     .\install.ps1 -Client cline -ConfigureHook:$false
-    .\install.ps1 -InstallPath "C:\tools\LocalGraph"
+    .\install.ps1 -InstallPath "C:\tools\SharpGraph"
 #>
 param(
-    [string] $InstallPath = (Join-Path $env:USERPROFILE "tools\LocalGraph"),
+    [string] $InstallPath = (Join-Path $env:USERPROFILE "tools\SharpGraph"),
     [ValidateSet("claude","cline","cursor","generic")]
     [string] $Client = "claude",
     [switch] $ConfigureHook = $true
@@ -32,12 +32,12 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $settingsFile = Join-Path $env:USERPROFILE ".claude\settings.json"
-$exe          = Join-Path $PSScriptRoot "LocalGraph.exe"
-$target       = Join-Path $InstallPath "LocalGraph.exe"
+$exe          = Join-Path $PSScriptRoot "SharpGraph.exe"
+$target       = Join-Path $InstallPath "SharpGraph.exe"
 
 # ── Comprobaciones previas ────────────────────────────────────────────────────
 if (-not (Test-Path $exe)) {
-    Write-Error "No se encontro LocalGraph.exe junto a este script ($PSScriptRoot).`nAsegurate de ejecutar install.ps1 desde la carpeta del paquete."
+    Write-Error "No se encontro SharpGraph.exe junto a este script ($PSScriptRoot).`nAsegurate de ejecutar install.ps1 desde la carpeta del paquete."
     exit 1
 }
 
@@ -61,7 +61,7 @@ function ConvertTo-DeepHashtable($obj) {
 Write-Host "Instalando en $InstallPath ..."
 New-Item -ItemType Directory -Force -Path $InstallPath | Out-Null
 Copy-Item -Path $exe -Destination $target -Force
-Write-Host "  OK  LocalGraph.exe copiado"
+Write-Host "  OK  SharpGraph.exe copiado"
 
 # ── 2. Registrar servidor MCP en el cliente indicado ─────────────────────────
 switch ($Client) {
@@ -70,21 +70,21 @@ switch ($Client) {
             Write-Error "Claude Code no esta instalado o no esta en el PATH.`nInstalalo primero: https://claude.ai/code"
             exit 1
         }
-        try { $null = & claude mcp remove localgraph -s user 2>&1 } catch {}
-        & claude mcp add -s user localgraph $target
-        Write-Host "  OK  MCP registrado para Claude Code: localgraph -> $target"
+        try { $null = & claude mcp remove sharpgraph -s user 2>&1 } catch {}
+        & claude mcp add -s user sharpgraph $target
+        Write-Host "  OK  MCP registrado para Claude Code: sharpgraph -> $target"
     }
     "cline" {
         $base = Join-Path $env:APPDATA "Code\User\globalStorage\saoudrizwan.claude-dev\settings"
         New-Item -ItemType Directory -Force -Path $base | Out-Null
         $f = Join-Path $base "cline_mcp_settings.json"
         if (Test-Path $f) {
-            Write-Host "  --  $f ya existe. Editalo a mano y anade el servidor localgraph (ver docs/CLIENTS.md)."
+            Write-Host "  --  $f ya existe. Editalo a mano y anade el servidor sharpgraph (ver docs/CLIENTS.md)."
         } else {
             $json = @"
 {
   "mcpServers": {
-    "localgraph": {
+    "sharpgraph": {
       "command": "$($target -replace '\\','\\')",
       "args": [],
       "env": {}
@@ -102,12 +102,12 @@ switch ($Client) {
         New-Item -ItemType Directory -Force -Path $dir | Out-Null
         $f = Join-Path $dir "mcp.json"
         if (Test-Path $f) {
-            Write-Host "  --  $f ya existe. Editalo a mano y anade el servidor localgraph (ver docs/CLIENTS.md)."
+            Write-Host "  --  $f ya existe. Editalo a mano y anade el servidor sharpgraph (ver docs/CLIENTS.md)."
         } else {
             $json = @"
 {
   "mcpServers": {
-    "localgraph": {
+    "sharpgraph": {
       "command": "$($target -replace '\\','\\')",
       "args": []
     }
@@ -139,7 +139,7 @@ if ($Client -eq "claude" -and $ConfigureHook) {
     $alreadyConfigured = $false
     foreach ($group in $settings['hooks']['CwdChanged']) {
         foreach ($h in $group['hooks']) {
-            if ($h['server'] -eq 'localgraph') { $alreadyConfigured = $true; break }
+            if ($h['server'] -eq 'sharpgraph') { $alreadyConfigured = $true; break }
         }
     }
 
@@ -150,11 +150,11 @@ if ($Client -eq "claude" -and $ConfigureHook) {
             hooks = @(
                 [ordered]@{
                     type          = "mcp_tool"
-                    server        = "localgraph"
+                    server        = "sharpgraph"
                     tool          = "Scan"
                     input         = [ordered]@{ path = '${cwd}' }
                     async         = $true
-                    statusMessage = "LocalGraph indexing..."
+                    statusMessage = "SharpGraph indexing..."
                 }
             )
         }

@@ -1,10 +1,10 @@
 using System.Collections.Concurrent;
 using System.Reflection;
-using LocalGraph.Graph;
-using LocalGraph.Scanner;
+using SharpGraph.Graph;
+using SharpGraph.Scanner;
 using Microsoft.CodeAnalysis.CSharp;
 
-namespace LocalGraph.Tests;
+namespace SharpGraph.Tests;
 
 /// <summary>
 /// Construye un <see cref="CodeGraph"/> a partir de fixtures sintéticos embebidos
@@ -14,7 +14,7 @@ namespace LocalGraph.Tests;
 /// </summary>
 internal static class GraphTestHarness
 {
-    private const string FixturePrefix = "LocalGraph.Tests.Fixtures.";
+    private const string FixturePrefix = "SharpGraph.Tests.Fixtures.";
 
     /// <summary>Construye un grafo con uno o varios fixtures por nombre (sin extensión).</summary>
     public static CodeGraph Build(params string[] fixtureNames)

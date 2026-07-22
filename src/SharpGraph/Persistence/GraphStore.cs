@@ -1,9 +1,9 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using LocalGraph.Graph;
+using SharpGraph.Graph;
 
-namespace LocalGraph.Persistence;
+namespace SharpGraph.Persistence;
 
 /// <summary>
 /// Caché en disco de los fragmentos del grafo, por solución. Permite arranque
@@ -29,7 +29,7 @@ public sealed class GraphStore
     {
         _cacheDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "LocalGraph", "cache");
+            "SharpGraph", "cache");
         Directory.CreateDirectory(_cacheDir);
     }
 

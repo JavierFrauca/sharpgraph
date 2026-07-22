@@ -5,14 +5,14 @@
 
 .DESCRIPTION
     Si el repo no está clonado, lo clona automáticamente (necesitas git).
-    Después ejecuta 5 queries clave que muestran lo que LocalGraph puede hacer
+    Después ejecuta 5 queries clave que muestran lo que SharpGraph puede hacer
     que grep + lectura no pueden. Ideal para grabar una demo de 30 segundos.
 
 .EXAMPLE
-    .\demo.ps1                        # usa publish/LocalGraph.exe (compilado)
-    .\demo.ps1 -Exe C:\tools\LocalGraph.exe
+    .\demo.ps1                        # usa publish/SharpGraph.exe (compilado)
+    .\demo.ps1 -Exe C:\tools\SharpGraph.exe
 #>
-param([string] $Exe = (Join-Path $PSScriptRoot "publish" "LocalGraph.exe"))
+param([string] $Exe = (Join-Path $PSScriptRoot "publish" "SharpGraph.exe"))
 
 $ca = Join-Path $PSScriptRoot "bench" "_external" "CleanArchitecture"
 if (-not (Test-Path $ca)) {
@@ -22,7 +22,7 @@ if (-not (Test-Path $ca)) {
 
 $demo = @"
 =============================
- LocalGraph Demo
+ SharpGraph Demo
 =============================
 
  Proyecto: CleanArchitecture (110 ficheros .cs, MIT)

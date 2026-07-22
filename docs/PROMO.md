@@ -8,22 +8,22 @@
 
 ## Título sugerido (elige el que mejor encaje)
 
-- Reddit r/dotnet: **"LocalGraph — un MCP server C#-first que ahorra ~4-8× tokens al LLM vs leer ficheros enteros"**
-- Reddit r/LocalLLaMA: **"Build a knowledge graph from your .NET codebase for your LLM — LocalGraph v2.1.0"**
+- Reddit r/dotnet: **"SharpGraph — un MCP server C#-first que ahorra ~4-8× tokens al LLM vs leer ficheros enteros"**
+- Reddit r/LocalLLaMA: **"Build a knowledge graph from your .NET codebase for your LLM — SharpGraph v2.1.0"**
 - Reddit r/ClaudeAI: **"Snappier Claude in .NET repos: 4-8× fewer tokens than reading files with this MCP server"**
-- Hacker News: **"Show HN: LocalGraph — token-efficient code navigation for .NET (MCP)"**
+- Hacker News: **"Show HN: SharpGraph — token-efficient code navigation for .NET (MCP)"**
 
 ## Cuerpo (para r/dotnet)
 
 Hola r/dotnet!
 
-He trabajado en un proyecto que creo vale la pena compartir: **LocalGraph**, un servidor MCP que escanea tu codebase C# y construye un grafo de dependencias en memoria, permitiendo que tu LLM (Claude Code, Cursor, Cline...) navegue el código **sin leer ficheros enteros**.
+He trabajado en un proyecto que creo vale la pena compartir: **SharpGraph**, un servidor MCP que escanea tu codebase C# y construye un grafo de dependencias en memoria, permitiendo que tu LLM (Claude Code, Cursor, Cline...) navegue el código **sin leer ficheros enteros**.
 
 ### ¿Por qué?
 
 Imagina que quieres trazar "¿desde qué endpoint se llama a UserService?" en un proyecto con CQRS/MediatR. La cadena es Controller → Command → Handler → Service, repartida en 4-5 ficheros. Un LLM que intente responder leyendo esos ficheros uno a uno va a gastar cientos o miles de tokens, y puede perderse.
 
-LocalGraph responde a esa pregunta en **~50-250 tokens**, con la cadena exacta y el file:line de cada paso. Lo mismo para "¿dónde se invoca de verdad SaveChangesAsync?" o "¿cómo funciona el flujo de CreateHandler?".
+SharpGraph responde a esa pregunta en **~50-250 tokens**, con la cadena exacta y el file:line de cada paso. Lo mismo para "¿dónde se invoca de verdad SaveChangesAsync?" o "¿cómo funciona el flujo de CreateHandler?".
 
 ### ¿Qué modela?
 
@@ -37,7 +37,7 @@ LocalGraph responde a esa pregunta en **~50-250 tokens**, con la cadena exacta y
 
 Lo probamos sobre [CleanArchitecture](https://github.com/JasonTaylorDev/CleanArchitecture) (110 ficheros .cs, CQRS/MediatR/DI). 12 preguntas, medición con tiktoken cl100k_base:
 
-| | LocalGraph | CodeGraph | grep+read |
+| | SharpGraph | CodeGraph | grep+read |
 |---|---|---|---|
 | Total tokens (12 preguntas) | **1,494** | 5,637 (3.8×) | 11,808 (7.9×) |
 | Preguntas ganadas | **9/12** | 1/12 | 2/12 |
@@ -57,8 +57,8 @@ Está documentado en el README, con una sección "Lo que SÍ resuelve" y "Lo que
 ### Prueba
 
 ```bash
-git clone https://github.com/JavierFrauca/localgraph.git
-cd localgraph
+git clone https://github.com/JavierFrauca/sharpgraph.git
+cd sharpgraph
 .\demo.ps1   # o ./demo.sh en macOS/Linux
 ```
 

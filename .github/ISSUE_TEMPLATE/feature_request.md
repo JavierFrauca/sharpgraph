@@ -9,7 +9,7 @@ assignees: ''
 ## Caso de uso
 
 <!-- ¿Qué pregunta quieres poder hacerle al LLM, o qué tarea quieres resolver,
-     que LocalGraph no cubre hoy? Empieza por el problema, no por la solución. -->
+     que SharpGraph no cubre hoy? Empieza por el problema, no por la solución. -->
 
 ## Solución propuesta
 

@@ -1,10 +1,10 @@
-# Benchmark de tokens — LocalGraph vs CodeGraph vs sin-MCP
+# Benchmark de tokens — SharpGraph vs CodeGraph vs sin-MCP
 
 Mide, con cuenta **exacta** de tokens (`tiktoken`, `cl100k_base`), cuántos tokens
 entran en el contexto del modelo para responder una misma batería de preguntas con
 tres enfoques:
 
-- **LocalGraph** — sus herramientas MCP (se dirige el ejecutable por stdio).
+- **SharpGraph** — sus herramientas MCP (se dirige el ejecutable por stdio).
 - **CodeGraph** — su CLI `codegraph … --json` reformateado al formato de su salida MCP;
   el coste de su herramienta `explore` se modela como la fuente verbatim numerada de los
   ficheros que devuelve + ~230 tokens de framing.
@@ -27,16 +27,16 @@ Batería de **12 preguntas** sobre
 
 ### Resumen ejecutivo
 
-- **Total tokens (13 preguntas)** — LocalGraph: **1715** · CodeGraph: **6101** (3.6×) · sin-MCP: **12039** (7.0×)
-- **Preguntas ganadas (menos tokens)** — LocalGraph: **9/13** · CodeGraph: **1/13** · sin-MCP: **3/13** (grep para clase/string)
+- **Total tokens (13 preguntas)** — SharpGraph: **1715** · CodeGraph: **6101** (3.6×) · sin-MCP: **12039** (7.0×)
+- **Preguntas ganadas (menos tokens)** — SharpGraph: **9/13** · CodeGraph: **1/13** · sin-MCP: **3/13** (grep para clase/string)
 
 ### Desglose por categoría
 
-| favor | n | LocalGraph | CodeGraph | sin-MCP | Gana |
+| favor | n | SharpGraph | CodeGraph | sin-MCP | Gana |
 |---|---|---|---|---|---|
-| **LG** (navegar/localizar/DI/MediatR) | 7 | 992 | 3428 | 10737 | LocalGraph (6/7) |
-| **FLOW** (comprensión de flujo) | 2 | 56 | 1147 | 575 | LocalGraph (2/2) |
-| **CG** (leer/entender código) | 3 | 649 | 1392 | 693 | LocalGraph (1/3) |
+| **LG** (navegar/localizar/DI/MediatR) | 7 | 992 | 3428 | 10737 | SharpGraph (6/7) |
+| **FLOW** (comprensión de flujo) | 2 | 56 | 1147 | 575 | SharpGraph (2/2) |
+| **CG** (leer/entender código) | 3 | 649 | 1392 | 693 | SharpGraph (1/3) |
 | **GREP** (literales) | 1 | 18† | 134† | 34 | sin-MCP (1/1) |
 
 > † = la herramienta **no responde** (los grafos no indexan literales). Su coste no cuenta.
@@ -45,27 +45,27 @@ Batería de **12 preguntas** sobre
 
 | id | favor | pregunta | LG | CG | sinMCP | gana |
 |---|---|---|---|---|---|---|
-| Q01 | LG | ¿Qué tipos dependen de IApplicationDbContext? | **263** | 548 | 4322 | LocalGraph |
-| Q02 | LG | ¿Dónde se invoca SaveChangesAsync? | **183** | 219 | 2372 | LocalGraph |
+| Q01 | LG | ¿Qué tipos dependen de IApplicationDbContext? | **263** | 548 | 4322 | SharpGraph |
+| Q02 | LG | ¿Dónde se invoca SaveChangesAsync? | **183** | 219 | 2372 | SharpGraph |
 | Q03 | LG | ¿De qué depende CreateTodoItemCommandHandler? | 112 | **33** | 273 | CodeGraph |
-| Q04 | LG | ¿Quién invoca CreateTodoItemCommand (MediatR)? | **52** | 464 | 1577 | LocalGraph |
-| Q05 | LG | ¿Por dónde empezar? (hubs) | **254** | 1159 | 762 | LocalGraph |
-| Q06 | LG | ¿Qué implementación se inyecta para IIdentityService? | **26** | 801 | 867 | LocalGraph |
-| Q07 | FLOW | ¿Cómo funciona CreateTodoItemCommandHandler.Handle? | **33** | 464 | 183 | LocalGraph |
-| Q08 | FLOW | ¿Qué hace GetTodosQueryHandler.Handle? | **23** | 683 | 392 | LocalGraph |
-| Q09 | CG | Cuerpo del método Handle | **146** | 464 | 231 | LocalGraph |
+| Q04 | LG | ¿Quién invoca CreateTodoItemCommand (MediatR)? | **52** | 464 | 1577 | SharpGraph |
+| Q05 | LG | ¿Por dónde empezar? (hubs) | **254** | 1159 | 762 | SharpGraph |
+| Q06 | LG | ¿Qué implementación se inyecta para IIdentityService? | **26** | 801 | 867 | SharpGraph |
+| Q07 | FLOW | ¿Cómo funciona CreateTodoItemCommandHandler.Handle? | **33** | 464 | 183 | SharpGraph |
+| Q08 | FLOW | ¿Qué hace GetTodosQueryHandler.Handle? | **23** | 683 | 392 | SharpGraph |
+| Q09 | CG | Cuerpo del método Handle | **146** | 464 | 231 | SharpGraph |
 | Q10 | CG | Clase completa (get_source, maxLines) | **236** | 464 | 231 | sin-MCP |
 | Q10b | CG | Clase + contexto (understand v2.2 mejorado) | **267** | 464 | 231 | sin-MCP |
-| Q11 | LG | Búsqueda semántica (persistencia) | **102** | 204 | 564 | LocalGraph |
+| Q11 | LG | Búsqueda semántica (persistencia) | **102** | 204 | 564 | SharpGraph |
 | Q12 | GREP | String literal "Todo Lists" | 18† | 134† | **34** | sin-MCP |
 
 ### Lo que dicen los números
 
-- **Navegar / localizar / resolver** (Q01-Q06): LocalGraph responde con metadatos del grafo
+- **Navegar / localizar / resolver** (Q01-Q06): SharpGraph responde con metadatos del grafo
   (relación, línea, binding DI, PageRank) en salida compacta. Gana 6 de 7; la única que
   pierde (Q03, dependencias de un handler) es porque CodeGraph lo lista en 33 tok con un solo
-  campo `callees`, mientras LocalGraph da la lista con la relación de cada arista. Si
-  LocalGraph usara `depth:1` sin marcar la relación, empataría.
+  campo `callees`, mientras SharpGraph da la lista con la relación de cada arista. Si
+  SharpGraph usara `depth:1` sin marcar la relación, empataría.
 
 - **Comprensión de flujo** (Q07-Q08): la tool `flow` destila el árbol de llamadas
   (33 y 23 tokens) siguiendo bindings DI. CodeGraph necesita `explore` del fichero
@@ -96,12 +96,12 @@ pip install tiktoken
 npm i -g codegraph
 codegraph init bench/_external/CleanArchitecture
 
-# 3. compila LocalGraph
+# 3. compila SharpGraph
 dotnet publish -c Release -r win-x64 --self-contained -o publish
 
 # 4. ejecuta
 cd bench
-python benchmark.py ../publish/LocalGraph.exe questions.cleanarchitecture.py
+python benchmark.py ../publish/SharpGraph.exe questions.cleanarchitecture.py
 ```
 
 Genera `bench/RESULTS.md`. El fichero de preguntas está en
@@ -115,12 +115,12 @@ los símbolos y rutas, y ejecuta `python benchmark.py`.
 
 ## Metodología
 
-- **LocalGraph**: salida real de sus herramientas MCP (exe dirigido por stdio, un índice por repo).
+- **SharpGraph**: salida real de sus herramientas MCP (exe dirigido por stdio, un índice por repo).
 - **CodeGraph** (v0.9.9): estructural medido con `codegraph <tool> --json` reformateado al
   formato markdown de su salida MCP; `explore` modelado como la fuente verbatim numerada de los
   ficheros que devuelve + ~230 tok de framing. Si `callers/callees` devuelve vacío (interfaces
   inyectadas), se usa el fallback `explore` (su flujo realista).
 - **sin-MCP**: salida de `grep` + contenido íntegro de los ficheros con hit, **excluyendo
   tests/samples**.
-- Se mide coste, no calidad. LocalGraph además aporta relación/línea/binding y filtra tests;
+- Se mide coste, no calidad. SharpGraph además aporta relación/línea/binding y filtra tests;
   CodeGraph mezcla símbolos homónimos y no resuelve DI.

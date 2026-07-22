@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Demo script: reproduce the headline queries from the benchmark on a
 # CleanArchitecture clone. Clones it if not present.
-# Usage: ./demo.sh [path_to_LocalGraph_executable]
+# Usage: ./demo.sh [path_to_SharpGraph_executable]
 
-EXE="${1:-./publish/LocalGraph}"
+EXE="${1:-./publish/SharpGraph}"
 CA_DIR="./bench/_external/CleanArchitecture"
 
 if [ ! -d "$CA_DIR" ]; then
@@ -16,7 +16,7 @@ lg() {
 }
 
 echo "====================================="
-echo " LocalGraph Demo"
+echo " SharpGraph Demo"
 echo "====================================="
 echo ""
 echo " Proyecto: CleanArchitecture (110 .cs, MIT)"

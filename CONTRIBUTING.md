@@ -1,6 +1,6 @@
-# Contributing to LocalGraph
+# Contributing to SharpGraph
 
-Thanks for your interest in contributing! LocalGraph is a small project and
+Thanks for your interest in contributing! SharpGraph is a small project and
 there's plenty of room to help — bug reports, fixture contributions, new
 detection patterns, docs, and benchmarks are all welcome.
 
@@ -8,14 +8,14 @@ detection patterns, docs, and benchmarks are all welcome.
 
 Open an issue using the **Bug report** template. Include:
 
-- LocalGraph version (`LocalGraph.exe --version` if available, or commit hash).
+- SharpGraph version (`SharpGraph.exe --version` if available, or commit hash).
 - OS and architecture (win-x64 / linux-x64 / osx-arm64).
 - MCP client used (Claude Code, Cursor, Cline, etc.) and version.
 - The smallest C# snippet that reproduces the issue.
 - Expected output vs actual output.
 
 The most useful bug reports include a **minimal `.cs` fixture** that we can drop
-into `src/LocalGraph.Tests/Fixtures/` as a regression test.
+into `src/SharpGraph.Tests/Fixtures/` as a regression test.
 
 ## How to suggest an enhancement
 
@@ -27,8 +27,8 @@ before the solution.
 ### Setup
 
 ```bash
-git clone https://github.com/JavierFrauca/localgraph.git
-cd localgraph
+git clone https://github.com/JavierFrauca/sharpgraph.git
+cd sharpgraph
 dotnet restore
 dotnet test
 ```
@@ -41,7 +41,7 @@ Requires .NET 10 SDK.
    need one; a new detection pattern does.
 2. **Branch from `main`**: `feat/<short-description>` or `fix/<short-description>`.
 3. **Tests first**: if you're adding a detection pattern or fixing a bug, write a
-   failing test in `src/LocalGraph.Tests/` that reproduces the case, then make it
+   failing test in `src/SharpGraph.Tests/` that reproduces the case, then make it
    pass. The existing test suite uses synthetic `.cs` fixtures in `Fixtures/` —
    follow the same pattern.
 4. **Keep the build clean**: no warnings, all tests passing.
@@ -54,7 +54,7 @@ Requires .NET 10 SDK.
 The most common kind of contribution. General approach:
 
 1. **Write a failing test** in `CallSiteCoverageTests.cs` (or a new test file)
-   that reproduces the C# pattern you want LocalGraph to recognize.
+   that reproduces the C# pattern you want SharpGraph to recognize.
 2. **Run the test** and confirm it fails. Inspect what the visitor currently
    extracts (the `GraphTestHarness.ParseSnippet` + dump pattern is useful here).
 3. **Implement the fix**:

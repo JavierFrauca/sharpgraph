@@ -18,7 +18,7 @@ Desde la carpeta del paquete recibido, abre una terminal PowerShell y ejecuta:
 ```
 
 El script:
-1. Copia `LocalGraph.exe` a `%USERPROFILE%\tools\LocalGraph\`
+1. Copia `SharpGraph.exe` a `%USERPROFILE%\tools\SharpGraph\`
 2. Registra el servidor MCP en Claude Code
 3. Configura el auto-escaneo automático al cambiar de proyecto
 
@@ -27,14 +27,14 @@ Al terminar, **reinicia Claude Code**.
 ### Carpeta de instalación personalizada
 
 ```powershell
-.\install.ps1 -InstallPath "C:\tools\LocalGraph"
+.\install.ps1 -InstallPath "C:\tools\SharpGraph"
 ```
 
 ---
 
 ## Qué ocurre tras instalar
 
-Al abrir cualquier proyecto C# en Claude Code, LocalGraph escanea el código automáticamente en segundo plano. El LLM puede empezar a hacer preguntas sobre el código sin ningún paso adicional.
+Al abrir cualquier proyecto C# en Claude Code, SharpGraph escanea el código automáticamente en segundo plano. El LLM puede empezar a hacer preguntas sobre el código sin ningún paso adicional.
 
 Si prefieres escanear manualmente, puedes pedírselo al LLM en cualquier momento:
 
