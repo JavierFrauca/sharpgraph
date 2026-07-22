@@ -889,7 +889,11 @@ public sealed class TypeReferenceVisitor : CSharpSyntaxWalker
                     if (text.Length > 0) return text;
                 }
             }
-            catch { }
+            catch
+            {
+                // El XML doc comment está malformado — no es grave, simplemente
+                // este tipo no tendrá summary. El summary es best-effort.
+            }
         }
         return null;
     }

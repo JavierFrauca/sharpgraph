@@ -6,7 +6,7 @@ namespace SharpGraph.Tests.Graph;
 /// Tests de consultas de alto nivel sobre el grafo ya construido.
 /// Usan los fixtures embebidos como código fuente.
 /// </summary>
-public class CodeGraphTests
+public class GraphEngineTests
 {
     // -------- stats / conteos básicos --------
 

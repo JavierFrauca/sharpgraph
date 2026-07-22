@@ -54,8 +54,11 @@ public sealed class GraphStore
             fragments = env.Fragments.Where(f => File.Exists(f.FilePath)).ToList();
             return fragments.Count > 0;
         }
-        catch
+        catch (Exception ex)
         {
+            // Caché corrupta o ilegible: se descarta y se re-escanea desde cero.
+            // No es un error fatal; el grafo se reconstruye del código fuente.
+            Console.Error.WriteLine($"Cache load failed ({Path.GetFileName(file)}): {ex.Message}");
             return false;
         }
     }
@@ -67,9 +70,10 @@ public sealed class GraphStore
             var json = JsonSerializer.Serialize(new Envelope(ParserVersion, fragments.ToList()), JsonOpts);
             File.WriteAllText(CacheFileFor(scanPath), json);
         }
-        catch
+        catch (Exception ex)
         {
             // la caché es best-effort: si falla, simplemente se re-escanea
+            Console.Error.WriteLine($"Cache save failed: {ex.Message}");
         }
     }
 }

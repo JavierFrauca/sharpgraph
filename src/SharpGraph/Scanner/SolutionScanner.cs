@@ -6,7 +6,7 @@ using Microsoft.CodeAnalysis.CSharp;
 
 namespace SharpGraph.Scanner;
 
-public sealed class SolutionScanner(CodeGraph graph)
+public sealed class SolutionScanner(GraphEngine graph)
 {
     /// <summary>Escaneo completo: reemplaza el grafo entero.</summary>
     public async Task ScanAsync(string path)

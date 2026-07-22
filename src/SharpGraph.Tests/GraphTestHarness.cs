@@ -7,7 +7,7 @@ using Microsoft.CodeAnalysis.CSharp;
 namespace SharpGraph.Tests;
 
 /// <summary>
-/// Construye un <see cref="CodeGraph"/> a partir de fixtures sintéticos embebidos
+/// Construye un <see cref="GraphEngine"/> a partir de fixtures sintéticos embebidos
 /// (carpeta <c>Fixtures/</c>). Cada fixture activa un patrón concreto y se parsea
 /// con el mismo <c>TypeReferenceVisitor</c> que usa el scanner en producción, de
 /// modo que los tests ejercitan el camino real sin tocar el disco.
@@ -17,9 +17,9 @@ internal static class GraphTestHarness
     private const string FixturePrefix = "SharpGraph.Tests.Fixtures.";
 
     /// <summary>Construye un grafo con uno o varios fixtures por nombre (sin extensión).</summary>
-    public static CodeGraph Build(params string[] fixtureNames)
+    public static GraphEngine Build(params string[] fixtureNames)
     {
-        var graph = new CodeGraph();
+        var graph = new GraphEngine();
         var assembly = Assembly.GetExecutingAssembly();
         var fragments = new ConcurrentBag<FileFragment>();
 
@@ -48,9 +48,9 @@ internal static class GraphTestHarness
     /// tests que necesitan ejercitar la resolución del grafo (Fase B: receptores
     /// encadenados que requieren tabla de símbolos global).
     /// </summary>
-    public static CodeGraph BuildFromSnippet(string code, params string[] moreCodes)
+    public static GraphEngine BuildFromSnippet(string code, params string[] moreCodes)
     {
-        var graph = new CodeGraph();
+        var graph = new GraphEngine();
         var fragments = new List<FileFragment>();
         var primary = ParseFixture("snippet0.cs", code);
         if (primary is not null) fragments.Add(primary);

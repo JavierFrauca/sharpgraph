@@ -89,7 +89,10 @@ internal static class SetupWizard
         if (!OperatingSystem.IsWindows())
         {
             try { File.SetUnixFileMode(target, UnixFileMode.UserExecute | UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead); }
-            catch { }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"  --  No se pudo setear permiso Unix: {ex.Message}");
+            }
         }
         Console.WriteLine($"  OK  {exeName} copiado a {target}");
 
@@ -178,14 +181,7 @@ internal static class SetupWizard
                 Console.WriteLine();
                 Console.WriteLine("Configuración MCP para tu cliente (añade esto a tu fichero de config):");
                 Console.WriteLine();
-                Console.WriteLine("{");
-                Console.WriteLine("  \"mcpServers\": {");
-                Console.WriteLine("    \"sharpgraph\": {");
-                Console.WriteLine($"      \"command\": \"{exePath}\",");
-                Console.WriteLine("      \"args\": []");
-                Console.WriteLine("    }");
-                Console.WriteLine("  }");
-                Console.WriteLine("}");
+                Console.WriteLine(BuildMcpJson(exePath, rootKey: "mcpServers"));
                 Console.WriteLine();
                 Console.WriteLine("Ver docs/CLIENTS.md para ejemplos por cliente específico.");
                 break;
@@ -239,7 +235,10 @@ internal static class SetupWizard
                 });
                 if (rm is not null) await rm.WaitForExitAsync();
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"  --  No se pudo setear permiso Unix: {ex.Message}");
+            }
 
             var p = Process.Start(psi);
             if (p is null) return false;
@@ -250,7 +249,10 @@ internal static class SetupWizard
                 return true;
             }
         }
-        catch { }
+        catch
+        {
+            // `claude` CLI not available or failed; fall back to manual config
+        }
         return false;
     }
 

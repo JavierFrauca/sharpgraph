@@ -30,7 +30,7 @@ internal static class CliDispatcher
     public static bool IsCliCommand(string arg)
         => Commands.Contains(arg);
 
-    public static async Task<int> Run(string[] args, CodeGraph graph, GraphStore store, ProjectWatcher watcher)
+    public static async Task<int> Run(string[] args, GraphEngine graph, GraphStore store, ProjectWatcher watcher)
     {
         var cmd = args[0].ToLowerInvariant();
         var rest = args.Skip(1).ToArray();
@@ -69,7 +69,7 @@ internal static class CliDispatcher
     /// Si el grafo está vacío pero hay caché para el directorio actual, la carga.
     /// Si no hay caché, intenta escanear el cwd (si tiene .cs).
     /// </summary>
-    private static void EnsureGraphLoaded(CodeGraph graph, GraphStore store, ProjectWatcher watcher)
+    private static void EnsureGraphLoaded(GraphEngine graph, GraphStore store, ProjectWatcher watcher)
     {
         if (graph.NodeCount > 0) return;
 

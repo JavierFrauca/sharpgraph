@@ -9,7 +9,7 @@ namespace SharpGraph.Watcher;
 /// Observa los .cs bajo la raíz escaneada y actualiza el grafo en caliente,
 /// re-parseando solo el fichero cambiado (con debounce). Mantiene la caché al día.
 /// </summary>
-public sealed class ProjectWatcher(CodeGraph graph, GraphStore store) : IDisposable
+public sealed class ProjectWatcher(GraphEngine graph, GraphStore store) : IDisposable
 {
     private FileSystemWatcher? _watcher;
     private string? _scanPath;

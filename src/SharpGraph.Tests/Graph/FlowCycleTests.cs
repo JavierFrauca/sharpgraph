@@ -4,7 +4,7 @@ namespace SharpGraph.Tests.Graph;
 
 /// <summary>
 /// Tests específicos de la herramienta <c>flow</c>: terminación, límites y ciclos.
-/// Cubre el bug del rebind DI en grafos cíclicos (<c>CodeGraph.RenderFlow</c>).
+/// Cubre el bug del rebind DI en grafos cíclicos (<c>GraphEngine.RenderFlow</c>).
 /// </summary>
 public class FlowCycleTests
 {
