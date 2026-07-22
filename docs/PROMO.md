@@ -8,10 +8,10 @@
 
 ## Título sugerido (elige el que mejor encaje)
 
-- Reddit r/dotnet: **"SharpGraph — un MCP server C#-first que ahorra ~4-8× tokens al LLM vs leer ficheros enteros"**
+- Reddit r/dotnet: **"SharpGraph — un MCP server C#-first que entrega respuestas de más alto nivel que leer ficheros (y ~4× menos tokens)"**
 - Reddit r/LocalLLaMA: **"Build a knowledge graph from your .NET codebase for your LLM — SharpGraph v2.1.0"**
-- Reddit r/ClaudeAI: **"Snappier Claude in .NET repos: 4-8× fewer tokens than reading files with this MCP server"**
-- Hacker News: **"Show HN: SharpGraph — token-efficient code navigation for .NET (MCP)"**
+- Reddit r/ClaudeAI: **"Better .NET answers in Claude: SharpGraph models MediatR/DI/routing so the LLM doesn't have to parse raw code"**
+- Hacker News: **"Show HN: SharpGraph — C# code-graph MCP server that models framework patterns (MediatR, DI, ASP.NET routing)"**
 
 ## Cuerpo (para r/dotnet)
 
@@ -35,15 +35,39 @@ SharpGraph responde a esa pregunta en **~50-250 tokens**, con la cadena exacta y
 
 ### El benchmark (público y reproducible)
 
-Lo probamos sobre [CleanArchitecture](https://github.com/JasonTaylorDev/CleanArchitecture) (110 ficheros .cs, CQRS/MediatR/DI). 12 preguntas, medición con tiktoken cl100k_base:
+Lo probamos sobre [CleanArchitecture](https://github.com/JasonTaylorDev/CleanArchitecture) (110 ficheros .cs, CQRS/MediatR/DI). 13 preguntas, medición con tiktoken cl100k_base:
 
 | | SharpGraph | CodeGraph | grep+read |
 |---|---|---|---|
-| Total tokens (12 preguntas) | **1,494** | 5,637 (3.8×) | 11,808 (7.9×) |
-| Preguntas ganadas | **9/12** | 1/12 | 2/12 |
+| Total tokens (13 preguntas) | **1,715** | 6,101 (3.6×) | 12,039 (7.0×) |
+| Preguntas ganadas | **9/13** | 1/13 | 3/13 |
 | Comprensión de flujo (`flow`) | **23-33 tok** | 464-683 tok (~20×) | 183-575 tok |
 
 Reproducible: `git clone`, `pip install tiktoken`, `python benchmark.py`. Todo en el repo.
+
+### Pero no es solo ahorrar tokens — es que la información es MEJOR
+
+Hicimos una [comparativa de calidad](https://github.com/JavierFrauca/sharpgraph/blob/main/docs/CALIDAD.md) ejecutando las mismas preguntas en ambas herramientas. Ejemplos reales:
+
+**"¿Quién depende de IApplicationDbContext?"**
+- CodeGraph devuelve símbolos individuales con ruido: `_context (field)`, `_context (field)`, `_context (field)`... repetidos por cada handler.
+- SharpGraph devuelve **tipos con la relación**: `CreateTodoItemCommandHandler [call]`, `GetTodosQueryHandler [ctor-param]`, `ApplicationDbContext [implements]`. Sin ruido, accionable.
+
+**"¿Quién invoca CreateTodoItemCommand?" (MediatR)**
+- CodeGraph **no modela MediatR**: no sabe que `IRequestHandler<CreateTodoItemCommand>` conecta el Handler con el Command.
+- SharpGraph modela la cadena completa: `Controller →sends→ Command →handled-by→ Handler`. Aristas de primera clase.
+
+**"¿Qué implementación se inyecta para IIdentityService?"**
+- CodeGraph **no tiene herramienta equivalente**: hay que leer `DependencyInjection.cs` (84 líneas, ~800 tokens) y parsearlo manualmente.
+- SharpGraph responde en 1 llamada: `IIdentityService → IdentityService [transient] (L77)`.
+
+**"¿Cómo funciona CreateTodoItemCommandHandler.Handle?"**
+- CodeGraph te devuelve el fichero entero (37 líneas, ~400 tokens) para que el LLM lo lea.
+- SharpGraph destila el flujo en 2 líneas: `→ DbSet.Add() :31 → IApplicationDbContext.SaveChangesAsync() :33`.
+
+La diferencia no es de cantidad de datos: es de **significado**. SharpGraph entrega conclusiones (relación, binding DI, flujo, cadena MediatR); CodeGraph entrega datos brutos y delega la interpretación al LLM. Para código .NET con patrones de framework, eso marca la diferencia entre una respuesta útil y una respuesta barata pero incompleta.
+
+> Ver la [comparativa completa de calidad](https://github.com/JavierFrauca/sharpgraph/blob/main/docs/CALIDAD.md) con outputs reales lado a lado.
 
 ### Limitaciones honestas
 
