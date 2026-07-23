@@ -12,10 +12,10 @@ namespace SharpGraph.Cli;
 internal static class SetupWizard
 {
     private static readonly string[] ClientNames =
-        ["Claude Code", "Cursor", "Cline", "Continue", "Zed", "OpenCode", "Crush", "Generic (JSON)"];
+        ["Claude Code", "Cursor", "Cline", "Continue", "VS Code", "Zed", "OpenCode", "Crush", "Generic (JSON)"];
 
     private static readonly string[] ClientKeys =
-        ["claude", "cursor", "cline", "continue", "zed", "opencode", "crush", "generic"];
+        ["claude", "cursor", "cline", "continue", "vscode", "zed", "opencode", "crush", "generic"];
 
     public static async Task<int> Run(string[] args)
     {
@@ -151,6 +151,18 @@ internal static class SetupWizard
                     Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".continue", "config.json"),
                     BuildMcpJson(exePath, rootKey: "mcpServers"),
                     "Continue");
+                break;
+
+            case "vscode":
+                // VS Code: escribir en .vscode/mcp.json del workspace actual (no global,
+                // porque settings.json casi seguro existe y no queremos sobreescribirlo).
+                var vscodeDir = Path.Combine(Directory.GetCurrentDirectory(), ".vscode");
+                RegisterJsonConfig(
+                    Path.Combine(vscodeDir, "mcp.json"),
+                    BuildMcpJson(exePath, rootKey: "mcpServers"),
+                    "VS Code");
+                Console.WriteLine("      (configuración a nivel workspace. Para global, edita");
+                Console.WriteLine("       File > Preferences > Settings > MCP y añade el servidor sharpgraph)");
                 break;
 
             case "zed":

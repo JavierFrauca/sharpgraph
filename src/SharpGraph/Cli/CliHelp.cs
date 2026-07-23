@@ -59,8 +59,8 @@ internal static class CliHelp
 
         ── INSTALACIÓN Y CONFIGURACIÓN ───────────────────────────────
           setup               Menú interactivo: registra SharpGraph en tu
-                              cliente MCP (Claude Code, Cursor, Cline, Zed,
-                              Continue, OpenCode, Crush, genérico).
+                              cliente MCP (Claude Code, Cursor, Cline,
+                              Continue, VS Code, Zed, OpenCode, Crush, genérico).
                               Flags: --client <nombre>, --no-hook,
                                      --install-path <dir>.
           help [comando]      Esta ayuda, o ayuda detallada de un comando.
@@ -463,8 +463,9 @@ internal static class CliHelp
           CLIENTES SOPORTADOS:
             claude             Claude Code (con hook CwdChanged de auto-scan)
             cursor             Cursor IDE
-            cline              Cline (extensión VS Code)
+            cline              Cline (extensión IDE)
             continue           Continue (VS Code / JetBrains)
+            vscode             VS Code (workspace .vscode/mcp.json)
             zed                Zed editor
             opencode           OpenCode
             crush              Crush
