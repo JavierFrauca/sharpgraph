@@ -143,16 +143,18 @@ Fichero: `~/.config/zed/settings.json` (Linux/Windows) o `~/Library/Application 
 
 ---
 
-## VS Code (genérico, cualquier extensión que hable MCP)
+## VS Code
 
-Muchas extensiones de VS Code aceptan la convención estándar MCP. Por ejemplo, en
-`settings.json` del usuario:
+**Recomendado:** ejecuta `SharpGraph setup --client vscode` desde la raíz de tu
+proyecto. Crea un fichero `.vscode/mcp.json` a nivel workspace con la configuración
+correcta. Si el fichero ya existe, edítalo a mano.
+
+**Manual:** edita `.vscode/mcp.json` en tu proyecto y añade:
 
 ```jsonc
 {
-  "mcp.servers": {
+  "mcpServers": {
     "sharpgraph": {
-      "type": "stdio",
       "command": "/ruta/al/SharpGraph",
       "args": []
     }
@@ -160,7 +162,10 @@ Muchas extensiones de VS Code aceptan la convención estándar MCP. Por ejemplo,
 }
 ```
 
-(Ajusta la clave según la extensión concreta; algunas usan `"mcpServers"` en vez de `"mcp.servers"`.)
+Para configuración global (todos los proyectos), edita `settings.json` del usuario
+(`Ctrl+Shift+P` → "Preferences: Open User Settings JSON") y añade la misma entrada.
+La clave exacta depende de la extensión MCP que uses; las más comunes son
+`"mcpServers"` y `"mcp.servers"`.
 
 ---
 
