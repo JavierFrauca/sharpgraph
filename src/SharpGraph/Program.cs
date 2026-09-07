@@ -55,39 +55,60 @@ builder.Services.AddSingleton(store);
 builder.Services.AddSingleton(watcher);
 builder.Services.AddMcpServer(options =>
 {
-    options.ServerInfo = new() { Name = "SharpGraph", Version = "2.1.0" };
+    options.ServerInfo = new()
+    {
+        Name = "SharpGraph",
+        Title = "SharpGraph — grafo de código y documentación C#",
+        Description = "Indexa proyectos C# en un grafo de dependencias y su documentación (.md/.txt/appsettings) en un índice BM25. Responde quién llama a quién, qué implementa cada interfaz (DI), desde qué endpoint HTTP se llega y cómo funciona un flujo — y devuelve código fuente puntual y secciones de documentación, todo en texto compacto para gastar los mínimos tokens.",
+        Version = "2.1.0",
+        WebsiteUrl = "https://github.com/JavierFrauca/sharpgraph",
+    };
     options.ServerInstructions = """
-        SharpGraph indexa proyectos C# en un grafo de dependencias y permite
-        navegarlo SIN leer ficheros de código fuente — y ahora también recuperar
-        código fuente puntual para ahorrar tokens.
+        SharpGraph: mapa de dependencias de proyectos C# + índice de su documentación.
+        Responde preguntas estructurales (quién llama a quién, DI, endpoints, flujo)
+        y recupera código puntual SIN leer ficheros enteros: la tesis es gastar los
+        mínimos tokens.
+
+        == CUÁNDO USAR / CUÁNDO NO ==
+        SÍ: dependencias y callers de un tipo · desde qué endpoint se llega · qué
+        implementa una interfaz (DI) · dónde se invoca de verdad un método · cómo
+        funciona un flujo · entender un tipo con contexto en 1 llamada · buscar
+        tipos por intención · buscar en docs/ADRs/appsettings · el código de un
+        solo método en vez del fichero entero.
+        NO: texto literal en código (mejor grep) · proyectos que no son C# (solo se
+        indexan .cs) · editar o ejecutar (solo lectura) · PDF/DOCX y ficheros de
+        docs >1 MB (no se indexan).
 
         == PRIMERA VEZ ==
-        Llama a configure_auto_scan() una vez para activar el escaneo automático
-        al cambiar de proyecto. El grafo es persistente (caché en disco) e incremental.
+        stats() → si 0 tipos, scan(path). En Claude Code, configure_auto_scan() una
+        vez: el hook CwdChanged escaneará solo al cambiar de proyecto. El grafo es
+        persistente (caché en disco) e incremental.
 
         == FLUJO HABITUAL ==
-        1. stats() → si 0 tipos, scan(path).
-        2. search("NombreParcial") → nombre exacto del tipo.
-        3. ¿Quién depende de X?           → find_callers(X, depth)
-        4. ¿Desde qué endpoint?           → trace_to_endpoints(X)
-        5. ¿De qué depende X?             → get_usages(X)
-        6. ¿DÓNDE SE LLAMA X de verdad?   → find_call_sites(X[, member])
-        7. ¿Qué implementa la interfaz?   → resolve_di(IX)
-        8. Ver el código de un método     → get_source(X, member)
-        9. COMPRENDER un tipo (código+contexto en 1 llamada) → understand(X)
-        10. ¿CÓMO FUNCIONA? (árbol de llamadas sin código) → flow(X, member)
-        11. Buscar por intención          → search_semantic("...")
+        1. search("NombreParcial") → nombre exacto del tipo.
+        2. ¿Quién depende de X?           → find_callers(X, depth)
+        3. ¿Desde qué endpoint?           → trace_to_endpoints(X)
+        4. ¿De qué depende X?             → get_usages(X)
+        5. ¿DÓNDE SE LLAMA X de verdad?   → find_call_sites(X[, member])
+        6. ¿Qué implementa la interfaz?   → resolve_di(IX)
+        7. Ver el código de un método     → get_source(X, member)
+        8. COMPRENDER un tipo (código+contexto en 1 llamada) → understand(X)
+        9. ¿CÓMO FUNCIONA? (árbol de llamadas sin código) → flow(X, member)
+        10. Buscar tipos por intención    → search_semantic("...")
+        11. Buscar en docs/ADRs           → search_docs("...")
 
         == CLAVE PARA AHORRAR TOKENS ==
-        En vez de Read de ficheros enteros: usa find_call_sites para localizar la
-        invocación y get_source(tipo, miembro) para ver SOLO ese método. Distingue
-        siempre "inyectado" (find_callers / [ctor-param]) de "llamado de verdad"
-        (find_call_sites / [call]).
+        find_call_sites para localizar la invocación + get_source(tipo, miembro)
+        para ver SOLO ese método. Distingue "inyectado" (find_callers / [ctor-param])
+        de "llamado de verdad" (find_call_sites / [call]). Los tipos marcados
+        [docs:N] aparecen en documentación: understand(X) lista qué docs los
+        mencionan.
 
-        == NOTAS ==
-        - El grafo se indexa por nombre simple de tipo (sin namespace).
+        == LÍMITES ==
+        - Indexado por nombre simple de tipo; los ambiguos se muestran como FQN.
+        - Tipos externos/BCL solo como destino de aristas, no como nodos.
         - Tests, mocks, fakes, stubs y builders se filtran automáticamente.
-        - El watcher actualiza el grafo al guardar ficheros; no hace falta re-escanear.
+        - El watcher mantiene el grafo y los docs al día al guardar; no re-escanear.
         """;
 })
 .WithStdioServerTransport()

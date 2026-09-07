@@ -74,7 +74,7 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
                 {
                     ["type"] = "mcp_tool",
                     ["server"] = "sharpgraph",
-                    ["tool"] = "Scan",
+                    ["tool"] = "scan",
                     ["input"] = new JsonObject { ["path"] = "${cwd}" },
                     ["async"] = true,
                     ["statusMessage"] = "SharpGraph indexing..."

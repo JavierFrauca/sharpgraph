@@ -151,7 +151,7 @@ if ($Client -eq "claude" -and $ConfigureHook) {
                 [ordered]@{
                     type          = "mcp_tool"
                     server        = "sharpgraph"
-                    tool          = "Scan"
+                    tool          = "scan"
                     input         = [ordered]@{ path = '${cwd}' }
                     async         = $true
                     statusMessage = "SharpGraph indexing..."
