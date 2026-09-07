@@ -54,6 +54,9 @@ internal static class CliHelp
                               Flags: -l <líneas> (defecto 200).
           semantic <query>    Búsqueda semántica por intención (BM25).
                               Flags: -n <topK> (defecto 10).
+          docs <query>        Busca en la documentación del proyecto (.md/.txt/
+                              appsettings): ADRs, docs, README. Devuelve ruta+sección.
+                              Flags: -n <topK> (defecto 8).
           explore <patrón>    Contexto bidireccional (callers + deps + endpoints).
                               Flags: -d <depth> (defecto 2), -l <limit> (defecto 8).
 
@@ -121,6 +124,7 @@ internal static class CliHelp
         "understand" => CmdUnderstand,
         "read-file" or "read_file" or "readfile" => CmdReadFile,
         "semantic" or "search-semantic" or "search_semantic" => CmdSemantic,
+        "docs" or "search-docs" or "search_docs" => CmdDocs,
         "explore" or "explore-context" or "explore_context" => CmdExplore,
         "setup" => CmdSetup,
         "help" => CmdHelp,
@@ -128,8 +132,8 @@ internal static class CliHelp
             Comando desconocido: '{command}'
 
             Comandos disponibles: scan, stats, search, callers, usages, callsites,
-            trace, flow, hubs, di, source, understand, read-file, semantic, explore,
-            setup, help.
+            trace, flow, hubs, di, source, understand, read-file, semantic, docs,
+            explore, setup, help.
 
             Ejecuta 'sharpgraph help' para la lista completa.
             """
@@ -424,6 +428,27 @@ internal static class CliHelp
             sharpgraph semantic "validación de pedidos" -n 5
 
           EQUIVALENTE MCP: search_semantic(query, topK)
+        """;
+
+    private const string CmdDocs = """
+        sharpgraph docs — Búsqueda en documentación (BM25)
+
+          Busca en la DOCUMENTACIÓN del proyecto: docs/, ADRs, README, ficheros
+          .md/.txt y appsettings*.json. Devuelve ruta y sección («§ …»), no el
+          contenido. La conexión inversa existe en search/understand: los tipos
+          mencionados en docs llevan [docs:N].
+
+          USO:
+            sharpgraph docs <query> [-n <topK>]
+
+          FLAGS:
+            -n <topK>          Número de resultados (1-20, defecto 8).
+
+          EJEMPLOS:
+            sharpgraph docs "retención irpf nómina"
+            sharpgraph docs "arquitectura watcher" -n 5
+
+          EQUIVALENTE MCP: search_docs(query, topK)
         """;
 
     private const string CmdExplore = """

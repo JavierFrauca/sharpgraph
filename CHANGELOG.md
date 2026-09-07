@@ -10,7 +10,7 @@ minor versions).
 ## [Unreleased]
 
 ### Added
-- **Incremental fragment merge**: `GraphEngine.MergeFragments` now takes a fast path when
+- **Documentation index (`search_docs`)**: `scan` now also indexes project documentation —
   `.md`/`.markdown`/`.txt` and known config JSON (`appsettings*`, `launchSettings`) — into a
   lightweight in-RAM index (`Docs/DocIndex.cs`; no new dependencies, no disk cache). New MCP
   tool `search_docs` (CLI: `sharpgraph docs`) runs BM25 over content with titles and sections
@@ -46,6 +46,9 @@ minor versions).
 - 11 new tests (`IncrementalMergeTests`) asserting delta-vs-full-rebuild equivalence
   (stats + query outputs) for body edits, batches, removals, structural fallbacks, chained
   receivers, partial classes, `RemoveFile`, BM25 index, and a delta latency smoke test.
+- 8 new tests (`DocIndexTests`) covering markdown parsing (title/sections, code-fence skip),
+  heading-weighted BM25 ranking, config-JSON filtering, doc↔type mentions (including the
+  `understand`/`search` `[docs:N]` integration), excluded directories, and incremental rescans.
 
 ## [2.1.0] — 2026-07-21
 

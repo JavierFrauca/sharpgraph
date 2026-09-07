@@ -161,6 +161,32 @@ También se puede forzar un re-escaneo completo llamando a `scan(path)` manualme
 
 ---
 
+## Índice de documentación (DocIndex)
+
+Junto al grafo de código, `scan` indexa la documentación del proyecto en un índice
+ligero y aparte (`Docs/DocIndex.cs`): `.md`/`.markdown`/`.txt` y configs JSON conocidas
+(`appsettings*`, `launchSettings`). No pasa por `FileFragment` ni por la caché de
+fragmentos: parsear texto plano es barato, así que se rehace en cada scan (milisegundos)
+sin caché en disco.
+
+- **`search_docs` / `sharpgraph docs`**: BM25 sobre el contenido, con título y secciones
+  (`#`/`##`, fuera de code fences) ponderados x3. Devuelve ruta + sección (`§ …`), nunca
+  contenido: leer el fichero es trabajo del cliente.
+- **Menciones código↔docs**: los identificadores del texto se cruzan con la tabla de
+  símbolos del grafo (solo nombres PascalCase/camelCase de 4+ caracteres, para no casar
+  palabras comunes del prose). `search()` marca los tipos con `[docs:N]` y `understand()`
+  lista los docs que los mencionan.
+- **Watcher**: una segunda instancia de `FileSystemWatcher` (filter `"*"`) enruta los
+  eventos por extensión a la cola de docs; el `Flush` reindexa el lote con símbolos
+  frescos. Como los docs no viven en la caché de fragmentos, un cambio solo de docs no
+  dispara el `Save` de `GraphStore`.
+
+Se excluyen `obj/`, `bin/`, `.git/`, `node_modules/`, `.vs/` y los directorios ocultos
+de herramientas (`.zcode`, `.claude`, `.vscode`, …); `.github` sí se indexa. Ficheros de
+más de 1 MB se ignoran.
+
+---
+
 ## Flujo completo de una consulta
 
 ```
