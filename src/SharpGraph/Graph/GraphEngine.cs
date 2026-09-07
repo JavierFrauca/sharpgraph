@@ -1,4 +1,5 @@
 using System.Text;
+using SharpGraph.Docs;
 
 namespace SharpGraph.Graph;
 
@@ -54,6 +55,14 @@ public sealed partial class GraphEngine
     private readonly HashSet<string> _ambiguous = new(CmpOrd);
 
     public string? CurrentPath { get; private set; }
+
+    /// <summary>
+    /// Índice de documentación (.md/.txt/appsettings) de la ruta escaneada. Índice
+    /// aparte del grafo: los docs no son nodos ni aristas, y su actualización no
+    /// pasa por la fusión de fragmentos.
+    /// </summary>
+    public DocIndex Docs { get; } = new();
+
     public int NodeCount { get { lock (_lock) return _nodes.Count; } }
     public int EdgeCount { get { lock (_lock) return _out.Values.Sum(v => v.Count); } }
 
@@ -66,6 +75,7 @@ public sealed partial class GraphEngine
             _fragments.Clear();
             CurrentPath = newPath;
             RebuildLocked();
+            Docs.Clear();
         }
     }
 
@@ -94,7 +104,7 @@ public sealed partial class GraphEngine
     /// Fusiona o reemplaza los fragmentos de un lote de ficheros en UNA sola operación.
     ///
     /// Ruta incremental: si todos los ficheros del lote siguen declarando los mismos
-    /// tipos y exponen las mismas firmas de retorno, se resta lo indexado del
+    /// tipos y exponiendo las mismas firmas de retorno, se resta lo indexado del
     /// fragmento viejo y se suma el nuevo (milisegundos — ver GraphEngine.Incremental.cs).
     ///
     /// Fallback: cualquier cambio estructural (tipo nuevo/borrado/renombrado, firma
@@ -143,6 +153,20 @@ public sealed partial class GraphEngine
     {
         lock (_lock) return _fragments.Values.ToList();
     }
+
+    /// <summary>Nombres simples de todos los tipos declarados (para el índice de docs).</summary>
+    public IReadOnlyCollection<string> SimpleTypeNames()
+    {
+        lock (_lock) return _fqnBySimple.Keys.ToList();
+    }
+
+    /// <summary>
+    /// (Re)construye el índice de documentación de la ruta escaneada: .md/.txt y
+    /// appsettings*.json, con menciones de tipos que conectan docs↔código
+    /// (ver <see cref="DocIndex"/>). Debe llamarse DESPUÉS de fusionar los
+    /// fragmentos de código: las menciones se calculan contra la tabla de símbolos.
+    /// </summary>
+    public void ScanDocs(string scanPath) => Docs.Rebuild(scanPath, SimpleTypeNames());
 
     private void RebuildLocked()
     {

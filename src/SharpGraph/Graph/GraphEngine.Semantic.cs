@@ -1,4 +1,5 @@
 using System.Text;
+using SharpGraph.Docs;
 
 namespace SharpGraph.Graph;
 
@@ -107,7 +108,7 @@ public sealed partial class GraphEngine
             foreach (var e in edges.Take(40))
                 sb.Append(e.To).Append(' ');
 
-        var tf = BuildTermFrequencies(sb.ToString());
+        var tf = Tokenizer.TermFrequencies(sb.ToString());
         var len = tf.Values.Sum();
         if (len == 0) return;
         _docs.Add(new Doc(node.Name, tf, len));
@@ -123,7 +124,7 @@ public sealed partial class GraphEngine
             topK = Math.Clamp(topK, 1, 30);
             if (_docs.Count == 0) return "No hay tipos públicos indexados. Ejecuta scan().";
 
-            var queryTerms = Tokenize(query).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            var queryTerms = Tokenizer.Tokenize(query).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             if (queryTerms.Count == 0) return "La query no contiene términos útiles.";
 
             var n = _docs.Count;
@@ -162,29 +163,4 @@ public sealed partial class GraphEngine
         }
     }
 
-    private static Dictionary<string, int> BuildTermFrequencies(string text)
-    {
-        var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        foreach (var token in Tokenize(text)) map[token] = map.GetValueOrDefault(token, 0) + 1;
-        return map;
-    }
-
-    private static IEnumerable<string> Tokenize(string text)
-    {
-        var cleaned = new StringBuilder(text.Length + 16);
-        for (var i = 0; i < text.Length; i++)
-        {
-            var c = text[i];
-            if (char.IsLetterOrDigit(c))
-            {
-                if (i > 0 && char.IsUpper(c) && char.IsLetter(text[i - 1]) && char.IsLower(text[i - 1]))
-                    cleaned.Append(' ');
-                cleaned.Append(char.ToLowerInvariant(c));
-            }
-            else cleaned.Append(' ');
-        }
-        return cleaned.ToString()
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(t => t.Length >= 2);
-    }
 }

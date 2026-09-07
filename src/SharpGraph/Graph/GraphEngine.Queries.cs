@@ -66,7 +66,7 @@ public sealed partial class GraphEngine
             var diCount = _diByService.Values.Sum(v => v.Count);
             var path = CurrentPath is null ? "" : $"\nPath: {CurrentPath}";
             return $"Graph: {defined} types defined, {EdgeCountLocked()} edges, {endpointCount} HTTP endpoints, " +
-                   $"{callCount} call-sites, {diCount} DI bindings, {_fragments.Count} files indexed{path}";
+                   $"{callCount} call-sites, {diCount} DI bindings, {_fragments.Count} files, {Docs.Count} docs indexed{path}";
         }
     }
 
@@ -97,8 +97,11 @@ public sealed partial class GraphEngine
                 var callers = _in.TryGetValue(m, out var inv) ? inv.Count : 0;
                 var uses = _out.TryGetValue(m, out var outv) ? CountDistinctTargets(outv) : 0;
                 var kind = _nodes.TryGetValue(m, out var nd) ? nd.Kind.ToString().ToLowerInvariant() : "?";
+                // docs que mencionan el tipo: conexión con ADRs/documentación
+                var docsN = Docs.CountMentions(LastSegment(m));
+                var docsTag = docsN > 0 ? $" [docs:{docsN}]" : "";
                 // muestra siempre el FQN en search para que el usuario pueda desambiguar
-                sb.AppendLine($"  {m} <{kind}>{isEndpoint}{di}{file} (callers: {callers}, uses: {uses})");
+                sb.AppendLine($"  {m} <{kind}>{isEndpoint}{di}{file} (callers: {callers}, uses: {uses}){docsTag}");
             }
             return sb.ToString();
         }
@@ -406,6 +409,13 @@ public sealed partial class GraphEngine
     // Devuelve el cuerpo COMPLETO del tipo + contexto curado del grafo (DI, deps,
     // callers, endpoints). A diferencia de explore, no vuelca ficheros vecinos:
     // el contexto se da como metadatos compactos, y el código como un único tipo.
+    /// <summary>Formatea la lista de docs que mencionan un tipo: ruta — «título» (máx. 3 + contador).</summary>
+    private static string FormatDocMentions(IReadOnlyList<(string Path, string Title)> docs)
+    {
+        var shown = string.Join(", ", docs.Take(3).Select(d => $"{d.Path} — «{d.Title}»"));
+        return docs.Count > 3 ? $"{shown} (+{docs.Count - 3})" : shown;
+    }
+
     public string Understand(string typeName, int bodyBudget)
     {
         lock (_lock)
@@ -416,6 +426,9 @@ public sealed partial class GraphEngine
                 return $"Type '{typeName}' not found among defined types. Try search().";
             typeName = key;
             bodyBudget = Math.Clamp(bodyBudget, 20, 800);
+
+            // docs que mencionan el tipo (ADRs, docs de arquitectura)
+            var docMentions = Docs.MentionsOf(LastSegment(typeName));
 
             var sb = new StringBuilder();
             var file = _files.GetValueOrDefault(typeName);
@@ -434,6 +447,8 @@ public sealed partial class GraphEngine
                               $"{Display(typeName)} (L{node.StartLine}-{node.EndLine}){summary}");
                 if (!string.IsNullOrWhiteSpace(graphCtx))
                     sb.AppendLine($"// graph: {graphCtx}");
+                if (docMentions.Count > 0)
+                    sb.AppendLine($"// docs: {FormatDocMentions(docMentions)}");
                 sb.AppendLine();
             }
             else
@@ -455,6 +470,8 @@ public sealed partial class GraphEngine
 
                 // Mejora 6: compresión de contexto. "used by" y "uses" en 1 línea compacta.
                 sb.AppendLine($"graph: {UnderstandCompactContext(typeName)}");
+                if (docMentions.Count > 0)
+                    sb.AppendLine($"docs: {FormatDocMentions(docMentions)}");
                 sb.AppendLine();
             }
 
