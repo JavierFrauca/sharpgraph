@@ -10,6 +10,11 @@ minor versions).
 ## [Unreleased]
 
 ### Added
+- **Tool titles and annotations**: every tool now advertises a human-readable `title`
+  ("Quién usa este tipo", "Comprender un tipo (código + contexto)", "Buscar en la documentación"…)
+  plus MCP hints: `readOnlyHint` + `idempotentHint` on the 15 query tools; `scan` and
+  `configure_auto_scan` are idempotent but not read-only (they mutate the graph/cache and
+  `~/.claude/settings.json` respectively). Verified over the wire via JSON-RPC probe.
 - **Server metadata for LLM discoverability**: the MCP `initialize` response now carries
   `serverInfo.title` ("SharpGraph — grafo de código y documentación C#"), a `serverInfo.description`
   of what/how (dependency graph + docs index, token-saving thesis) and `websiteUrl`. The server
