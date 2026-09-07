@@ -100,7 +100,7 @@ SharpGraph.exe arranca (grafo vacío)
 5. watcher.Watch(path)  ──► FileSystemWatcher con debounce 400 ms
 ```
 
-El sobre (`Envelope`) de la caché lleva una versión de parser (`ParserVersion`, hoy `6` en `GraphStore.cs`). Cuando se cambia la lógica de parsing o el modelo, se sube la versión y **todas las cachés viejas se invalidan** automáticamente al cargar, aunque el hash de los ficheros coincida.
+El sobre (`Envelope`) de la caché lleva una versión de parser (`ParserVersion`, hoy `7` en `GraphStore.cs`). Cuando se cambia la lógica de parsing o el modelo, se sube la versión y **todas las cachés viejas se invalidan** automáticamente al cargar, aunque el hash de los ficheros coincida.
 
 ---
 
@@ -136,12 +136,26 @@ fichero .cs guardado
 ProjectWatcher.OnChanged  ──►  encola la ruta
        │  (debounce 400 ms: si llegan varios cambios, se procesan juntos)
        ▼
-Flush()  ──►  para cada ruta pendiente:
-               scanner.RescanFile(path)   // re-parsea SOLO ese fichero
-             store.Save(scanPath, ...)    // actualiza la caché en disco
+Flush()  ──►  scanner.RescanFiles(pendientes)   // re-parsea SOLO esos ficheros
+               graph.MergeFragments(lote)        // UNA fusión para todo el lote
+               SaveThrottled()                   // caché: máx. 1 save / 10 s, atómico
 ```
 
-Solo se re-parsea el fichero cambiado (no el proyecto entero), lo que es prácticamente instantáneo. Las carpetas `obj/`, `bin/`, `.git/`, `node_modules/` y `.vs/` se excluyen del watcher.
+La fusión (`GraphEngine.MergeFragments`) elige entre dos niveles:
+
+- **Delta**: si todos los ficheros del lote siguen declarando los mismos tipos y exponiendo
+  las mismas firmas de retorno, la tabla de símbolos global no cambia y basta restar las
+  contribuciones del fragmento viejo y sumar las del nuevo — milisegundos. Es el caso común
+  (editar cuerpos de métodos, llamadas, miembros).
+- **Rebuild**: cualquier cambio estructural (tipo nuevo/borrado/renombrado, firma con otro
+  tipo de retorno, fichero nuevo) reconstruye todos los índices UNA vez por lote.
+
+`Flush` nunca se solapa consigo mismo (guarda anti-reentrada), de modo que una ráfaga de
+guardados no encadena pipelines. El PageRank solo se recalcula en el rebuild: tras deltas,
+el orden de sugerencias queda ligeramente desactualizado hasta el próximo cambio estructural
+o `scan` (no afecta a la corrección de aristas ni call-sites).
+
+Solo se re-parsean los ficheros cambiados (no el proyecto entero). Las carpetas `obj/`, `bin/`, `.git/`, `node_modules/` y `.vs/` se excluyen del watcher.
 
 También se puede forzar un re-escaneo completo llamando a `scan(path)` manualmente.
 

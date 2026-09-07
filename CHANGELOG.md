@@ -9,7 +9,43 @@ minor versions).
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+- **Incremental fragment merge**: `GraphEngine.MergeFragments` now takes a fast path when
+  `.md`/`.markdown`/`.txt` and known config JSON (`appsettings*`, `launchSettings`) — into a
+  lightweight in-RAM index (`Docs/DocIndex.cs`; no new dependencies, no disk cache). New MCP
+  tool `search_docs` (CLI: `sharpgraph docs`) runs BM25 over content with titles and sections
+  weighted x3, returning path + section — never content. Docs are cross-linked with code:
+  `search` tags types with `[docs:N]` and `understand` lists the docs mentioning the type
+  (PascalCase/camelCase symbols of 4+ chars only, to avoid prose false positives). A second
+  `FileSystemWatcher` in `ProjectWatcher` keeps the doc index fresh on save; doc-only changes
+  skip the fragment-cache save.
+- **Incremental fragment merge**: `GraphEngine.MergeFragments` now takes a fast path when
+  every changed file still declares the same types and exposes the same return signatures —
+  the old fragment's contributions are subtracted and the new ones added in milliseconds
+  (`GraphEngine.Incremental.cs`), instead of rebuilding every index from every fragment.
+  Structural changes (type added/removed/renamed, changed return type, new file) fall back
+  to a single full rebuild per batch. Exposed `GraphEngine.LastMergeIncremental` for
+  diagnostics/tests.
+
+### Changed
+- **Watcher batching**: `ProjectWatcher.Flush` parses all pending files and performs ONE
+  merge per batch (was: one full rebuild per file), guards against overlapping flushes, and
+  saves the cache with a 10 s throttle. `SolutionScanner.RescanFiles` parses a batch without
+  merging.
+
+### Fixed
+- **Query starvation on file saves**: saving `.cs` files while queries were in flight could
+  freeze `understand`/`search` for a long time on large solutions — each saved file held the
+  graph lock for a full rebuild and the cache was rewritten entirely on every flush, with
+  concurrent saves failing silently. The incremental merge plus throttled, atomic cache
+  writes (`GraphStore` temp-file + move) eliminate both stalls and corrupted/failed saves.
+- PageRank is now only recomputed on full rebuilds; body-edit deltas keep the previous
+  ranking (suggestion ordering only, never edge correctness).
+
+### Tests
+- 11 new tests (`IncrementalMergeTests`) asserting delta-vs-full-rebuild equivalence
+  (stats + query outputs) for body edits, batches, removals, structural fallbacks, chained
+  receivers, partial classes, `RemoveFile`, BM25 index, and a delta latency smoke test.
 
 ## [2.1.0] — 2026-07-21
 
