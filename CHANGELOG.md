@@ -10,6 +10,13 @@ minor versions).
 ## [Unreleased]
 
 ### Added
+- **Server metadata for LLM discoverability**: the MCP `initialize` response now carries
+  `serverInfo.title` ("SharpGraph — grafo de código y documentación C#"), a `serverInfo.description`
+  of what/how (dependency graph + docs index, token-saving thesis) and `websiteUrl`. The server
+  instructions were rewritten around what/how/when: a new "CUÁNDO USAR / CUÁNDO NO" section
+  (when to prefer grep, C#-only scope, read-only, unindexed formats), the 11-step flow, and an
+  expanded "LÍMITES" section. All 17 tools and their 31 parameters already carried descriptions
+  (verified over the wire with a JSON-RPC probe).
 - **Documentation index (`search_docs`)**: `scan` now also indexes project documentation —
   `.md`/`.markdown`/`.txt` and known config JSON (`appsettings*`, `launchSettings`) — into a
   lightweight in-RAM index (`Docs/DocIndex.cs`; no new dependencies, no disk cache). New MCP
@@ -34,6 +41,11 @@ minor versions).
   merging.
 
 ### Fixed
+- **Auto-scan hook invoked a wrong tool name**: the `CwdChanged` hook written by
+  `configure_auto_scan`, `install.ps1` and `install.sh` used `"tool": "Scan"`, but the MCP wire
+  name is snake_case (`scan`) — the hook failed silently with "Unknown tool". All three writers
+  now emit `"scan"`. Existing hooks in `~/.claude/settings.json` need a one-line manual fix (or
+  remove the old entry and re-run `configure_auto_scan`).
 - **Query starvation on file saves**: saving `.cs` files while queries were in flight could
   freeze `understand`/`search` for a long time on large solutions — each saved file held the
   graph lock for a full rebuild and the cache was rewritten entirely on every flush, with

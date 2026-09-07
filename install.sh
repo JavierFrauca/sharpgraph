@@ -149,7 +149,7 @@ cwd = hooks.setdefault("CwdChanged", [])
 already = any(h.get("server") == "sharpgraph" for group in cwd for h in group.get("hooks", []))
 if not already:
     cwd.append({"hooks": [{
-        "type": "mcp_tool", "server": "sharpgraph", "tool": "Scan",
+        "type": "mcp_tool", "server": "sharpgraph", "tool": "scan",
         "input": {"path": "${cwd}"}, "async": True,
         "statusMessage": "SharpGraph indexing..."
     }]})
