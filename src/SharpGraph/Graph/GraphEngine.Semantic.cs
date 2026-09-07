@@ -86,26 +86,34 @@ public sealed partial class GraphEngine
     private void BuildDocsLocked()
     {
         foreach (var node in _nodes.Values)
-        {
-            if (!node.IsPublic) continue;
-            var sb = new StringBuilder();
-            sb.Append(node.Name).Append(' ');
-            if (node.Summary is not null) sb.Append(node.Summary).Append(' ');
-            if (_members.TryGetValue(node.Name, out var members))
-                foreach (var m in members.Where(m => m.IsPublic))
-                    sb.Append(m.MemberName).Append(' ');
-            if (_out.TryGetValue(node.Name, out var edges))
-                foreach (var e in edges.Take(40))
-                    sb.Append(e.To).Append(' ');
+            BuildDocForNodeLocked(node);
+    }
 
-            var tf = BuildTermFrequencies(sb.ToString());
-            var len = tf.Values.Sum();
-            if (len == 0) continue;
-            _docs.Add(new Doc(node.Name, tf, len));
-            _totalDocLength += len;
-            foreach (var term in tf.Keys)
-                _docFrequency[term] = _docFrequency.GetValueOrDefault(term, 0) + 1;
-        }
+    /// <summary>
+    /// Doc BM25 de un nodo público a partir del estado actual de los índices
+    /// (miembros públicos + hasta 40 aristas salientes). Lo usa el rebuild completo
+    /// y la fusión incremental (delta de docs).
+    /// </summary>
+    private void BuildDocForNodeLocked(NodeDef node)
+    {
+        if (!node.IsPublic) return;
+        var sb = new StringBuilder();
+        sb.Append(node.Name).Append(' ');
+        if (node.Summary is not null) sb.Append(node.Summary).Append(' ');
+        if (_members.TryGetValue(node.Name, out var members))
+            foreach (var m in members.Where(m => m.IsPublic))
+                sb.Append(m.MemberName).Append(' ');
+        if (_out.TryGetValue(node.Name, out var edges))
+            foreach (var e in edges.Take(40))
+                sb.Append(e.To).Append(' ');
+
+        var tf = BuildTermFrequencies(sb.ToString());
+        var len = tf.Values.Sum();
+        if (len == 0) return;
+        _docs.Add(new Doc(node.Name, tf, len));
+        _totalDocLength += len;
+        foreach (var term in tf.Keys)
+            _docFrequency[term] = _docFrequency.GetValueOrDefault(term, 0) + 1;
     }
 
     public string SearchSemantic(string query, int topK = 10)

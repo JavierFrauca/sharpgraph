@@ -195,5 +195,7 @@ grafo al día:
 
 1. La primera vez en un proyecto, pide al LLM `scan("/ruta")`.
 2. SharpGraph mantiene un *FileSystemWatcher* que re-parsea automáticamente los `.cs`
-   que modifiques mientras el servidor esté vivo. No necesitas re-escanear tras cada cambio.
+   que modifiques mientras el servidor esté vivo. No necesitas re-escanear tras cada cambio:
+   las ediciones de cuerpo se aplican como delta en milisegundos; solo los cambios
+   estructurales (tipo nuevo/borrado/renombrado) disparan una reconstrucción puntual.
 3. Si cambias de proyecto, pide `scan` de la nueva ruta (sobreescribe el grafo en memoria).

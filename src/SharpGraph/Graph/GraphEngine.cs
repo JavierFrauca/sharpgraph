@@ -83,22 +83,51 @@ public sealed partial class GraphEngine
         }
     }
 
-    /// <summary>Fusiona o reemplaza el fragmento de un fichero y reindexa.</summary>
-    public void MergeFragment(FileFragment fragment)
-    {
-        lock (_lock)
-        {
-            _fragments[fragment.FilePath] = fragment;
-            RebuildLocked();
-        }
-    }
+    /// <summary>
+    /// Fusiona o reemplaza el fragmento de un fichero. Véase <see cref="MergeFragments"/>:
+    /// la fusión es incremental cuando el cambio es de cuerpos, y reconstrucción
+    /// completa cuando es estructural.
+    /// </summary>
+    public void MergeFragment(FileFragment fragment) => MergeFragments([fragment]);
 
+    /// <summary>
+    /// Fusiona o reemplaza los fragmentos de un lote de ficheros en UNA sola operación.
+    ///
+    /// Ruta incremental: si todos los ficheros del lote siguen declarando los mismos
+    /// tipos y exponen las mismas firmas de retorno, se resta lo indexado del
+    /// fragmento viejo y se suma el nuevo (milisegundos — ver GraphEngine.Incremental.cs).
+    ///
+    /// Fallback: cualquier cambio estructural (tipo nuevo/borrado/renombrado, firma
+    /// con otro retorno, fichero nuevo) reconstruye todos los índices UNA vez por lote.
+    /// El PageRank solo se recalcula en el fallback: tras ediciones de cuerpo el
+    /// ranking queda ligeramente desactualizado (solo afecta al orden de sugerencias).
+    /// </summary>
     public void MergeFragments(IEnumerable<FileFragment> fragments)
     {
         lock (_lock)
         {
-            foreach (var f in fragments) _fragments[f.FilePath] = f;
-            RebuildLocked();
+            // deduplicar por fichero conservando la semántica original: gana el último
+            var batch = fragments
+                .GroupBy(f => f.FilePath, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.Last())
+                .ToList();
+
+            if (batch.Count > 0 && CanMergeIncrementallyLocked(batch))
+            {
+                foreach (var f in batch)
+                {
+                    UnindexFragmentLocked(_fragments[f.FilePath]);
+                    _fragments[f.FilePath] = f;
+                    IndexFragmentLocked(f);
+                }
+                LastMergeIncremental = true;
+            }
+            else
+            {
+                foreach (var f in batch) _fragments[f.FilePath] = f;
+                RebuildLocked();
+                LastMergeIncremental = false;
+            }
         }
     }
 
@@ -125,123 +154,140 @@ public sealed partial class GraphEngine
 
         // PASO 1: tipos declarados + tabla de símbolos (necesaria para resolver referencias).
         foreach (var frag in _fragments.Values)
-        {
-            foreach (var n in frag.Nodes)
-            {
-                if (!_nodes.TryGetValue(n.Name, out var existing) || (existing.Summary is null && n.Summary is not null))
-                    _nodes[n.Name] = n;
-                _files.TryAdd(n.Name, frag.FilePath);
-
-                var simple = LastSegment(n.Name);
-                if (!_fqnBySimple.TryGetValue(simple, out var list)) _fqnBySimple[simple] = list = [];
-                if (!list.Any(x => x.Fqn.Equals(n.Name, StringComparison.OrdinalIgnoreCase)))
-                    list.Add((n.Name, n.Namespace));
-            }
-
-            foreach (var ep in frag.Endpoints)
-            {
-                if (!_endpoints.TryGetValue(ep.TypeName, out var list)) _endpoints[ep.TypeName] = list = [];
-                list.Add(ep);
-            }
-
-            foreach (var m in frag.Members)
-            {
-                if (!_members.TryGetValue(m.TypeName, out var list)) _members[m.TypeName] = list = [];
-                list.Add(m);
-            }
-
-            // B — indexa signaturas de retorno: (tipo, miembro) -> tipo de retorno simple.
-            // Resuelve el tipo declarado a FQN para que el lookup posterior funcione
-            // con el mismo nombre con el que se indexan los nodos.
-            foreach (var sig in frag.ReturnSignatures)
-            {
-                if (!_returnsByMember.TryGetValue(SignatureKey(sig.TypeName, sig.MemberName), out var list))
-                    _returnsByMember[SignatureKey(sig.TypeName, sig.MemberName)] = list = [];
-                list.Add(sig);
-            }
-        }
+            IndexFragmentDeclarationsLocked(frag);
 
         foreach (var (simple, fqns) in _fqnBySimple)
             if (fqns.Count > 1) _ambiguous.Add(simple);
 
         // PASO 2: aristas, call-sites y DI con los extremos resueltos a FQN.
         foreach (var frag in _fragments.Values)
-        {
-            foreach (var e in frag.Edges)
-            {
-                var from = e.FromResolved ? e.From : Resolve(e.From, e.Ns, frag);
-                var to = e.ToResolved ? e.To : Resolve(e.To, e.Ns, frag);
-                if (string.IsNullOrWhiteSpace(from) || string.IsNullOrWhiteSpace(to) ||
-                    from.Equals(to, StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                var resolved = e with { From = from, To = to, FromResolved = true, ToResolved = true };
-                if (!_out.TryGetValue(from, out var outList)) _out[from] = outList = [];
-                outList.Add(resolved);
-                if (!_in.TryGetValue(to, out var inSet)) _in[to] = inSet = new(Cmp);
-                inSet.Add(from);
-                _in.TryAdd(from, new(Cmp));
-                _out.TryAdd(to, []);
-            }
-
-            foreach (var cs in frag.CallSites)
-            {
-                var callee = Resolve(cs.CalleeType, cs.Ns, frag);
-                var resolved = cs with { CalleeType = callee };
-                if (!_callsByCallee.TryGetValue(callee, out var list)) _callsByCallee[callee] = list = [];
-                list.Add(resolved);
-                if (!_callsByCaller.TryGetValue(cs.CallerType, out var cl)) _callsByCaller[cs.CallerType] = cl = [];
-                cl.Add(resolved);
-            }
-
-            foreach (var di in frag.DiBindings)
-            {
-                var svc = Resolve(di.ServiceType, di.Ns, frag);
-                var impl = Resolve(di.ImplementationType, di.Ns, frag);
-                var resolved = di with { ServiceType = svc, ImplementationType = impl };
-                if (!_diByService.TryGetValue(svc, out var s)) _diByService[svc] = s = [];
-                s.Add(resolved);
-                if (!_diByImpl.TryGetValue(impl, out var i)) _diByImpl[impl] = i = [];
-                i.Add(resolved);
-            }
-
-            // B.3 — resuelve primero los PendingLocals (var x = <expr>) para que los
-            // PendingCallSites que los usen como receptor puedan resolverlos.
-            foreach (var pl in frag.PendingLocals)
-            {
-                var localType = ResolvePendingInitializer(pl.Initializer, frag);
-                if (localType is null) continue;
-                _resolvedLocals[PendingLocalKey(pl.DeclaringType, pl.DeclaringMember, pl.LocalName)] = localType;
-            }
-
-            // B — resuelve call-sites pendientes cuyo receptor era complejo (factory,
-            // chaining, member-access profundo). Camina los pasos desde el local
-            // inicial hasta inferir el tipo final del receptor y, si lo logra,
-            // registra el call-site y la arista Call como cualquier otro.
-            foreach (var pcs in frag.PendingCallSites)
-            {
-                var calleeType = ResolvePendingReceiver(pcs, frag);
-                if (calleeType is null) continue;
-                var resolved = new CallSite(pcs.CallerType, pcs.CallerMember, calleeType, pcs.CalleeMember, pcs.Ns, pcs.Line);
-                if (!_callsByCallee.TryGetValue(calleeType, out var list)) _callsByCallee[calleeType] = list = [];
-                list.Add(resolved);
-                if (!_callsByCaller.TryGetValue(pcs.CallerType, out var cl)) _callsByCaller[pcs.CallerType] = cl = [];
-                cl.Add(resolved);
-
-                // arista Call (From=caller FQN o <top-level>, To=callee resuelto)
-                if (!string.IsNullOrWhiteSpace(pcs.CallerType) &&
-                    !pcs.CallerType.Equals(calleeType, StringComparison.OrdinalIgnoreCase))
-                {
-                    if (!_out.TryGetValue(pcs.CallerType, out var outList)) _out[pcs.CallerType] = outList = [];
-                    outList.Add(new TypeEdge(pcs.CallerType, true, calleeType, true, pcs.Ns, EdgeRelation.Call, pcs.Line, pcs.CallerMember));
-                    if (!_in.TryGetValue(calleeType, out var inSet)) _in[calleeType] = inSet = new(Cmp);
-                    inSet.Add(pcs.CallerType);
-                }
-            }
-        }
+            IndexFragmentReferencesLocked(frag);
 
         BuildDocsLocked();
         ComputeRankLocked();
+    }
+
+    /// <summary>
+    /// PASO 1 de la indexación: tipos declarados, tabla de símbolos, endpoints,
+    /// miembros y firmas de retorno. Lo aplica el rebuild completo (a todos los
+    /// fragmentos) y la fusión incremental (al fragmento cambiado).
+    /// </summary>
+    private void IndexFragmentDeclarationsLocked(FileFragment frag)
+    {
+        foreach (var n in frag.Nodes)
+        {
+            if (!_nodes.TryGetValue(n.Name, out var existing) || (existing.Summary is null && n.Summary is not null))
+                _nodes[n.Name] = n;
+            _files.TryAdd(n.Name, frag.FilePath);
+
+            var simple = LastSegment(n.Name);
+            if (!_fqnBySimple.TryGetValue(simple, out var list)) _fqnBySimple[simple] = list = [];
+            if (!list.Any(x => x.Fqn.Equals(n.Name, StringComparison.OrdinalIgnoreCase)))
+                list.Add((n.Name, n.Namespace));
+        }
+
+        foreach (var ep in frag.Endpoints)
+        {
+            if (!_endpoints.TryGetValue(ep.TypeName, out var list)) _endpoints[ep.TypeName] = list = [];
+            list.Add(ep);
+        }
+
+        foreach (var m in frag.Members)
+        {
+            if (!_members.TryGetValue(m.TypeName, out var list)) _members[m.TypeName] = list = [];
+            list.Add(m);
+        }
+
+        // B — indexa signaturas de retorno: (tipo, miembro) -> tipo de retorno simple.
+        // Resuelve el tipo declarado a FQN para que el lookup posterior funcione
+        // con el mismo nombre con el que se indexan los nodos.
+        foreach (var sig in frag.ReturnSignatures)
+        {
+            if (!_returnsByMember.TryGetValue(SignatureKey(sig.TypeName, sig.MemberName), out var list))
+                _returnsByMember[SignatureKey(sig.TypeName, sig.MemberName)] = list = [];
+            list.Add(sig);
+        }
+    }
+
+    /// <summary>
+    /// PASO 2 de la indexación: aristas, call-sites y DI con los extremos resueltos
+    /// a FQN, más los pendientes (locales var y receptores encadenados). Requiere la
+    /// tabla de símbolos completa (PASO 1 de todos los fragmentos) y las firmas de
+    /// retorno indexadas antes que los pendientes que las usan.
+    /// </summary>
+    private void IndexFragmentReferencesLocked(FileFragment frag)
+    {
+        foreach (var e in frag.Edges)
+        {
+            var from = e.FromResolved ? e.From : Resolve(e.From, e.Ns, frag);
+            var to = e.ToResolved ? e.To : Resolve(e.To, e.Ns, frag);
+            if (string.IsNullOrWhiteSpace(from) || string.IsNullOrWhiteSpace(to) ||
+                from.Equals(to, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var resolved = e with { From = from, To = to, FromResolved = true, ToResolved = true };
+            if (!_out.TryGetValue(from, out var outList)) _out[from] = outList = [];
+            outList.Add(resolved);
+            if (!_in.TryGetValue(to, out var inSet)) _in[to] = inSet = new(Cmp);
+            inSet.Add(from);
+            _in.TryAdd(from, new(Cmp));
+            _out.TryAdd(to, []);
+        }
+
+        foreach (var cs in frag.CallSites)
+        {
+            var callee = Resolve(cs.CalleeType, cs.Ns, frag);
+            var resolved = cs with { CalleeType = callee };
+            if (!_callsByCallee.TryGetValue(callee, out var list)) _callsByCallee[callee] = list = [];
+            list.Add(resolved);
+            if (!_callsByCaller.TryGetValue(cs.CallerType, out var cl)) _callsByCaller[cs.CallerType] = cl = [];
+            cl.Add(resolved);
+        }
+
+        foreach (var di in frag.DiBindings)
+        {
+            var svc = Resolve(di.ServiceType, di.Ns, frag);
+            var impl = Resolve(di.ImplementationType, di.Ns, frag);
+            var resolved = di with { ServiceType = svc, ImplementationType = impl };
+            if (!_diByService.TryGetValue(svc, out var s)) _diByService[svc] = s = [];
+            s.Add(resolved);
+            if (!_diByImpl.TryGetValue(impl, out var i)) _diByImpl[impl] = i = [];
+            i.Add(resolved);
+        }
+
+        // B.3 — resuelve primero los PendingLocals (var x = <expr>) para que los
+        // PendingCallSites que los usen como receptor puedan resolverlos.
+        foreach (var pl in frag.PendingLocals)
+        {
+            var localType = ResolvePendingInitializer(pl.Initializer, frag);
+            if (localType is null) continue;
+            _resolvedLocals[PendingLocalKey(pl.DeclaringType, pl.DeclaringMember, pl.LocalName)] = localType;
+        }
+
+        // B — resuelve call-sites pendientes cuyo receptor era complejo (factory,
+        // chaining, member-access profundo). Camina los pasos desde el local
+        // inicial hasta inferir el tipo final del receptor y, si lo logra,
+        // registra el call-site y la arista Call como cualquier otro.
+        foreach (var pcs in frag.PendingCallSites)
+        {
+            var calleeType = ResolvePendingReceiver(pcs, frag);
+            if (calleeType is null) continue;
+            var resolved = new CallSite(pcs.CallerType, pcs.CallerMember, calleeType, pcs.CalleeMember, pcs.Ns, pcs.Line);
+            if (!_callsByCallee.TryGetValue(calleeType, out var list)) _callsByCallee[calleeType] = list = [];
+            list.Add(resolved);
+            if (!_callsByCaller.TryGetValue(pcs.CallerType, out var cl)) _callsByCaller[pcs.CallerType] = cl = [];
+            cl.Add(resolved);
+
+            // arista Call (From=caller FQN o <top-level>, To=callee resuelto)
+            if (!string.IsNullOrWhiteSpace(pcs.CallerType) &&
+                !pcs.CallerType.Equals(calleeType, StringComparison.OrdinalIgnoreCase))
+            {
+                if (!_out.TryGetValue(pcs.CallerType, out var outList)) _out[pcs.CallerType] = outList = [];
+                outList.Add(new TypeEdge(pcs.CallerType, true, calleeType, true, pcs.Ns, EdgeRelation.Call, pcs.Line, pcs.CallerMember));
+                if (!_in.TryGetValue(calleeType, out var inSet)) _in[calleeType] = inSet = new(Cmp);
+                inSet.Add(pcs.CallerType);
+            }
+        }
     }
 
     // ---------- resolución de identidad de símbolo ----------

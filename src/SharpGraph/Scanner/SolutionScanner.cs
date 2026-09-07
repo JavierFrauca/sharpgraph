@@ -52,15 +52,32 @@ public sealed class SolutionScanner(GraphEngine graph)
         var fragments = ParseFiles(toParse);
         graph.MergeFragments(fragments);
         sw.Stop();
-        await Console.Error.WriteLineAsync($"Incremental: {toParse.Count} files in {sw.ElapsedMilliseconds}ms. {graph.Stats()}");
+        await Console.Error.WriteLineAsync(
+            $"Incremental: {toParse.Count} files in {sw.ElapsedMilliseconds}ms ({(graph.LastMergeIncremental ? "delta" : "rebuild")}). {graph.Stats()}");
+    }
+
+    /// <summary>
+    /// Re-parsea un lote de ficheros SIN fusionarlos (para el watcher: un solo
+    /// merge para todo el lote, en vez de uno por fichero). Los borrados se quitan
+    /// del grafo directamente.
+    /// </summary>
+    public List<FileFragment> RescanFiles(IEnumerable<string> filePaths)
+    {
+        var fragments = new List<FileFragment>();
+        foreach (var p in filePaths)
+        {
+            if (!File.Exists(p)) { graph.RemoveFile(p); continue; }
+            var fragment = ParseFile(p);
+            if (fragment is not null) fragments.Add(fragment);
+        }
+        return fragments;
     }
 
     /// <summary>Re-parsea un único fichero (usado por el file watcher).</summary>
     public void RescanFile(string filePath)
     {
-        if (!File.Exists(filePath)) { graph.RemoveFile(filePath); return; }
-        var fragment = ParseFile(filePath);
-        if (fragment is not null) graph.MergeFragment(fragment);
+        foreach (var f in RescanFiles([filePath]))
+            graph.MergeFragment(f);
     }
 
     private static List<FileFragment> ParseFiles(IReadOnlyCollection<string> files)

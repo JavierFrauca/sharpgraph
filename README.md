@@ -133,7 +133,9 @@ Los tipos se indexan por **nombre cualificado** (`Sales.Order` vs `Purchasing.Or
 nombre simple, así dos tipos homónimos en namespaces distintos no se fusionan. La resolución
 es por AST (sin compilación): namespace del tipo declarante + `using` del fichero + tabla global
 de símbolos, y ocurre en el **rebuild** (no en el parse), de modo que sigue siendo correcta bajo
-escaneo incremental. La salida muestra el nombre simple salvo que colisione, donde cualifica.
+escaneo incremental: la ruta rápida solo se aplica cuando la tabla de símbolos no cambia (mismos
+tipos declarados), por lo que lo ya resuelto sigue siendo válido. La salida muestra el nombre
+simple salvo que colisione, donde cualifica.
 Si consultas un nombre ambiguo, la herramienta te pide que lo cualifiques.
 
 ### Persistencia e incrementalidad
@@ -141,7 +143,19 @@ Si consultas un nombre ambiguo, la herramienta te pide que lo cualifiques.
 `GraphStore` cachea los fragmentos en disco (JSON, por solución, versionado por parser).
 Al reabrir el proyecto, el arranque en frío es instantáneo: se cargan los fragmentos y solo
 se re-parsean los ficheros con hash distinto. `ProjectWatcher` (FileSystemWatcher con debounce)
-mantiene el grafo al día al guardar ficheros, re-parseando solo el fichero cambiado.
+mantiene el grafo al día al guardar ficheros, re-parseando solo los ficheros cambiados.
+
+La fusión tiene dos niveles:
+
+- **Delta (ediciones de cuerpo)**: si el fichero cambiado declara los mismos tipos y expone
+  las mismas firmas de retorno, se resta lo indexado del fragmento viejo y se suma el nuevo —
+  milisegundos, sin reconstruir nada global.
+- **Rebuild (cambio estructural)**: alta/baja/renombre de tipo, firma con otro retorno o
+  fichero nuevo reconstruyen los índices UNA vez por lote.
+
+Además, el watcher procesa cada ráfaga de guardados como un único lote y guarda la caché con
+throttle (máx. un save cada 10 s, escritura atómica), de modo que las queries nunca compiten
+con reconstrucciones encadenadas ni con reescrituras de la caché.
 
 ### Búsqueda semántica
 
@@ -150,9 +164,11 @@ nombres de miembros y dependencias. Permite búsquedas por intención sin embedd
 
 ### Centralidad
 
-En cada reconstrucción se calcula **PageRank** sobre las aristas. Sirve para ordenar
+En cada reconstrucción completa se calcula **PageRank** sobre las aristas. Sirve para ordenar
 resultados por relevancia (en `search` y `find_callers`, en vez de alfabético) y alimenta
-la herramienta `hubs`, que lista los tipos núcleo del sistema.
+la herramienta `hubs`, que lista los tipos núcleo del sistema. Tras ediciones de cuerpo (ruta
+delta) el ranking no se recalcula: queda ligeramente desactualizado hasta el próximo cambio
+estructural o `scan` — solo afecta al orden de sugerencias, nunca a la corrección de las aristas.
 
 ### El problema del diamante MediatR
 

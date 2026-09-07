@@ -67,8 +67,14 @@ public sealed class GraphStore
     {
         try
         {
+            var file = CacheFileFor(scanPath);
+            // Escritura atómica: a un temporal único y luego move encima del destino.
+            // Dos saves solapados (watcher + scan) no corrompen la caché ni fallan
+            // por compartir el fichero destino: simplemente gana el último move.
+            var tmp = file + "." + Guid.NewGuid().ToString("N")[..8] + ".tmp";
             var json = JsonSerializer.Serialize(new Envelope(ParserVersion, fragments.ToList()), JsonOpts);
-            File.WriteAllText(CacheFileFor(scanPath), json);
+            File.WriteAllText(tmp, json);
+            File.Move(tmp, file, overwrite: true);
         }
         catch (Exception ex)
         {
