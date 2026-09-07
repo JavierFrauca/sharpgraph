@@ -12,7 +12,7 @@ namespace SharpGraph.Mcp;
 [McpServerToolType]
 public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watcher)
 {
-    [McpServerTool, Description("""
+    [McpServerTool(Title = "Configurar auto-escaneo (solo Claude Code)", Idempotent = true), Description("""
         PRIMERA CONFIGURACIÓN — llama a esta herramienta la primera vez que usas SharpGraph
         CON Claude Code. (Solo aplica a Claude Code: otros clientes no soportan el hook
         CwdChanged y esta herramienta no tendrá efecto en ellos. Ver docs/CLIENTS.md.)
@@ -86,7 +86,7 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
         return $"Hook configurado en {settingsPath}. Reinicia Claude Code para activarlo.";
     }
 
-    [McpServerTool, Description("""
+    [McpServerTool(Title = "Escanear proyecto C#", Idempotent = true), Description("""
         Escanea un proyecto C# y construye/actualiza el grafo de dependencias en memoria.
 
         Acepta .sln, .csproj o carpeta. Excluye obj/, bin/, .git/, node_modules/
@@ -129,7 +129,7 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
         return graph.Stats();
     }
 
-    [McpServerTool, Description("""
+    [McpServerTool(Title = "Traza hasta endpoints HTTP", ReadOnly = true, Idempotent = true), Description("""
         Traza el camino desde un tipo hasta los endpoints HTTP que lo invocan.
         "¿Desde qué endpoint se llama a este servicio?".
 
@@ -153,7 +153,7 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
         [Description("Profundidad máxima hacia atrás (defecto 8).")] int maxDepth = 8)
         => graph.TraceToEndpoints(typeName, maxDepth);
 
-    [McpServerTool, Description("""
+    [McpServerTool(Title = "Quién usa este tipo", ReadOnly = true, Idempotent = true), Description("""
         Árbol de tipos que dependen de un tipo dado, N niveles hacia arriba.
         "¿Qué partes del sistema usan este servicio?".
 
@@ -172,7 +172,7 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
         [Description("Niveles hacia arriba (defecto 3).")] int depth = 3)
         => graph.FindCallers(typeName, depth);
 
-    [McpServerTool, Description("""
+    [McpServerTool(Title = "De qué depende este tipo", ReadOnly = true, Idempotent = true), Description("""
         Muestra de qué tipos depende el tipo indicado (referencias salientes),
         agrupadas por destino con su relación y líneas.
 
@@ -189,7 +189,7 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
         [Description("Nombre del tipo (ej: GrossService).")] string typeName)
         => graph.GetUsages(typeName);
 
-    [McpServerTool, Description("""
+    [McpServerTool(Title = "Buscar tipos por nombre", ReadOnly = true, Idempotent = true), Description("""
         Busca tipos por nombre parcial (insensible a mayúsculas). Solo tipos
         DEFINIDOS en la solución (los externos/BCL no son nodos).
 
@@ -206,7 +206,7 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
         [Description("Texto parcial a buscar.")] string pattern)
         => graph.Search(pattern);
 
-    [McpServerTool, Description("""
+    [McpServerTool(Title = "Explorar contexto cercano", ReadOnly = true, Idempotent = true), Description("""
         Explora el contexto cercano de un tipo o patrón en ambas direcciones,
         sin forzar una traza exacta hasta endpoint.
 
@@ -220,7 +220,7 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
         [Description("Máximo por bloque (defecto 8).")] int limitPerGroup = 8)
         => graph.ExploreContext(typeOrPattern, depth, limitPerGroup);
 
-    [McpServerTool, Description("""
+    [McpServerTool(Title = "Código fuente de un tipo o miembro", ReadOnly = true, Idempotent = true), Description("""
         Devuelve CÓDIGO FUENTE directamente desde el grafo, sin necesidad de leer
         ficheros enteros. Es la herramienta clave para ahorrar tokens: en vez de
         abrir un fichero de 400 líneas, recupera solo lo que necesitas.
@@ -254,7 +254,7 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
         [Description("Si true y no hay member, devuelve cuerpos de los primeros miembros públicos hasta el presupuesto.")] bool includeBodies = false)
         => graph.GetSource(typeName, member, Math.Clamp(maxBodyLines, 5, 600), includeBodies);
 
-    [McpServerTool, Description("""
+    [McpServerTool(Title = "Leer un fichero .cs numerado", ReadOnly = true, Idempotent = true), Description("""
         Lee un fichero .cs del proyecto escaneado, con números de línea y marcas
         de región por tipo definido. Compite con `explore` de GraphEngine para el caso
         "enséñame este fichero". A diferencia de get_source/understand, devuelve el
@@ -278,7 +278,7 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
         [Description("Máximo de líneas a devolver (10-800, defecto 200).")] int maxLines = 200)
         => graph.ReadFile(filePath, Math.Clamp(maxLines, 10, 800));
 
-    [McpServerTool, Description("""
+    [McpServerTool(Title = "Comprender un tipo (código + contexto)", ReadOnly = true, Idempotent = true), Description("""
         COMPRENDER un tipo de un vistazo, en UNA sola llamada. Pensada para "¿cómo
         funciona X?" / "enséñame la clase X completa y su rol en el sistema".
 
@@ -300,7 +300,7 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
         [Description("Máximo de líneas de cuerpo a incluir (20-800, defecto 200).")] int bodyBudget = 200)
         => graph.Understand(typeName, bodyBudget);
 
-    [McpServerTool, Description("""
+    [McpServerTool(Title = "Árbol de llamadas salientes", ReadOnly = true, Idempotent = true), Description("""
         FLUJO de ejecución: destila la secuencia de llamadas SALIENTES de un método,
         recursiva hasta 'depth' niveles, con fichero:línea. Responde "¿cómo funciona /
         qué orquesta esto?" mostrando el árbol de llamadas SIN el código fuente.
@@ -324,7 +324,7 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
         [Description("Profundidad de recursión (1-5, defecto 2).")] int depth = 2)
         => graph.Flow(typeName, member, depth);
 
-    [McpServerTool, Description("""
+    [McpServerTool(Title = "Dónde se invoca de verdad", ReadOnly = true, Idempotent = true), Description("""
         Muestra DÓNDE SE INVOCA REALMENTE un tipo o método, a nivel de método y
         con fichero:línea. Resuelve la diferencia entre "dependencia inyectada" y
         "llamada efectiva": solo lista invocaciones reales (_servicio.Metodo()).
@@ -342,7 +342,7 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
         [Description("Máximo de resultados (defecto 50).")] int limit = 50)
         => graph.FindCallSites(typeName, member, limit);
 
-    [McpServerTool, Description("""
+    [McpServerTool(Title = "Resolver inyección de dependencias", ReadOnly = true, Idempotent = true), Description("""
         Resuelve la inyección de dependencias: dado un servicio o una implementación,
         muestra el binding registrado (AddScoped/AddSingleton/AddTransient).
 
@@ -356,7 +356,7 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
         [Description("Nombre del servicio o implementación (ej: IGrossService).")] string typeName)
         => graph.ResolveDi(typeName);
 
-    [McpServerTool, Description("""
+    [McpServerTool(Title = "Búsqueda semántica de tipos", ReadOnly = true, Idempotent = true), Description("""
         Búsqueda semántica (sin LLM, BM25 en memoria) sobre los tipos públicos:
         combina nombre, summary XML, nombres de miembros y dependencias.
         Encuentra tipos por INTENCIÓN aunque no sepas el nombre exacto.
@@ -369,7 +369,7 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
         [Description("Número de resultados (1-30, defecto 10).")] int topK = 10)
         => graph.SearchSemantic(query, topK);
 
-    [McpServerTool, Description("""
+    [McpServerTool(Title = "Buscar en la documentación", ReadOnly = true, Idempotent = true), Description("""
         Busca en la DOCUMENTACIÓN del proyecto: docs/, ADRs, README, .md/.txt y
         appsettings*.json. BM25 sobre contenido con títulos y secciones ponderados.
 
@@ -387,7 +387,7 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
         [Description("Número de resultados (1-20, defecto 8).")] int topK = 8)
         => graph.Docs.Search(query, Math.Clamp(topK, 1, 20));
 
-    [McpServerTool, Description("""
+    [McpServerTool(Title = "Tipos más centrales del sistema", ReadOnly = true, Idempotent = true), Description("""
         Lista los tipos MÁS CENTRALES del sistema por PageRank: los nodos núcleo
         por los que pasa la arquitectura. Punto de partida ideal para entender un
         codebase desconocido SIN leer ficheros a ciegas.
@@ -405,7 +405,7 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
         [Description("Incluir tipos externos/BCL (infraestructura). Defecto false.")] bool includeExternal = false)
         => graph.Hubs(topK, includeExternal);
 
-    [McpServerTool, Description("""
+    [McpServerTool(Title = "Estadísticas del grafo", ReadOnly = true, Idempotent = true), Description("""
         Estadísticas del grafo: tipos definidos, aristas, endpoints HTTP, call-sites
         (invocaciones reales), bindings DI, ficheros, docs indexados y ruta actual.
         0 tipos = grafo vacío → llama a scan().
