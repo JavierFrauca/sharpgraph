@@ -58,7 +58,6 @@ internal static class CliDispatcher
             "understand" => CliCommands.Understand(rest, graph),
             "read-file" or "readfile" => CliCommands.ReadFile(rest, graph),
             "semantic" or "search-semantic" => CliCommands.Semantic(rest, graph),
-            "docs" or "search-docs" => CliCommands.Docs(rest, graph),
             "explore" or "explore-context" => CliCommands.Explore(rest, graph),
             "setup" => await SetupWizard.Run(rest),
             "help" => CliCommands.Help(rest),

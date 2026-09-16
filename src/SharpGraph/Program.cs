@@ -58,13 +58,13 @@ builder.Services.AddMcpServer(options =>
     options.ServerInfo = new()
     {
         Name = "SharpGraph",
-        Title = "SharpGraph — grafo de código y documentación C#",
-        Description = "Indexa proyectos C# en un grafo de dependencias y su documentación (.md/.txt/appsettings) en un índice BM25. Responde quién llama a quién, qué implementa cada interfaz (DI), desde qué endpoint HTTP se llega y cómo funciona un flujo — y devuelve código fuente puntual y secciones de documentación, todo en texto compacto para gastar los mínimos tokens.",
+        Title = "SharpGraph — grafo de código C#",
+        Description = "Indexa proyectos C# en un grafo de dependencias. Responde quién llama a quién, qué implementa cada interfaz (DI), desde qué endpoint HTTP se llega y cómo funciona un flujo — y devuelve código fuente puntual, todo en texto compacto para gastar los mínimos tokens.",
         Version = "2.1.0",
         WebsiteUrl = "https://github.com/JavierFrauca/sharpgraph",
     };
     options.ServerInstructions = """
-        SharpGraph: mapa de dependencias de proyectos C# + índice de su documentación.
+        SharpGraph: mapa de dependencias de proyectos C#.
         Responde preguntas estructurales (quién llama a quién, DI, endpoints, flujo)
         y recupera código puntual SIN leer ficheros enteros: la tesis es gastar los
         mínimos tokens.
@@ -73,11 +73,10 @@ builder.Services.AddMcpServer(options =>
         SÍ: dependencias y callers de un tipo · desde qué endpoint se llega · qué
         implementa una interfaz (DI) · dónde se invoca de verdad un método · cómo
         funciona un flujo · entender un tipo con contexto en 1 llamada · buscar
-        tipos por intención · buscar en docs/ADRs/appsettings · el código de un
-        solo método en vez del fichero entero.
+        tipos por intención · el código de un solo método en vez del fichero entero.
         NO: texto literal en código (mejor grep) · proyectos que no son C# (solo se
-        indexan .cs) · editar o ejecutar (solo lectura) · PDF/DOCX y ficheros de
-        docs >1 MB (no se indexan).
+        indexan .cs) · editar o ejecutar (solo lectura) · búsqueda en documentación
+        (.md, ADRs, PDF/DOCX): fuera de alcance, solo se indexa código C#.
 
         == PRIMERA VEZ ==
         stats() → si 0 tipos, scan(path). En Claude Code, configure_auto_scan() una
@@ -95,20 +94,17 @@ builder.Services.AddMcpServer(options =>
         8. COMPRENDER un tipo (código+contexto en 1 llamada) → understand(X)
         9. ¿CÓMO FUNCIONA? (árbol de llamadas sin código) → flow(X, member)
         10. Buscar tipos por intención    → search_semantic("...")
-        11. Buscar en docs/ADRs           → search_docs("...")
 
         == CLAVE PARA AHORRAR TOKENS ==
         find_call_sites para localizar la invocación + get_source(tipo, miembro)
         para ver SOLO ese método. Distingue "inyectado" (find_callers / [ctor-param])
-        de "llamado de verdad" (find_call_sites / [call]). Los tipos marcados
-        [docs:N] aparecen en documentación: understand(X) lista qué docs los
-        mencionan.
+        de "llamado de verdad" (find_call_sites / [call]).
 
         == LÍMITES ==
         - Indexado por nombre simple de tipo; los ambiguos se muestran como FQN.
         - Tipos externos/BCL solo como destino de aristas, no como nodos.
         - Tests, mocks, fakes, stubs y builders se filtran automáticamente.
-        - El watcher mantiene el grafo y los docs al día al guardar; no re-escanear.
+        - El watcher mantiene el grafo al día al guardar; no re-escanear.
         """;
 })
 .WithStdioServerTransport()

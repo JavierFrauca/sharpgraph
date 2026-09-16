@@ -17,7 +17,6 @@ public sealed class SolutionScanner(GraphEngine graph)
 
         var fragments = ParseFiles(files);
         graph.MergeFragments(fragments);
-        graph.ScanDocs(path);
 
         sw.Stop();
         await Console.Error.WriteLineAsync($"Done in {sw.ElapsedMilliseconds}ms. {graph.Stats()}");
@@ -46,15 +45,12 @@ public sealed class SolutionScanner(GraphEngine graph)
         if (toParse.Count == 0)
         {
             await Console.Error.WriteLineAsync("Incremental scan: nothing changed.");
-            // los docs no viven en la caché de fragmentos: se reindexan siempre
-            graph.ScanDocs(path);
             return;
         }
 
         var sw = System.Diagnostics.Stopwatch.StartNew();
         var fragments = ParseFiles(toParse);
         graph.MergeFragments(fragments);
-        graph.ScanDocs(path);
         sw.Stop();
         await Console.Error.WriteLineAsync(
             $"Incremental: {toParse.Count} files in {sw.ElapsedMilliseconds}ms ({(graph.LastMergeIncremental ? "delta" : "rebuild")}). {graph.Stats()}");
@@ -99,8 +95,8 @@ public sealed class SolutionScanner(GraphEngine graph)
     {
         try
         {
-            // El watcher de docs (filter "*") puede encolar renombrados a .cs y viceversa:
-            // fuera de la fusión de código, solo se parsean ficheros .cs.
+            // defensa extra: fuera de la fusión de código, solo se parsean .cs
+            // (los renombrados fuera de .cs llegan aquí como eliminaciones).
             if (!filePath.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)) return null;
             var code = File.ReadAllText(filePath);
             var hash = HashText(code);

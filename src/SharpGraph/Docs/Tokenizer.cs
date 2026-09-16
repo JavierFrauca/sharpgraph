@@ -1,9 +1,9 @@
 namespace SharpGraph.Docs;
 
 /// <summary>
-/// Tokenización de texto compartida por el BM25 de tipos (<c>search_semantic</c>)
-/// y el índice de documentación (<c>search_docs</c>): parte camelCase/PascalCase
-/// y normaliza a minúsculas. Sin stopwords: el IDF del BM25 absorbe el ruido.
+/// Tokenización de texto para el BM25 de tipos (<c>search_semantic</c>):
+/// parte camelCase/PascalCase y normaliza a minúsculas. Sin stopwords:
+/// el IDF del BM25 absorbe el ruido.
 /// </summary>
 internal static class Tokenizer
 {

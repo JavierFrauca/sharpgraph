@@ -39,6 +39,18 @@ minor versions).
   to a single full rebuild per batch. Exposed `GraphEngine.LastMergeIncremental` for
   diagnostics/tests.
 
+### Removed
+- **Documentation index (`search_docs`)**: the whole docs feature is gone — the MCP tool
+  `search_docs`, the CLI command `sharpgraph docs`, the `[docs:N]` tags on `search` and the
+  doc-mentions line on `understand`, the docs counter on `stats`, and `Docs/DocIndex.cs`
+  with its second `FileSystemWatcher` (the watcher now only observes `.cs`, so a `*`-filter
+  instance no longer fires on every file in the tree). Rationale: documentation search is
+  now handled by a dedicated RAG MCP (`docurag`) in parallel, and exposing the same
+  capability from two servers confused the LLM's tool routing. `scan` indexes code only;
+  server metadata/instructions no longer mention docs. The BM25 tokenizer is kept —
+  `search_semantic` still uses it. The docs index never lived in the disk cache, so old
+  caches remain valid. BREAKING for the tool surface (17 → 16 tools).
+
 ### Changed
 - **Watcher batching**: `ProjectWatcher.Flush` parses all pending files and performs ONE
   merge per batch (was: one full rebuild per file), guards against overlapping flushes, and

@@ -156,17 +156,6 @@ internal static class CliCommands
         return 0;
     }
 
-    public static int Docs(string[] args, GraphEngine graph)
-    {
-        var query = GetPositional(args, 0);
-        if (query is null) { Console.Error.WriteLine("Uso: sharpgraph docs <query> [-n <topK>]"); return 1; }
-        var allPositionals = GetAllPositionals(args);
-        if (allPositionals.Length > 1) query = string.Join(" ", allPositionals);
-        var topK = GetFlagInt(args, "-n", 8);
-        Console.WriteLine(graph.Docs.Search(query, topK));
-        return 0;
-    }
-
     public static int Explore(string[] args, GraphEngine graph)
     {
         var pattern = GetPositional(args, 0);
