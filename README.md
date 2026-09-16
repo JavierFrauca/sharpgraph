@@ -68,7 +68,7 @@ Un LLM que intente trazar esta ruta leyendo código necesitaría abrir varios fi
 
 | Herramienta | Uso |
 |---|---|
-| `scan(path)` | Indexa un `.sln`, `.csproj` o carpeta — y su **documentación** (`.md`/`.txt`/appsettings). **Persistente e incremental** (caché en disco + watcher). |
+| `scan(path)` | Indexa un `.sln`, `.csproj` o carpeta. **Persistente e incremental** (caché en disco + watcher). |
 | `trace_to_endpoints(typeName)` | Traza el camino desde un tipo hasta los endpoints HTTP. MediatR/buses modelados de forma **exacta**. |
 | `find_callers(typeName, depth)` | Árbol de quién usa un tipo, con la **relación** de cada arista (`ctor-param`, `call`, `sends`…). |
 | `get_usages(typeName)` | De qué tipos depende un tipo, con relación, líneas y marca `(external)`. |
@@ -81,8 +81,7 @@ Un LLM que intente trazar esta ruta leyendo código necesitaría abrir varios fi
 | `explore_context(typeOrPattern)` | Contexto bidireccional cercano: callers, dependencias, endpoints, DI. |
 | `hubs(topK)` | Tipos más **centrales** (PageRank): por dónde empezar a entender un codebase. |
 | `search_semantic(query, topK)` | Búsqueda semántica sin LLM (BM25) sobre nombre + summary + miembros + dependencias. |
-| `search_docs(query, topK)` | Busca en la **documentación** del proyecto (docs/, ADRs, README, appsettings): ruta + sección, sin volcar contenido. `understand`/`search` marcan los tipos con `[docs:N]`. |
-| `stats()` | Tipos, aristas, endpoints, call-sites, bindings DI, ficheros y docs indexados. |
+| `stats()` | Tipos, aristas, endpoints, call-sites, bindings DI y ficheros. |
 
 ### Ahorro de tokens
 
@@ -103,7 +102,6 @@ Claude Code
 SharpGraph.exe
     ├── GraphTools       ← herramientas MCP (entrada/salida)
     ├── CodeGraph        ← grafo bidireccional en memoria
-    ├── DocIndex         ← índice BM25 de docs (.md/.txt/appsettings)
     └── SolutionScanner  ← escaneo Roslyn en paralelo
 ```
 

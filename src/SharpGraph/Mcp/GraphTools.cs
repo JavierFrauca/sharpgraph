@@ -92,16 +92,13 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
         Acepta .sln, .csproj o carpeta. Excluye obj/, bin/, .git/, node_modules/
         y ficheros generados (.g.cs, .Designer.cs).
 
-        También indexa la DOCUMENTACIÓN del proyecto (.md/.txt, appsettings*.json)
-        para search_docs() y las menciones [docs:N] de search()/understand().
-
         Es INCREMENTAL y PERSISTENTE:
           - Carga una caché en disco del último escaneo (arranque en frío instantáneo).
           - Solo re-parsea ficheros nuevos o modificados (hash de contenido).
           - Activa un watcher que mantiene el grafo al día al guardar ficheros.
 
         Devuelve estadísticas: tipos definidos, aristas, endpoints HTTP, call-sites
-        (invocaciones reales), bindings de DI detectados y docs indexados.
+        (invocaciones reales) y bindings de DI detectados.
 
         Cuándo llamarlo:
           - Si stats() devuelve 0 tipos.
@@ -369,24 +366,6 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
         [Description("Número de resultados (1-30, defecto 10).")] int topK = 10)
         => graph.SearchSemantic(query, topK);
 
-    [McpServerTool(Title = "Buscar en la documentación", ReadOnly = true, Idempotent = true), Description("""
-        Busca en la DOCUMENTACIÓN del proyecto: docs/, ADRs, README, .md/.txt y
-        appsettings*.json. BM25 sobre contenido con títulos y secciones ponderados.
-
-        Devuelve ruta + sección («§ …») — NUNCA contenido: abre el fichero que
-        interese con el lector del cliente. Complementa a search_semantic(), que
-        busca en código. La conexión inversa también existe: search() y understand()
-        marcan con [docs:N] los tipos mencionados en documentación.
-
-        Ejemplos:
-          search_docs("retención irpf")     → docs/adr/007-retenciones.md § Cálculo
-          search_docs("connection string")  → appsettings.json
-        """)]
-    public string SearchDocs(
-        [Description("Texto a buscar (español o inglés, insensible a mayúsculas).")] string query,
-        [Description("Número de resultados (1-20, defecto 8).")] int topK = 8)
-        => graph.Docs.Search(query, Math.Clamp(topK, 1, 20));
-
     [McpServerTool(Title = "Tipos más centrales del sistema", ReadOnly = true, Idempotent = true), Description("""
         Lista los tipos MÁS CENTRALES del sistema por PageRank: los nodos núcleo
         por los que pasa la arquitectura. Punto de partida ideal para entender un
@@ -407,7 +386,7 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
 
     [McpServerTool(Title = "Estadísticas del grafo", ReadOnly = true, Idempotent = true), Description("""
         Estadísticas del grafo: tipos definidos, aristas, endpoints HTTP, call-sites
-        (invocaciones reales), bindings DI, ficheros, docs indexados y ruta actual.
+        (invocaciones reales), bindings DI, ficheros y ruta actual.
         0 tipos = grafo vacío → llama a scan().
         """)]
     public string Stats() => graph.Stats();

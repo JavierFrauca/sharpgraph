@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using SharpGraph.Docs;
 using SharpGraph.Graph;
 using SharpGraph.Persistence;
 using SharpGraph.Scanner;
@@ -7,17 +6,14 @@ using SharpGraph.Scanner;
 namespace SharpGraph.Watcher;
 
 /// <summary>
-/// Observa los .cs y la documentación (.md/.txt/appsettings) bajo la raíz escaneada
-/// y actualiza el grafo en caliente, re-parseando solo los ficheros cambiados (con
-/// debounce). Mantiene la caché al día.
+/// Observa los .cs bajo la raíz escaneada y actualiza el grafo en caliente,
+/// re-parseando solo los ficheros cambiados (con debounce). Mantiene la caché al día.
 /// </summary>
 public sealed class ProjectWatcher(GraphEngine graph, GraphStore store) : IDisposable
 {
     private FileSystemWatcher? _watcher;
-    private FileSystemWatcher? _docWatcher;
     private string? _scanPath;
     private readonly ConcurrentDictionary<string, byte> _pending = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, byte> _pendingDocs = new(StringComparer.OrdinalIgnoreCase);
     private Timer? _debounce;
     private readonly Lock _gate = new();
     private Timer? _saveTimer;
@@ -48,53 +44,15 @@ public sealed class ProjectWatcher(GraphEngine graph, GraphStore store) : IDispo
         _watcher.Deleted += OnChanged;
         _watcher.Renamed += OnRenamed;
         _watcher.EnableRaisingEvents = true;
-
-        // Documentación: FileSystemWatcher solo admite un filtro por instancia, así
-        // que un segundo watcher con "*" y enrutado por extensión (los .cs los cubre
-        // el primero y se ignoran aquí).
-        _docWatcher = new FileSystemWatcher(root, "*")
-        {
-            IncludeSubdirectories = true,
-            NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.CreationTime,
-        };
-        _docWatcher.Changed += OnDocChanged;
-        _docWatcher.Created += OnDocChanged;
-        _docWatcher.Deleted += OnDocChanged;
-        _docWatcher.Renamed += OnDocRenamed;
-        _docWatcher.EnableRaisingEvents = true;
     }
 
     private void OnChanged(object _, FileSystemEventArgs e) => Enqueue(e.FullPath);
     private void OnRenamed(object _, RenamedEventArgs e) { Enqueue(e.OldFullPath); Enqueue(e.FullPath); }
 
-    private void OnDocChanged(object _, FileSystemEventArgs e)
-    {
-        if (IsCsFile(e.FullPath)) return;
-        if (!DocIndex.IsDocFile(e.FullPath)) return;
-        EnqueueDoc(e.FullPath);
-    }
-
-    private void OnDocRenamed(object _, RenamedEventArgs e)
-    {
-        if (IsCsFile(e.OldFullPath)) Enqueue(e.OldFullPath); // renombrado fuera de .cs: fuera del grafo
-        else EnqueueDoc(e.OldFullPath);
-        if (!IsCsFile(e.FullPath) && DocIndex.IsDocFile(e.FullPath)) EnqueueDoc(e.FullPath);
-    }
-
-    private static bool IsCsFile(string path)
-        => path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase);
-
     private void Enqueue(string path)
     {
         if (IsExcluded(path)) return;
         _pending[path] = 0;
-        RearmDebounce();
-    }
-
-    private void EnqueueDoc(string path)
-    {
-        if (IsExcluded(path)) return;
-        _pendingDocs[path] = 0;
         RearmDebounce();
     }
 
@@ -125,31 +83,17 @@ public sealed class ProjectWatcher(GraphEngine graph, GraphStore store) : IDispo
         {
             var paths = _pending.Keys.ToList();
             foreach (var p in paths) _pending.TryRemove(p, out _);
-            var docPaths = _pendingDocs.Keys.ToList();
-            foreach (var p in docPaths) _pendingDocs.TryRemove(p, out _);
-            if (paths.Count == 0 && docPaths.Count == 0) return;
+            if (paths.Count == 0) return;
 
             // Código: un SOLO merge para todo el lote; la fusión incremental decide
             // entre delta (ediciones de cuerpo) o rebuild único (cambio estructural).
-            if (paths.Count > 0)
-            {
-                var fragments = new SolutionScanner(graph).RescanFiles(paths);
-                if (fragments.Count > 0)
-                    graph.MergeFragments(fragments);
-                Console.Error.WriteLine(
-                    $"[watch] updated {paths.Count} file(s) ({(graph.LastMergeIncremental ? "incremental" : "rebuild")}).");
-            }
+            var fragments = new SolutionScanner(graph).RescanFiles(paths);
+            if (fragments.Count > 0)
+                graph.MergeFragments(fragments);
+            Console.Error.WriteLine(
+                $"[watch] updated {paths.Count} file(s) ({(graph.LastMergeIncremental ? "incremental" : "rebuild")}).");
 
-            // Docs: reindexado directo (con símbolos frescos para las menciones).
-            // No toca la caché de fragmentos: los docs no viven en ella.
-            if (docPaths.Count > 0)
-            {
-                graph.Docs.RescanFiles(docPaths, graph.SimpleTypeNames());
-                Console.Error.WriteLine($"[watch] updated {docPaths.Count} doc(s).");
-            }
-
-            if (paths.Count > 0)
-                SaveThrottled();
+            SaveThrottled();
         }
         finally
         {
@@ -208,12 +152,6 @@ public sealed class ProjectWatcher(GraphEngine graph, GraphStore store) : IDispo
             _watcher.EnableRaisingEvents = false;
             _watcher.Dispose();
             _watcher = null;
-        }
-        if (_docWatcher is not null)
-        {
-            _docWatcher.EnableRaisingEvents = false;
-            _docWatcher.Dispose();
-            _docWatcher = null;
         }
         lock (_gate)
         {
