@@ -68,11 +68,13 @@ Un LLM que intente trazar esta ruta leyendo código necesitaría abrir varios fi
 
 | Herramienta | Uso |
 |---|---|
-| `scan(path)` | Indexa un `.sln`, `.csproj` o carpeta. **Persistente e incremental** (caché en disco + watcher). |
+| `scan(path)` | Indexa un `.sln`, `.csproj` o carpeta. **Persistente e incremental** (caché binaria en disco + watcher). |
 | `trace_to_endpoints(typeName)` | Traza el camino desde un tipo hasta los endpoints HTTP. MediatR/buses modelados de forma **exacta**. |
 | `find_callers(typeName, depth)` | Árbol de quién usa un tipo, con la **relación** de cada arista (`ctor-param`, `call`, `sends`…). |
+| `impact(typeName)` | **¿Qué rompo si cambio X?** Radio de impacto **transitivo** en una llamada: tipos por nivel, endpoints en riesgo y tests que lo cubren. Propaga DI (impl → interfaz → consumidores). |
 | `get_usages(typeName)` | De qué tipos depende un tipo, con relación, líneas y marca `(external)`. |
 | `find_call_sites(typeName, member)` | **Dónde se invoca de verdad** un método, con `fichero:línea`. Distingue inyección de llamada real. |
+| `read_file(filePath)` | Lee un fichero `.cs` numerado, con marcas de región por tipo. |
 | `get_source(typeName, member)` | Devuelve el **código fuente** de un miembro concreto, sin leer el fichero entero. El gran ahorro de tokens. |
 | `understand(typeName)` | **Comprender un tipo en 1 llamada**: cuerpo completo + contexto del grafo (DI, callers, deps, endpoints). Alternativa compacta a volcar ficheros. |
 | `flow(typeName, member, depth)` | **¿Cómo funciona?** Destila el árbol de llamadas salientes (siguiendo bindings DI interface→impl) con `fichero:línea`, sin devolver código. Comprensión de flujo a una fracción de los tokens. |
@@ -140,7 +142,14 @@ Si consultas un nombre ambiguo, la herramienta te pide que lo cualifiques.
 
 ### Persistencia e incrementalidad
 
-`GraphStore` cachea los fragmentos en disco (JSON, por solución, versionado por parser).
+`GraphStore` cachea los fragmentos en disco en un **formato binario propio** (`.sgcache`):
+todas las cadenas van deduplicadas en una tabla única y el cuerpo solo referencia índices
+varint. Frente al JSON anterior es ~8-10× menor y se carga ~30× más rápido (medido sobre
+un corpus de 5.001 ficheros: 16,7 MB → 1,9 MB; carga 3,6 s → ~0,12 s; save completo ~55 ms).
+Las cachés `.json` antiguas se leen para migrar y el siguiente save las reemplaza. La caché
+se mantiene sola: los temporales huérfanos de writes interrumpidos se limpian al arrancar y
+se conservan como máximo 10 cachés de soluciones distintas (LRU).
+
 Al reabrir el proyecto, el arranque en frío es instantáneo: se cargan los fragmentos y solo
 se re-parsean los ficheros con hash distinto. `ProjectWatcher` (FileSystemWatcher con debounce)
 mantiene el grafo al día al guardar ficheros, re-parseando solo los ficheros cambiados.
@@ -241,6 +250,9 @@ sobre tus propios repos. Resumen de la batería interna (2 repos .NET, 31 pregun
 
 - **Navegar / localizar / resolver** (deps, DI, call-sites, endpoints, hubs): **~7× menos
   tokens que CodeGraph y ~16× menos que grep+lectura**.
+- **Impacto de cambio** (`impact`): respuesta **transitiva completa** (32 tipos, 4 niveles,
+  9 tests) en **362 tokens**; el `callers` de CodeGraph gasta 1.007 tokens en SOLO el nivel
+  directo — igualar la respuesta exigiría encadenar >20 llamadas.
 - **Comprensión de flujo** (`flow`): **~45×** más barato que reconstruir la cadena leyendo ficheros.
 - **Leer código completo**: paridad (`understand` gana en clases grandes). **Literales**: gana grep.
 

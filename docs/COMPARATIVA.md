@@ -37,6 +37,7 @@ un ganador universal: cada una tiene un ángulo distinto.
 | Resolución de DI (`AddScoped<I,C>`, `typeof`) | **Sí** | No | No | No |
 | Endpoints ASP.NET Core (rutas + Minimal APIs) | **Sí, completos** | Genérico | Búsqueda textual | HTTP routes (cross-lang) |
 | Call-sites a nivel de método (`file:line`) | **Sí** | Por símbolo | Por símbolo | Sí |
+| `impact` — radio de impacto transitivo (¿qué rompo si cambio X?) | **Sí** (tipos por nivel + endpoints + tests, propaga DI) | No | No | No |
 | `flow` (árbol de llamadas siguiendo DI, sin código) | **Sí** | No | No | No |
 | Centralidad (PageRank / `hubs`) | **Sí** | — | — | No |
 | Búsqueda semántica sin LLM/embeddings | BM25 en memoria | Varía | Sí (índice propio) | Sí |
@@ -56,6 +57,7 @@ interna mezcla usos distintos; lo importante es el desglose por categoría.
 | Categoría de pregunta | Ganador | Margen (tokens) |
 |---|---|---|
 | **Navegar / localizar / resolver** (deps, DI, call-sites, endpoints, hubs) | **SharpGraph** | **~7× vs CodeGraph · ~16× vs grep** |
+| **Impacto de cambio** (`impact`: transitivo + endpoints + tests en 1 llamada) | **SharpGraph** | 362 tok completos vs 1.007 tok de CodeGraph por SOLO el nivel directo |
 | **Comprensión de flujo** (`flow`: árbol siguiendo DI) | **SharpGraph** | **~45×** vs leer la cadena |
 | **Leer la clase completa** | empate | `understand` gana en clases grandes; leer el fichero gana las pequeñas |
 | **Explicar la lógica de un método** | empate | requiere su fuente (`get_source`); techo = leerla |

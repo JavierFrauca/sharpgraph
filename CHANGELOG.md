@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (with the caveat that, during beta, the MCP tool surface may change between
 minor versions).
 
+## [2.2.0] - 2026-10-02
+
+### Added
+- **`impact()` — radio de impacto de cambio (blast radius)**: nueva herramienta MCP
+  (+ `sharpgraph impact` en CLI) que responde "¿qué rompo si cambio X?" en UNA llamada:
+  BFS transitivo sobre los callers resumido por niveles (con la relación de cada arista),
+  endpoints HTTP en riesgo (verbo + ruta) y tests que ejercitan el área. Propaga DI —
+  cambiar una implementación afecta a la interfaz que registra y de ahí a todos sus
+  consumidores; los tests se listan siempre aparte y solo entran en los niveles con
+  `includeTests`. Server instructions actualizadas con el paso "¿QUÉ ROMPO SI CAMBIO X?
+  → impact(X)". Medido sobre CleanArchitecture: la respuesta transitiva completa
+  (32 tipos, 4 niveles, 9 tests) cuesta **362 tokens**; el `callers` de CodeGraph gasta
+  1.007 tokens en SOLO el nivel directo.
+- **Mantenimiento automático del directorio de caché**: los `.tmp` huérfanos de writes
+  atómicos interrumpidos (procesos muertos a mitad de save) se borran al arrancar (umbral
+  de 10 min para no tocar saves en curso de otro proceso), y se conservan como máximo 10
+  cachés de soluciones distintas por LRU — antes el directorio solo crecía (se hallaron
+  81 MB con huérfanos de días atrás). `Save` ignora listas vacías para no pisar una
+  caché buena con un grafo vacío.
+
+### Changed
+- **Caché binaria v2 (`.sgcache`)**: `GraphStore` pasa de JSON a un formato binario propio
+  (`Persistence/FragmentBinary.cs`): todas las cadenas deduplicadas en una tabla única al
+  inicio del fichero y el cuerpo como índices varint. Sin dependencias nuevas. Medido sobre
+  un corpus sintético de 5.001 ficheros / 4.900 tipos / 39.600 aristas: **16,7 MB → 1,9 MB
+  (8,8×)**, carga **3,6 s → ~0,12 s (30×)**, save completo **173 ms → ~55 ms**. Las cachés
+  `.json` con el mismo ParserVersion se leen para migración y el siguiente save las
+  reemplaza. `TryLoad` además filtra los ficheros desaparecidos con UN walk recursivo del
+  árbol (HashSet) en vez de un `File.Exists` por fragmento: el stat × N era el auténtico
+  cuello de botella del arranque en frío (2,4-6,4 s solo en stats con rutas de nombre
+  corto 8.3).
+- **Normalización de rutas**: scanner, caché y comparaciones usan siempre `Path.GetFullPath`,
+  que expande los nombres corto 8.3 (`C:\Users\JAVIER~1\...`) a la forma larga — antes la
+  misma carpeta escaneada por ruta corta y larga producía fragmentos que no casaban y
+  re-parseos completos. `GraphStore` gana un constructor con cacheDir inyectable para tests.
+- **Telemetría ligera de caché**: `TryLoad`/`Save` loguean a stderr fragmentos, ms y MB
+  (`Cache loaded (binary): 5001 fragments in 51ms read + 64ms stat (1,9 MB)`).
+
 ## [Unreleased]
 
 ### Added
