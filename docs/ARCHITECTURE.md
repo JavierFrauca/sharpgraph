@@ -62,10 +62,10 @@
 │  │  - campos/props/ctor│   ┌────────────────────────────────┐  │
 │  │  - new T() / call   │   │  GraphStore (caché en disco)   │  │
 │  │  - [HttpGet]/routing│   │  %LOCALAPPDATA%\SharpGraph\    │  │
-│  │  - MediatR Send/    │   │    cache\<hash>.json           │  │
-│  │    IRequestHandler  │   │  (versionado por ParserVersion)│  │
-│  │  - DI AddScoped<,>/ │   └────────────────────────────────┘  │
-│  │    typeof / keyed   │                                       │
+│  │  - MediatR Send/    │   │    cache\<hash>.sgcache        │  │
+│  │  - IRequestHandler  │   │  (binario, tabla de strings;   │  │
+│  │  - DI AddScoped<,>/ │   │   versionado por ParserVersion)│  │
+│  │    typeof / keyed   │   └────────────────────────────────┘  │
 │  │  - Minimal APIs     │   ┌────────────────────────────────┐  │
 │  │  - nested FQN       │   │  ProjectWatcher (en caliente)  │  │
 │  │  - summary XML      │   │  FileSystemWatcher + debounce  │  │
@@ -78,7 +78,7 @@
 
 ## ¿Dónde se persiste la información?
 
-El grafo vive en **memoria RAM** durante la sesión, pero se **cachéa en disco** entre sesiones. No hay base de datos: la caché es JSON por solución en `%LOCALAPPDATA%\SharpGraph\cache\` (ver `Persistence/GraphStore.cs`).
+El grafo vive en **memoria RAM** durante la sesión, pero se **cachéa en disco** entre sesiones. No hay base de datos: la caché es un **formato binario propio** (`.sgcache`, tabla de strings deduplicada + varints; ver `Persistence/GraphStore.cs` y `Persistence/FragmentBinary.cs`) por solución en `%LOCALAPPDATA%\SharpGraph\cache\`. Las cachés `.json` de versiones anteriores se leen para migración y el siguiente save las reemplaza; el directorio se auto-mantiene (limpieza de `.tmp` huérfanos, LRU de 10 cachés).
 
 ```
 Claude Code arranca
