@@ -66,8 +66,9 @@ public sealed class SolutionScanner(GraphEngine graph)
         var fragments = new List<FileFragment>();
         foreach (var p in filePaths)
         {
-            if (!File.Exists(p)) { graph.RemoveFile(p); continue; }
-            var fragment = ParseFile(p);
+            var full = Path.GetFullPath(p);
+            if (!File.Exists(full)) { graph.RemoveFile(full); continue; }
+            var fragment = ParseFile(full);
             if (fragment is not null) fragments.Add(fragment);
         }
         return fragments;
@@ -83,9 +84,13 @@ public sealed class SolutionScanner(GraphEngine graph)
     private static List<FileFragment> ParseFiles(IReadOnlyCollection<string> files)
     {
         var bag = new ConcurrentBag<FileFragment>();
+        // Normalizamos SIEMPRE a GetFullPath: expande nombres corto 8.3 (p.ej.
+        // C:\Users\JAVIER~1\Foo.cs) a la forma larga, de modo que scanner, caché
+        // y comparador de gone-files hablen la misma forma de ruta pasando el
+        // root en forma corta o larga.
         Parallel.ForEach(files, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, f =>
         {
-            var frag = ParseFile(f);
+            var frag = ParseFile(Path.GetFullPath(f));
             if (frag is not null) bag.Add(frag);
         });
         return bag.ToList();
@@ -116,7 +121,9 @@ public sealed class SolutionScanner(GraphEngine graph)
     {
         var root = File.Exists(path) ? Path.GetDirectoryName(path)! : path;
         return Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories)
-            .Where(f => !IsExcluded(f));
+            .Where(f => !IsExcluded(f))
+            // misma forma de ruta que los fragmentos indexados (ver ParseFiles)
+            .Select(Path.GetFullPath);
     }
 
     private static bool IsExcluded(string path)
