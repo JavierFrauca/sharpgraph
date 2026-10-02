@@ -176,6 +176,16 @@ internal static class CliCommands
         return 0;
     }
 
+    public static int Literals(string[] args, GraphEngine graph)
+    {
+        var pattern = GetPositional(args, 0);
+        if (pattern is null) { Console.Error.WriteLine("Uso: sharpgraph literals <texto> [-l <límite>] [-c]"); return 1; }
+        var limit = GetFlagInt(args, "-l", 30);
+        var caseSensitive = HasFlag(args, "-c");
+        Console.WriteLine(graph.SearchLiterals(pattern, limit, caseSensitive));
+        return 0;
+    }
+
     // ────────────────────────── HELP ──────────────────────────
 
     public static int Help(string[] args)

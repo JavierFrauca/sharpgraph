@@ -56,6 +56,46 @@ public sealed partial class GraphEngine
 
     // ----------------------------------------------------------------- queries
 
+    // ---- NUEVO: grep nativo sobre literales de cadena del grafo ----
+    // Paridad con grep dentro de los .cs indexados: "¿dónde está este string?"
+    // con file:line y el tipo que lo contiene, sin leer ficheros y con la
+    // salida acotada (limit + contador), a diferencia del volcado de grep.
+    public string SearchLiterals(string pattern, int limit = 30, bool caseSensitive = false)
+    {
+        lock (_lock)
+        {
+            limit = Math.Clamp(limit, 1, 100);
+            if (string.IsNullOrWhiteSpace(pattern))
+                return "Provide a literal to search.";
+
+            var comparison = caseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+            var hits = new List<(string File, StringLiteralDef Lit)>();
+            var total = 0;
+            foreach (var (file, lits) in _literals)
+                foreach (var lit in lits)
+                    if (lit.Text.Contains(pattern, comparison))
+                    {
+                        total++;
+                        if (hits.Count < limit) hits.Add((file, lit));
+                    }
+
+            if (total == 0)
+                return $"No literals matching '{pattern}' in indexed .cs files. " +
+                       "(grep sigue siendo la herramienta para otros tipos de fichero)";
+
+            var sb = new StringBuilder();
+            sb.AppendLine($"'{pattern}' × {total}:");
+            foreach (var (file, lit) in hits)
+            {
+                var text = lit.Text.Length > 60 ? lit.Text[..60] + "…" : lit.Text;
+                var typeTag = lit.TypeName is null ? "" : $" [{Display(lit.TypeName)}]";
+                sb.AppendLine($"  {Path.GetFileName(file)}:{lit.Line} \"{text}\"{typeTag}");
+            }
+            if (total > limit) sb.AppendLine($"  … +{total - limit} (sube limit)");
+            return sb.ToString();
+        }
+    }
+
     // ---- NUEVO: impacto de cambio (blast radius) ----
     // BFS transivo sobre los callers con propagación DI: si tocas una
     // implementación, el impacto sube hasta la interfaz que implementa y de

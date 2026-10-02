@@ -413,6 +413,28 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
         [Description("Incluir tipos externos/BCL (infraestructura). Defecto false.")] bool includeExternal = false)
         => graph.Hubs(topK, includeExternal);
 
+    [McpServerTool(Title = "Buscar literales de cadena", ReadOnly = true, Idempotent = true), Description("""
+        ¿Dónde está este string/texto en el código C#? Busca en los LITERALES DE
+        CADENA indexados (plain, verbatim y const) y devuelve file:line + el tipo
+        que lo contiene — sin leer ficheros, con la salida acotada a 'limit'.
+
+        Es el grep de SharpGraph: sustituye a grep/ripgrep para buscar strings,
+        mensajes, claves de configuración o rutas DENTRO de los .cs del proyecto.
+
+        Ejemplo:
+          search_literals("Todo Lists")
+            TodoListsController.cs:42  "Todo Lists"  [TodoListsController]
+
+        caseSensitive para distinguir mayúsculas (defecto: insensible).
+        Nota: solo literales de .cs; para buscar en otros ficheros (docs, configs
+        no JSON indexados), grep sigue siendo la herramienta.
+        """)]
+    public string SearchLiterals(
+        [Description("Texto a buscar dentro de los string literals.")] string pattern,
+        [Description("Máximo de resultados (1-100, defecto 30).")] int limit = 30,
+        [Description("Sensible a mayúsculas (defecto false).")] bool caseSensitive = false)
+        => graph.SearchLiterals(pattern, limit, caseSensitive);
+
     [McpServerTool(Title = "Estadísticas del grafo", ReadOnly = true, Idempotent = true), Description("""
         Estadísticas del grafo: tipos definidos, aristas, endpoints HTTP, call-sites
         (invocaciones reales), bindings DI, ficheros y ruta actual.

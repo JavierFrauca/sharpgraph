@@ -33,6 +33,9 @@ public sealed partial class GraphEngine
     private readonly Dictionary<string, List<DiBinding>> _diByService = new(Cmp);
     private readonly Dictionary<string, List<DiBinding>> _diByImpl = new(Cmp);
     private readonly Dictionary<string, List<MemberSpan>> _members = new(Cmp);
+    // Literales de cadena por fichero (search_literals): granularidad de fragmento,
+    // no participan en resolución de símbolos ni BM25.
+    private readonly Dictionary<string, List<StringLiteralDef>> _literals = new(Cmp);
     // B — signaturas de retorno (método/propiedad) indexadas por (tipo, miembro) para
     // resolver receptores encadenados. Clave: "TypeName|MemberName" -> ReturnSimpleType.
     private readonly Dictionary<string, List<MemberReturnSignature>> _returnsByMember = new(Cmp);
@@ -150,6 +153,7 @@ public sealed partial class GraphEngine
         _nodes.Clear(); _files.Clear(); _out.Clear(); _in.Clear();
         _endpoints.Clear(); _callsByCallee.Clear(); _callsByCaller.Clear(); _diByService.Clear();
         _diByImpl.Clear(); _members.Clear(); _returnsByMember.Clear(); _resolvedLocals.Clear();
+        _literals.Clear();
         _docs.Clear(); _docFrequency.Clear(); _totalDocLength = 0;
         _rank.Clear(); _fqnBySimple.Clear(); _ambiguous.Clear();
 
@@ -198,6 +202,11 @@ public sealed partial class GraphEngine
             if (!_members.TryGetValue(m.TypeName, out var list)) _members[m.TypeName] = list = [];
             list.Add(m);
         }
+
+        // literales del fichero: reemplazo por fragmento entero (la ruta delta
+        // sustituye el fragmento, así que la asignación cubre alta y edición)
+        if (frag.Literals.Count > 0) _literals[frag.FilePath] = frag.Literals;
+        else _literals.Remove(frag.FilePath);
 
         // B — indexa signaturas de retorno: (tipo, miembro) -> tipo de retorno simple.
         // Resuelve el tipo declarado a FQN para que el lookup posterior funcione

@@ -83,6 +83,7 @@ Un LLM que intente trazar esta ruta leyendo código necesitaría abrir varios fi
 | `explore_context(typeOrPattern)` | Contexto bidireccional cercano: callers, dependencias, endpoints, DI. |
 | `hubs(topK)` | Tipos más **centrales** (PageRank): por dónde empezar a entender un codebase. |
 | `search_semantic(query, topK)` | Búsqueda semántica sin LLM (BM25) sobre nombre + summary + miembros + dependencias. |
+| `search_literals(pattern)` | **¿Dónde está este string?** Busca en los literales de cadena indexados: `file:line` + tipo contenedor, salida acotada. El grep de SharpGraph dentro de los `.cs`. |
 | `stats()` | Tipos, aristas, endpoints, call-sites, bindings DI y ficheros. |
 
 ### Ahorro de tokens
@@ -257,7 +258,9 @@ sobre tus propios repos. Resumen de la batería interna (2 repos .NET, 31 pregun
 - **Rendimiento** (`bench/compare_perf.py`): indexado en frío **8× más rápido** que CodeGraph
   (6,8 s vs 54,6 s sobre 5.001 .cs) e índice **24× menor** en disco (1,9 MB vs 46,4 MB);
   latencia MCP por tool de 10-30 ms con el grafo cargado.
-- **Leer código completo**: paridad (`understand` gana en clases grandes). **Literales**: gana grep.
+- **Leer código completo**: paridad (`understand` gana en clases grandes). **Literales**:
+  paridad práctica con grep (`search_literals`: 46 vs 22 tok en el caso mínimo; cuando el
+  patrón es común en el código, grep inunda con líneas no-literales — 7.673 tok vs 344 curados).
 
 Cómo reproducirlo sobre tu código: ver [docs/BENCHMARK.md](docs/BENCHMARK.md)
 (tokens: `bench/benchmark.py` · rendimiento: `bench/compare_perf.py`).

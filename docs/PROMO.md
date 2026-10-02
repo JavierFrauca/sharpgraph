@@ -81,7 +81,7 @@ La diferencia no es de cantidad de datos: es de **significado**. SharpGraph entr
 
 No es una bala de plata:
 - **Solo C#** (parsing con Roslyn AST, sin compilar: rápido pero sin sobrecargas/ext methods/dynamic).
-- **No indexa literales** (para strings, grep sigue siendo la herramienta).
+- **Literales**: `search_literals` cubre los strings de los .cs (con tipo y línea, acotado); para buscar en otros ficheros, grep.
 - **No modela types externos** (BCL/NuGet) en call-sites encadenados (host.Services.GetRequiredService<T>()).
 
 Está documentado en el README, con una sección "Lo que SÍ resuelve" y "Lo que NO resuelve".

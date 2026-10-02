@@ -15,10 +15,12 @@ namespace SharpGraph.Persistence;
 ///   "SGC1" | formatVersion u32 | parserVersion u32 | fragmentCount u32
 ///   tabla de strings: count varint | (len varint + UTF-8)*
 ///   fragmentos × fragmentCount (índices varint a la tabla; 0 = null)
+///
+/// v2: FileFragment gana la colección Literals (search_literals).
 /// </summary>
 internal static class FragmentBinary
 {
-    private const int FormatVersion = 1;
+    private const int FormatVersion = 2;
 
     // ------------------------------------------------------------- escritura
 
@@ -140,6 +142,14 @@ internal static class FragmentBinary
                     w.Write7(Str(pl.LocalName));
                     WriteSteps(w, pl.Initializer, table, ids);
                     w.Write7(Str(pl.Ns));
+                }
+
+                w.Write7(f.Literals.Count);
+                foreach (var lit in f.Literals)
+                {
+                    w.Write7(Str(lit.Text));
+                    w.Write7(lit.Line);
+                    w.Write7(lit.TypeName is null ? 0 : Str(lit.TypeName));
                 }
             }
         }
@@ -289,6 +299,15 @@ internal static class FragmentBinary
                 var initializer = ReadSteps(r, strings);
                 var ns = r.S(strings);
                 frag.PendingLocals.Add(new PendingLocal(declaringType, declaringMember, localName, initializer, ns));
+            }
+
+            var nLits = r.Read7();
+            for (var x = 0; x < nLits; x++)
+            {
+                var text = r.S(strings);
+                var line = r.Read7();
+                var typeName = r.S0(strings);
+                frag.Literals.Add(new StringLiteralDef(text, line, typeName));
             }
 
             fragments.Add(frag);

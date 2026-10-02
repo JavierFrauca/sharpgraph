@@ -135,6 +135,14 @@ public sealed record PendingReceiverStep(
     string? TypeSimpleName); // para Local: nombre simple del tipo del local; null en otros kinds
 
 /// <summary>
+/// Un literal de cadena del código (plain/verbatim/const). Alimenta
+/// <c>search_literals</c>: la respuesta a "¿dónde está este string?" sin leer
+/// ficheros — paridad con grep dentro del grafo, con tipo y línea.
+/// Los triviales (&lt;2 chars) y los interpolated quedan fuera.
+/// </summary>
+public sealed record StringLiteralDef(string Text, int Line, string? TypeName);
+
+/// <summary>
 /// Todo lo que se extrae de UN fichero .cs. La unidad de incrementalidad:
 /// al cambiar un fichero se reemplaza su fragmento y se reconstruye el índice.
 /// </summary>
@@ -170,6 +178,8 @@ public sealed class FileFragment
     /// que los usen como receptor se resuelvan también.
     /// </summary>
     public List<PendingLocal> PendingLocals { get; init; } = [];
+    /// <summary>Literales de cadena del fichero (para search_literals).</summary>
+    public List<StringLiteralDef> Literals { get; init; } = [];
 }
 
 /// <summary>

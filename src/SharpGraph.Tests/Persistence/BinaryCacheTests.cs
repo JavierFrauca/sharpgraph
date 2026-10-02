@@ -108,6 +108,7 @@ public class BinaryCacheTests : IDisposable
         Assert.Equal(original.DiBindings, frag.DiBindings);
         Assert.Equal(original.Members, frag.Members);
         Assert.Equal(original.ReturnSignatures, frag.ReturnSignatures);
+        Assert.Equal(original.Literals, frag.Literals);
         // los records con listas anidadas (Receiver/Initializer) comparan por
         // referencia: desglosamos propiedad a propiedad para ver el contenido real.
         Assert.Equal(original.PendingCallSites.Count, frag.PendingCallSites.Count);
@@ -138,11 +139,11 @@ public class BinaryCacheTests : IDisposable
         var store = new GraphStore(_dir);
         var fragment = ParseReal(_codeFile);
 
-        // pre-historia: una caché v1 JSON con el mismo ParserVersion (7)
+        // pre-historia: una caché v1 JSON con el mismo ParserVersion (8)
         var jsonOpts = new JsonSerializerOptions();
         var envelope = new
         {
-            Version = 7,
+            Version = 8,
             Fragments = new[] { fragment }
         };
         var key = Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(

@@ -23,7 +23,7 @@ internal static class CliDispatcher
         "trace", "trace-to-endpoints", "impact", "flow", "hubs",
         "di", "resolve-di", "source", "get-source", "understand",
         "read-file", "read-file", "readfile", "semantic",
-        "search-semantic", "explore",
+        "search-semantic", "literals", "search-literals", "explore",
         "explore-context", "setup", "help",
     };
 
@@ -59,6 +59,7 @@ internal static class CliDispatcher
             "understand" => CliCommands.Understand(rest, graph),
             "read-file" or "readfile" => CliCommands.ReadFile(rest, graph),
             "semantic" or "search-semantic" => CliCommands.Semantic(rest, graph),
+            "literals" or "search-literals" => CliCommands.Literals(rest, graph),
             "explore" or "explore-context" => CliCommands.Explore(rest, graph),
             "setup" => await SetupWizard.Run(rest),
             "help" => CliCommands.Help(rest),
@@ -67,8 +68,11 @@ internal static class CliDispatcher
     }
 
     /// <summary>
-    /// Si el grafo está vacío pero hay caché para el directorio actual, la carga.
-    /// Si no hay caché, intenta escanear el cwd (si tiene .cs).
+    /// Si el grafo está vacío pero hay caché para el directorio actual, la carga
+    /// y responde tal cual: los comandos de una sola consulta NO re-hashean el
+    /// proyecto (contrato tipo `codegraph status` — su sync también es explícito).
+    /// `sharpgraph scan` es el sync explícito; el watcher en caliente cubre el
+    /// modo MCP. Sin caché: escaneo completo (primera vez).
     /// </summary>
     private static void EnsureGraphLoaded(GraphEngine graph, GraphStore store, ProjectWatcher watcher)
     {
@@ -80,26 +84,14 @@ internal static class CliDispatcher
         if (store.TryLoad(cwd, out var cached))
             graph.MergeFragments(cached);
 
-        // si tras cargar la caché sigue vacío, escaneamos el cwd
-        if (graph.NodeCount == 0)
-        {
-            var files = SolutionScanner.DiscoverFiles(cwd).ToList();
-            if (files.Count > 0)
-            {
-                var scanner = new SolutionScanner(graph);
-                scanner.ScanAsync(cwd).Wait();
-                store.Save(cwd, graph.Fragments());
-                watcher.Watch(cwd);
-            }
-        }
-        else
-        {
-            // caché cargada; escaneo incremental por si hubo cambios
-            var scanner = new SolutionScanner(graph);
-            scanner.ScanIncrementalAsync(cwd).Wait();
-            store.Save(cwd, graph.Fragments());
-            watcher.Watch(cwd);
-        }
+        if (graph.NodeCount > 0) return; // caché cargada: listo para responder
+
+        var files = SolutionScanner.DiscoverFiles(cwd).ToList();
+        if (files.Count == 0) return;
+
+        var scanner = new SolutionScanner(graph);
+        scanner.ScanAsync(cwd).Wait();
+        store.Save(cwd, graph.Fragments());
     }
 
     private static int PrintUnknown(string cmd)
