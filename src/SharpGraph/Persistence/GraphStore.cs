@@ -22,8 +22,9 @@ public sealed class GraphStore
     /// Versión del extractor. Súbela cuando cambie la lógica de parsing/modelo:
     /// invalida cachés viejas aunque el contenido de los ficheros no haya cambiado.
     /// v7: FileFragment gana ReturnSignatures, PendingCallSites, PendingLocals (Fase B).
+    /// v8: FileFragment gana Literals (search_literals).
     /// </summary>
-    private const int ParserVersion = 7;
+    private const int ParserVersion = 8;
 
     /// <summary>
     /// Tope de cachés de soluciones distintas conservadas en disco: al superarlo

@@ -74,10 +74,12 @@ builder.Services.AddMcpServer(options =>
         implementa una interfaz (DI) · dónde se invoca de verdad un método · cómo
         funciona un flujo · entender un tipo con contexto en 1 llamada · buscar
         tipos por intención · el código de un solo método en vez del fichero entero ·
-        qué rompes si cambias un tipo (impact).
-        NO: texto literal en código (mejor grep) · proyectos que no son C# (solo se
-        indexan .cs) · editar o ejecutar (solo lectura) · búsqueda en documentación
-        (.md, ADRs, PDF/DOCX): fuera de alcance, solo se indexa código C#.
+        qué rompes si cambias un tipo (impact) · buscar strings/literales en los .cs
+        (search_literals, sustituye a grep dentro del código C#).
+        NO: buscar texto en ficheros que NO son .cs (docs, configs): grep ·
+        proyectos que no son C# (solo se indexan .cs) · editar o ejecutar (solo
+        lectura) · búsqueda en documentación (.md, ADRs, PDF/DOCX): fuera de
+        alcance, solo se indexa código C#.
 
         == PRIMERA VEZ ==
         stats() → si 0 tipos, scan(path). En Claude Code, configure_auto_scan() una

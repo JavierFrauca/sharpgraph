@@ -48,6 +48,15 @@ minor versions).
 ## [Unreleased]
 
 ### Added
+- **`search_literals()` — grep nativo sobre literales de cadena** (18.ª tool MCP +
+  `sharpgraph literals`): el visitor indexa los string literals (plain/verbatim/const,
+  triviales <2 chars filtrados, interpolated fuera v1) y la query responde
+  "¿dónde está este string?" con `file:line` + tipo contenedor y salida acotada.
+  Paridad con grep dentro de los .cs: 46 vs 22 tokens en el caso mínimo, y cuando el
+  patrón es común grep inunda con líneas no-literales (251 hits / 7.673 tok vs 344 tok
+  curados). Server instructions actualizadas (los strings en .cs YA se buscan desde el
+  grafo; grep queda para ficheros no-.cs). ParserVersion 8 + FormatoBinario v2
+  (las cachés anteriores se re-escanean una vez).
 - **`bench/compare_perf.py` — batería comparativa de rendimiento vs CodeGraph**:
   mide (mediana de 3 pasadas) indexado en frío con cachés borradas, arranque
   caliente, latencia de respuesta CLI, huella en disco del índice y latencia MCP
@@ -58,6 +67,15 @@ minor versions).
   invocación CLI suelta en corpus grande re-hashea todos los ficheros (~2,1 s vs
   ~0,6 s de CodeGraph) — en modo MCP (servidor vivo) no se paga; palanca futura
   un camino rápido sin re-hash en comandos de solo lectura.
+
+### Changed
+- **CLI de una consulta sin re-hash (la palanca anterior)**: los comandos de
+  lectura (`callers`, `impact`, `literals`…) cargan la caché y responden, sin
+  re-hashear el proyecto — mismo contrato que `codegraph status` (su sync también
+  es explícito). `sharpgraph scan` queda como sync explícito; el watcher en
+  caliente cubre el modo MCP. Medido sobre el corpus de 5.001 .cs: query CLI
+  2,0-2,1 s → **1,3 s** y `stats` caliente 2,1 s → **1,5 s** (queda el arranque
+  del proceso self-contained ~0,9 s como diferencia restante frente a node).
 - **Tool titles and annotations**: every tool now advertises a human-readable `title`
   ("Quién usa este tipo", "Comprender un tipo (código + contexto)", "Buscar en la documentación"…)
   plus MCP hints: `readOnlyHint` + `idempotentHint` on the 15 query tools; `scan` and

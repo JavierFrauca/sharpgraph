@@ -57,6 +57,9 @@ internal static class CliHelp
                               Flags: -l <líneas> (defecto 200).
           semantic <query>    Búsqueda semántica por intención (BM25).
                               Flags: -n <topK> (defecto 10).
+          literals <texto>    Busca en los string literals del código (grep del
+                              grafo): file:line + tipo que lo contiene.
+                              Flags: -l <límite> (defecto 30), -c (case-sensitive).
           explore <patrón>    Contexto bidireccional (callers + deps + endpoints).
                               Flags: -d <depth> (defecto 2), -l <limit> (defecto 8).
 
@@ -125,6 +128,7 @@ internal static class CliHelp
         "understand" => CmdUnderstand,
         "read-file" or "read_file" or "readfile" => CmdReadFile,
         "semantic" or "search-semantic" or "search_semantic" => CmdSemantic,
+        "literals" or "search-literals" or "search_literals" => CmdLiterals,
         "explore" or "explore-context" or "explore_context" => CmdExplore,
         "setup" => CmdSetup,
         "help" => CmdHelp,
@@ -133,7 +137,7 @@ internal static class CliHelp
 
             Comandos disponibles: scan, stats, search, callers, usages, callsites,
             trace, impact, flow, hubs, di, source, understand, read-file,
-            semantic, explore, setup, help.
+            semantic, literals, explore, setup, help.
 
             Ejecuta 'sharpgraph help' para la lista completa.
             """
@@ -459,6 +463,30 @@ internal static class CliHelp
           EQUIVALENTE MCP: search_semantic(query, topK)
         """;
 
+    private const string CmdLiterals = """
+        sharpgraph literals — Buscar literales de cadena
+
+          ¿Dónde está este string en el código? Busca en los literales de
+          cadena indexados (plain, verbatim y const) de los .cs del proyecto
+          y devuelve file:line + el tipo que lo contiene, acotado a N hits.
+
+          Es el grep de SharpGraph para strings/mensajes/claves dentro de C#.
+
+          USO:
+            sharpgraph literals <texto> [-l <límite>] [-c]
+
+          FLAGS:
+            -l <límite>        Máximo de resultados (1-100, defecto 30).
+            -c                 Sensible a mayúsculas (defecto: insensible).
+
+          EJEMPLOS:
+            sharpgraph literals "Todo Lists"
+            sharpgraph literals "connectionString" -c
+            sharpgraph literals "not found" -l 100
+
+          EQUIVALENTE MCP: search_literals(pattern, limit, caseSensitive)
+        """;
+
     private const string CmdExplore = """
         sharpgraph explore — Contexto bidireccional
 
@@ -524,8 +552,8 @@ internal static class CliHelp
 
           COMANDOS DISPONIBLES:
             scan, stats, search, callers, usages, callsites, trace, impact,
-            flow, hubs, di, source, understand, read-file, semantic, explore,
-            setup, help
+            flow, hubs, di, source, understand, read-file, semantic, literals,
+            explore, setup, help
 
           EJEMPLOS:
             sharpgraph help flow         # ayuda del comando flow

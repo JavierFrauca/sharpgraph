@@ -124,6 +124,7 @@ public sealed partial class GraphEngine
         }
 
         // ---- inverso del PASO 1 ----
+        _literals.Remove(frag.FilePath);
         foreach (var sig in frag.ReturnSignatures)
             RemoveFromListLocked(_returnsByMember, SignatureKey(sig.TypeName, sig.MemberName), sig);
         foreach (var m in frag.Members)

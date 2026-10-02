@@ -190,4 +190,19 @@ public sealed partial class TypeReferenceVisitor : CSharpSyntaxWalker
         foreach (var p in paramList)
             if (p.Type is not null) RegisterLocal(p.Identifier.Text, p.Type);
     }
+
+    // Literales de cadena (plain/verbatim/const): alimentan search_literals.
+    // Se filtran los triviales (<2 chars). Los interpolated strings son otro
+    // nodo sintáctico y no pasan por aquí — ver limitaciones del README.
+    public override void VisitLiteralExpression(LiteralExpressionSyntax node)
+    {
+        if (node.IsKind(SyntaxKind.StringLiteralExpression))
+        {
+            var text = node.Token.ValueText;
+            if (text.Length >= 2)
+                _fragment.Literals.Add(new StringLiteralDef(text, LineOf(node),
+                    _typeStack.Count > 0 ? _typeStack.Peek() : null));
+        }
+        base.VisitLiteralExpression(node);
+    }
 }

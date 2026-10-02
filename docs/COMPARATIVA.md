@@ -61,7 +61,7 @@ interna mezcla usos distintos; lo importante es el desglose por categoría.
 | **Comprensión de flujo** (`flow`: árbol siguiendo DI) | **SharpGraph** | **~45×** vs leer la cadena |
 | **Leer la clase completa** | empate | `understand` gana en clases grandes; leer el fichero gana las pequeñas |
 | **Explicar la lógica de un método** | empate | requiere su fuente (`get_source`); techo = leerla |
-| **Literales / strings** | **grep** | los grafos no indexan literales |
+| **Literales / strings** | **empate** | SharpGraph: `search_literals` desde el grafo (46 vs 22 tok de grep en el caso mínimo; 344 vs 7.673 cuando el patrón es común — grep inunda con líneas no-literales). grep conserva los ficheros no-`.cs`. |
 
 **Lectura.** Para el uso dominante de un agente —navegar código, localizar usos, resolver
 DI, trazar a endpoints y entender flujos— SharpGraph ahorra ~un orden de magnitud de tokens
