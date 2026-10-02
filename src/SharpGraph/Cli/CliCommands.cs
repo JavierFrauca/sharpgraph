@@ -88,6 +88,16 @@ internal static class CliCommands
         return 0;
     }
 
+    public static int Impact(string[] args, GraphEngine graph)
+    {
+        var type = GetPositional(args, 0);
+        if (type is null) { Console.Error.WriteLine("Uso: sharpgraph impact <tipo> [-d <depth>] [--with-tests]"); return 1; }
+        var depth = GetFlagInt(args, "-d", 6);
+        var withTests = HasFlag(args, "--with-tests");
+        Console.WriteLine(graph.Impact(type, depth, withTests));
+        return 0;
+    }
+
     public static int Flow(string[] args, GraphEngine graph)
     {
         var type = GetPositional(args, 0);

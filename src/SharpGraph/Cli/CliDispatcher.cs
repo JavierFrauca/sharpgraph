@@ -20,10 +20,10 @@ internal static class CliDispatcher
     {
         "scan", "stats", "search", "callers", "find-callers",
         "usages", "get-usages", "callsites", "find-callsites",
-        "trace", "trace-to-endpoints", "flow", "hubs", "di",
-        "resolve-di", "source", "get-source", "understand",
+        "trace", "trace-to-endpoints", "impact", "flow", "hubs",
+        "di", "resolve-di", "source", "get-source", "understand",
         "read-file", "read-file", "readfile", "semantic",
-        "search-semantic", "docs", "search-docs", "explore",
+        "search-semantic", "explore",
         "explore-context", "setup", "help",
     };
 
@@ -51,6 +51,7 @@ internal static class CliDispatcher
             "usages" or "get-usages" => CliCommands.Usages(rest, graph),
             "callsites" or "find-callsites" => CliCommands.Callsites(rest, graph),
             "trace" or "trace-to-endpoints" => CliCommands.Trace(rest, graph),
+            "impact" => CliCommands.Impact(rest, graph),
             "flow" => CliCommands.Flow(rest, graph),
             "hubs" => CliCommands.Hubs(rest, graph),
             "di" or "resolve-di" => CliCommands.Di(rest, graph),

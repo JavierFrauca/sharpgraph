@@ -60,7 +60,7 @@ builder.Services.AddMcpServer(options =>
         Name = "SharpGraph",
         Title = "SharpGraph — grafo de código C#",
         Description = "Indexa proyectos C# en un grafo de dependencias. Responde quién llama a quién, qué implementa cada interfaz (DI), desde qué endpoint HTTP se llega y cómo funciona un flujo — y devuelve código fuente puntual, todo en texto compacto para gastar los mínimos tokens.",
-        Version = "2.1.0",
+        Version = "2.2.0",
         WebsiteUrl = "https://github.com/JavierFrauca/sharpgraph",
     };
     options.ServerInstructions = """
@@ -73,7 +73,8 @@ builder.Services.AddMcpServer(options =>
         SÍ: dependencias y callers de un tipo · desde qué endpoint se llega · qué
         implementa una interfaz (DI) · dónde se invoca de verdad un método · cómo
         funciona un flujo · entender un tipo con contexto en 1 llamada · buscar
-        tipos por intención · el código de un solo método en vez del fichero entero.
+        tipos por intención · el código de un solo método en vez del fichero entero ·
+        qué rompes si cambias un tipo (impact).
         NO: texto literal en código (mejor grep) · proyectos que no son C# (solo se
         indexan .cs) · editar o ejecutar (solo lectura) · búsqueda en documentación
         (.md, ADRs, PDF/DOCX): fuera de alcance, solo se indexa código C#.
@@ -86,14 +87,15 @@ builder.Services.AddMcpServer(options =>
         == FLUJO HABITUAL ==
         1. search("NombreParcial") → nombre exacto del tipo.
         2. ¿Quién depende de X?           → find_callers(X, depth)
-        3. ¿Desde qué endpoint?           → trace_to_endpoints(X)
-        4. ¿De qué depende X?             → get_usages(X)
-        5. ¿DÓNDE SE LLAMA X de verdad?   → find_call_sites(X[, member])
-        6. ¿Qué implementa la interfaz?   → resolve_di(IX)
-        7. Ver el código de un método     → get_source(X, member)
-        8. COMPRENDER un tipo (código+contexto en 1 llamada) → understand(X)
-        9. ¿CÓMO FUNCIONA? (árbol de llamadas sin código) → flow(X, member)
-        10. Buscar tipos por intención    → search_semantic("...")
+        3. ¿QUÉ ROMPO SI CAMBIO X?        → impact(X)  (transitivo: tipos+endpoints+tests)
+        4. ¿Desde qué endpoint?           → trace_to_endpoints(X)
+        5. ¿De qué depende X?             → get_usages(X)
+        6. ¿DÓNDE SE LLAMA X de verdad?   → find_call_sites(X[, member])
+        7. ¿Qué implementa la interfaz?   → resolve_di(IX)
+        8. Ver el código de un método     → get_source(X, member)
+        9. COMPRENDER un tipo (código+contexto en 1 llamada) → understand(X)
+        10. ¿CÓMO FUNCIONA? (árbol de llamadas sin código) → flow(X, member)
+        11. Buscar tipos por intención    → search_semantic("...")
 
         == CLAVE PARA AHORRAR TOKENS ==
         find_call_sites para localizar la invocación + get_source(tipo, miembro)
