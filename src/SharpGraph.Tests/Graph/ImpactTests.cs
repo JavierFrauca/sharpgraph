@@ -73,8 +73,8 @@ public class ImpactTests
         var graph = Build();
         var output = graph.Impact("Repo0");
 
-        // nivel 1: la interfaz que implementa/registra — cambiar la impl la afecta
-        Assert.Contains("Nivel 1: IRepo0", output);
+        // nivel 1: la interfaz que registra la impl (arista interfaz→impl = di-bound)
+        Assert.Contains("Nivel 1: IRepo0 [di-bound]", output);
         // nivel 2: el consumidor estructural de la interfaz
         Assert.Contains("Nivel 2: Service0", output);
     }
@@ -116,8 +116,8 @@ public class ImpactTests
         var graph = Build();
         var output = graph.Impact("IRepo0");
 
-        // nivel 1: la implementación registrada (arista di-bound) y el consumidor
-        Assert.Contains("Repo0 [di-bound]", output);
+        // nivel 1: la implementación (afectada porque LA IMPLEMENTA) y el consumidor
+        Assert.Contains("Repo0 [implements]", output);
         Assert.Contains("Service0", output);
         Assert.Contains("Nivel 2: Controller0", output);
         Assert.Contains("1 test", output);

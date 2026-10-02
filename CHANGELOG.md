@@ -47,6 +47,27 @@ minor versions).
 
 ## [Unreleased]
 
+### Fixed
+- **Minimal APIs tipadas por grupos no detectadas** (hallazgo de la auditoría por
+  ground truth del 2026-10-02): el estilo de CleanArchitecture v2 —
+  `groupBuilder.MapGet(GetTodoLists)`, con método-grupo como argumento y la ruta
+  como SEGUNDO argumento (`MapPut(UpdateTodoList, "{id}")`) — no casaba con la
+  detección (que exigía ruta literal en primer argumento), dejando
+  `trace_to_endpoints` e `impact` a cero en el codebase de referencia moderno.
+  Ahora el endpoint se adscribe a la clase que declara el handler (la ruta
+  mostrada es la relativa; el prefijo del grupo no se resuelve). Sobre
+  CleanArchitecture: `stats` 0 → 10 endpoints, `trace_to_endpoints` "no paths"
+  → 9 rutas `[exact-mediatr]`, `impact` "0 endpoints" → 8 en riesgo con verbo y
+  ruta. Regresión: fixture `TypedMinimalApi` + tests de trace/impact. ParserVersion 9.
+- **Etiquetas de relación de `impact` invertidas**: se buscaba la arista del
+  predecessor hacia el afectado (que no existe — la dependencia real va del
+  afectado hacia su dependencia), así que todo caía al fallback `[param]` o a
+  etiquetas sin sentido. Ahora cada nivel explica POR QUÉ el tipo está afectado
+  (`Handler [ctor-param]`, `Command [handled-by]`, `TodoLists [sends] [ENDPOINT: …]`).
+- **`impact` contaba tipos con endpoint, no endpoints**: el resumen ahora suma
+  los endpoints reales (una clase puede declarar varios) y el listado muestra
+  hasta 4 por tipo.
+
 ### Added
 - **`search_literals()` — grep nativo sobre literales de cadena** (18.ª tool MCP +
   `sharpgraph literals`): el visitor indexa los string literals (plain/verbatim/const,

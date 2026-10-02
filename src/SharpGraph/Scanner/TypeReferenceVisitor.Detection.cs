@@ -262,6 +262,21 @@ public sealed partial class TypeReferenceVisitor : CSharpSyntaxWalker
         ["MapDelete"] = "DELETE", ["MapPatch"] = "PATCH",
     };
 
+    /// <summary>
+    /// ¿La clase que contiene la invocación declara un método con ese nombre?
+    /// Valida que un identificador sea un método-grupo local (estilo tipado
+    /// <c>groupBuilder.MapGet(GetTodoLists)</c>) y no una variable cualquiera.
+    /// </summary>
+    private static bool DeclaresMethodInCurrentType(SyntaxNode node, string methodName)
+    {
+        var typeDecl = node.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
+        if (typeDecl is null) return false;
+        foreach (var member in typeDecl.Members)
+            if (member is MethodDeclarationSyntax m && m.Identifier.Text == methodName)
+                return true;
+        return false;
+    }
+
     private bool TryHandleMinimalApi(InvocationExpressionSyntax node)
     {
         if (node.Expression is not MemberAccessExpressionSyntax ma) return false;
@@ -269,11 +284,46 @@ public sealed partial class TypeReferenceVisitor : CSharpSyntaxWalker
 
         var args = node.ArgumentList.Arguments;
         if (args.Count < 1) return false;
-        var route = args[0].Expression is LiteralExpressionSyntax lit ? lit.Token.ValueText : null;
-        if (route is null) return false;
 
-        var owner = $"{verb} {route}";  // nodo sintético, NO se añade a _nodes (search limpio)
-        _fragment.Endpoints.Add(new EndpointDef(owner, verb, route, "(minimal-api)", LineOf(node)));
+        // Dos familias de minimal API:
+        //
+        // A) Clásica con ruta literal primero:  app.MapGet("/x", handler)
+        // B) Tipada por grupos (estilo CleanArchitecture v2):
+        //       groupBuilder.MapGet(GetTodoLists);            // método-grupo, sin ruta
+        //       groupBuilder.MapPut(UpdateTodoList, "{id}");  // ruta como SEGUNDO argumento
+        //    El handler es un método declarado en la clase contenedora: el endpoint
+        //    se adscribe a esa CLASE (no a un nodo sintético), de modo que el DFS
+        //    hacia atrás termina en ella al llegar por las aristas Sends/Call.
+        string? route = null;
+        var handlerIdx = 1;
+        var typedGroup = false;
+        if (args[0].Expression is LiteralExpressionSyntax lit)
+        {
+            route = lit.Token.ValueText;
+        }
+        else if (args[0].Expression is IdentifierNameSyntax id0 && IsMeaningful(id0.Identifier.Text)
+                 && DeclaresMethodInCurrentType(node, id0.Identifier.Text))
+        {
+            typedGroup = true;
+            handlerIdx = 0;
+            if (args.Count >= 2 && args[1].Expression is LiteralExpressionSyntax lit1)
+                route = lit1.Token.ValueText;
+        }
+        else return false;
+
+        if (typedGroup && CurrentType is not null)
+        {
+            // ruta relativa al grupo: "/" si el endpoint cuelga de la raíz del grupo
+            var relRoute = string.IsNullOrEmpty(route) ? "/" : route;
+            var methodName = ((IdentifierNameSyntax)args[0].Expression).Identifier.Text;
+            _fragment.Endpoints.Add(new EndpointDef(CurrentType, verb, relRoute, methodName, LineOf(node)));
+            base.VisitInvocationExpression(node); // .WithOpenApi() etc. se procesan normal
+            return true;
+        }
+
+        var effectiveRoute = route ?? "(sin ruta)";
+        var owner = $"{verb} {effectiveRoute}";  // nodo sintético, NO se añade a _nodes (search limpio)
+        _fragment.Endpoints.Add(new EndpointDef(owner, verb, effectiveRoute, "(minimal-api)", LineOf(node)));
 
         // método-grupo: app.MapGet("/x", SomeType.Handle) → arista owner -> SomeType
         if (args.Count >= 2 && args[1].Expression is MemberAccessExpressionSyntax handlerRef

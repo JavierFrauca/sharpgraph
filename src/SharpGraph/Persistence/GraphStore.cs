@@ -23,8 +23,9 @@ public sealed class GraphStore
     /// invalida cachés viejas aunque el contenido de los ficheros no haya cambiado.
     /// v7: FileFragment gana ReturnSignatures, PendingCallSites, PendingLocals (Fase B).
     /// v8: FileFragment gana Literals (search_literals).
+    /// v9: minimal APIs tipadas por grupos (groupBuilder.MapGet(Metodo[, "ruta"])).
     /// </summary>
-    private const int ParserVersion = 8;
+    private const int ParserVersion = 9;
 
     /// <summary>
     /// Tope de cachés de soluciones distintas conservadas en disco: al superarlo
