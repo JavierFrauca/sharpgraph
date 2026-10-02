@@ -48,6 +48,16 @@ minor versions).
 ## [Unreleased]
 
 ### Added
+- **`bench/compare_perf.py` — batería comparativa de rendimiento vs CodeGraph**:
+  mide (mediana de 3 pasadas) indexado en frío con cachés borradas, arranque
+  caliente, latencia de respuesta CLI, huella en disco del índice y latencia MCP
+  por tool, sobre CleanArchitecture y un corpus sintético de 5.001 .cs (generador
+  `%TEMP%\sgcorpus_gen.py`). Cifras de referencia documentadas en
+  `docs/BENCHMARK.md`: frío 8× más rápido (6,8 s vs 54,6 s), índice 24× menor
+  (1,91 vs 46,44 MB), MCP por tool 10-30 ms. Matiz honesto detectado: una
+  invocación CLI suelta en corpus grande re-hashea todos los ficheros (~2,1 s vs
+  ~0,6 s de CodeGraph) — en modo MCP (servidor vivo) no se paga; palanca futura
+  un camino rápido sin re-hash en comandos de solo lectura.
 - **Tool titles and annotations**: every tool now advertises a human-readable `title`
   ("Quién usa este tipo", "Comprender un tipo (código + contexto)", "Buscar en la documentación"…)
   plus MCP hints: `readOnlyHint` + `idempotentHint` on the 15 query tools; `scan` and

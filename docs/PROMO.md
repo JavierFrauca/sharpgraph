@@ -9,7 +9,7 @@
 ## Título sugerido (elige el que mejor encaje)
 
 - Reddit r/dotnet: **"SharpGraph — un MCP server C#-first que entrega respuestas de más alto nivel que leer ficheros (y ~4× menos tokens)"**
-- Reddit r/LocalLLaMA: **"Build a knowledge graph from your .NET codebase for your LLM — SharpGraph v2.1.0"**
+- Reddit r/LocalLLaMA: **"Build a knowledge graph from your .NET codebase for your LLM — SharpGraph v2.2.0"**
 - Reddit r/ClaudeAI: **"Better .NET answers in Claude: SharpGraph models MediatR/DI/routing so the LLM doesn't have to parse raw code"**
 - Hacker News: **"Show HN: SharpGraph — C# code-graph MCP server that models framework patterns (MediatR, DI, ASP.NET routing)"**
 
@@ -31,6 +31,7 @@ SharpGraph responde a esa pregunta en **~50-250 tokens**, con la cadena exacta y
 - **Inyección de dependencias**: `AddScoped<I,C>()`, `AddTransient(typeof(I), typeof(C))`, `AddKeyedSingleton<>`.
 - **Routing ASP.NET Core**: `[Route("api/[controller]")] [HttpGet("{id}")]` → ruta combinada, más Minimal APIs `app.MapGet(...)`.
 - **Call-sites reales**: distingue "dependencia inyectada" de "llamada de verdad", con file:line del lugar donde se invoca.
+- **Impacto de cambio**: `impact(X)` calcula el radio de impacto **transitivo** — "¿qué rompo si cambio X?" — con tipos por nivel, endpoints HTTP en riesgo y los tests que cubren el área, en UNA llamada. Propaga DI: cambiar una implementación sube hasta su interfaz y de ahí a todos los consumidores.
 - **Comprensión de flujo**: `flow(X, M)` devuelve el árbol de llamadas siguiendo DI interface→impl sin devolver código, ~20-30× más barato que leer los cuerpos.
 
 ### El benchmark (público y reproducible)
@@ -41,9 +42,12 @@ Lo probamos sobre [CleanArchitecture](https://github.com/JasonTaylorDev/CleanArc
 |---|---|---|---|
 | Total tokens (13 preguntas) | **1,715** | 6,101 (3.6×) | 12,039 (7.0×) |
 | Preguntas ganadas | **9/13** | 1/13 | 3/13 |
+| Impacto de cambio (`impact`) | **362 tok** (transitivo completo: 32 tipos, 4 niveles, 9 tests) | 1,007 tok por SOLO el nivel directo | — |
 | Comprensión de flujo (`flow`) | **23-33 tok** | 464-683 tok (~20×) | 183-575 tok |
 
-Reproducible: `git clone`, `pip install tiktoken`, `python benchmark.py`. Todo en el repo.
+Y en rendimiento puro (misma batería, `bench/compare_perf.py`): indexado en frío **8× más rápido** (6,8 s vs 54,6 s sobre 5.001 ficheros .cs) e índice en disco **24× menor** (1,9 MB vs 46,4 MB). Caché binaria propia: recargar el grafo al reabrir el proyecto cuesta ~0,1 s.
+
+Reproducible: `git clone`, `pip install tiktoken`, `python benchmark.py` (tokens) y `python compare_perf.py` (rendimiento). Todo en el repo.
 
 ### Pero no es solo ahorrar tokens — es que la información es MEJOR
 
@@ -64,6 +68,10 @@ Hicimos una [comparativa de calidad](https://github.com/JavierFrauca/sharpgraph/
 **"¿Cómo funciona CreateTodoItemCommandHandler.Handle?"**
 - CodeGraph te devuelve el fichero entero (37 líneas, ~400 tokens) para que el LLM lo lea.
 - SharpGraph destila el flujo en 2 líneas: `→ DbSet.Add() :31 → IApplicationDbContext.SaveChangesAsync() :33`.
+
+**"¿Qué rompo si cambio IApplicationDbContext?"**
+- CodeGraph **no tiene equivalente**: `callers` da 20 entradas de nivel 1 mezclando campos y métodos (`_context (field)` repetido por handler), 1.007 tokens, y sin transitivos ni tests.
+- SharpGraph: `impact()` responde el transitivo completo en 362 tokens — 32 tipos en 4 niveles con su relación, los 9 tests que cubren el área, y los endpoints en riesgo.
 
 La diferencia no es de cantidad de datos: es de **significado**. SharpGraph entrega conclusiones (relación, binding DI, flujo, cadena MediatR); CodeGraph entrega datos brutos y delega la interpretación al LLM. Para código .NET con patrones de framework, eso marca la diferencia entre una respuesta útil y una respuesta barata pero incompleta.
 
@@ -90,7 +98,7 @@ La demo escanea CleanArchitecture y ejecuta 5 queries clave.
 
 ### Estado
 
-v2.1.0, beta pública. MIT. 45 tests (xUnit). Multiplataforma (win-x64, linux-x64, osx-arm64, self-contained binaries). Documentación para registrarlo en Claude Code, Cursor, Cline, Continue y Zed.
+v2.2.0, beta pública. MIT. 63 tests (xUnit). Multiplataforma (win-x64, linux-x64, osx-arm64, self-contained binaries). Caché binaria en disco (arranque instantáneo al reabrir el proyecto). Documentación para registrarlo en Claude Code, Cursor, Cline, Continue y Zed.
 
 Feedback bienvenido — issues, PRs, discusiones en el repo.
 

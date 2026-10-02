@@ -1,4 +1,10 @@
-﻿# Comparativa detallada: CodeGraph vs LocalGraph vs Sin MCP
+﻿> **Documento histórico (2026-05-23).** Corresponde a la fase pre-rebrand
+> ("LocalGraph") y a un estado antiguo del producto. La comparativa vigente vive
+> en [COMPARATIVA.md](COMPARATIVA.md) y las cifras actualizadas (tokens y
+> rendimiento) en [BENCHMARK.md](BENCHMARK.md). Se conserva por su valor como
+> línea base.
+
+# Comparativa detallada: CodeGraph vs LocalGraph vs Sin MCP
 
 Fecha: 2026-05-23
 Repositorio: Payroll
