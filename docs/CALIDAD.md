@@ -219,3 +219,51 @@ No hay un ganador universal:
 - Si tu código es multi-lenguaje o necesitas flexibilidad máxima, CodeGraph
   es la opción.
 - Si necesitas buscar literales, grep.
+
+---
+
+## Q14 — ¿Qué rompo si cambio IApplicationDbContext? (v2.2.0)
+
+Pregunta de la vida real antes de un refactor. `impact()` (nueva en 2.2.0)
+responde el transitivo completo en 1 llamada.
+
+### SharpGraph (`impact`)
+
+```
+Impact of 'IApplicationDbContext' — si lo cambias, esto es lo afectado:
+  32 tipos en 4 nivel(es) · 0 endpoints HTTP · 9 tests
+
+  Nivel 1: CreateTodoListCommandHandler [param], CreateTodoItemCommandHandler [param],
+           UpdateTodoItemCommandHandler [param], UpdateTodoListCommandHandler [param],
+           DeleteTodoListCommandHandler [param], DeleteTodoItemCommandHandler [param], … +1 más
+  Nivel 2: CreateTodoListCommand [inherits], CreateTodoItemCommand [inherits], …
+  Nivel 3: CleanArchitectureUseCaseCommandValidator [param], TodoItems [param], TodoLists [param]
+
+  Tests que lo ejercitan (9): UpdateTodoListTests, DeleteTodoListTests, CreateTodoListTests,
+  UpdateTodoItemTests, UpdateTodoItemDetailTests, DeleteTodoItemTests, CreateTodoItemTests,
+  RequestLoggerTests, GetTodosTests
+```
+
+**362 tokens.** Transitivo (4 niveles), con la relación de cada arista, la
+implementación DI (`ApplicationDbContext`), los tests a correr y — cuando los
+hay — los endpoints HTTP en riesgo.
+
+### CodeGraph (`callers`, su aproximación más cercana)
+
+```
+Callers of "IApplicationDbContext" (20):
+
+field       _context
+  src/Application/TodoItems/Commands/CreateTodoItem/CreateTodoItem.cs:15
+method      CreateTodoItemCommandHandler
+  src/Application/TodoItems/Commands/CreateTodoItem/CreateTodoItem.cs:17
+field       _context
+  src/Application/TodoItems/Commands/DeleteTodoItem/DeleteTodoItem.cs:9
+…
+```
+
+**1.007 tokens** y es SOLO el nivel 1: 20 entradas que alternan el campo
+`_context` con su clase (el mismo hecho contado dos veces por handler), sin
+transitivos, sin tests, sin DI, sin distinción de relación. Igualar la respuesta
+de `impact` exigiría al agente encadenar `callers` de cada caller (>20 llamadas)
+y seguiría sin tener la lista de tests.

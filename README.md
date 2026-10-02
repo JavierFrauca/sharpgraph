@@ -254,9 +254,13 @@ sobre tus propios repos. Resumen de la batería interna (2 repos .NET, 31 pregun
   9 tests) en **362 tokens**; el `callers` de CodeGraph gasta 1.007 tokens en SOLO el nivel
   directo — igualar la respuesta exigiría encadenar >20 llamadas.
 - **Comprensión de flujo** (`flow`): **~45×** más barato que reconstruir la cadena leyendo ficheros.
+- **Rendimiento** (`bench/compare_perf.py`): indexado en frío **8× más rápido** que CodeGraph
+  (6,8 s vs 54,6 s sobre 5.001 .cs) e índice **24× menor** en disco (1,9 MB vs 46,4 MB);
+  latencia MCP por tool de 10-30 ms con el grafo cargado.
 - **Leer código completo**: paridad (`understand` gana en clases grandes). **Literales**: gana grep.
 
-Cómo reproducirlo sobre tu código: ver [docs/BENCHMARK.md](docs/BENCHMARK.md).
+Cómo reproducirlo sobre tu código: ver [docs/BENCHMARK.md](docs/BENCHMARK.md)
+(tokens: `bench/benchmark.py` · rendimiento: `bench/compare_perf.py`).
 
 ---
 
