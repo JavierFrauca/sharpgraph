@@ -124,3 +124,30 @@ los símbolos y rutas, y ejecuta `python benchmark.py`.
   tests/samples**.
 - Se mide coste, no calidad. SharpGraph además aporta relación/línea/binding y filtra tests;
   CodeGraph mezcla símbolos homónimos y no resuelve DI.
+
+---
+
+## Rendimiento (latencia/escala): `bench/compare_perf.py`
+
+Batería reproducible SharpGraph vs CodeGraph que mide, con mediana de 3 pasadas:
+indexado en frío (cachés borradas), arranque caliente, latencia de respuesta CLI,
+huella en disco del índice y latencia MCP por tool. Corpora: CleanArchitecture
+(110 .cs) y un corpus sintético de 5.001 .cs (generador: `%TEMP%\sgcorpus_gen.py`).
+
+Resultados de referencia (misma máquina, CodeGraph 0.9.9, SharpGraph 2.2.0):
+
+| Métrica | SharpGraph | CodeGraph |
+|---|---|---|
+| Indexado en frío · 110 .cs | **463 ms** | 2.005 ms |
+| Indexado en frío · 5.001 .cs | **6,8 s** | 54,6 s (8×) |
+| Arranque caliente · 5.001 .cs | **2,1 s** | 2,6 s |
+| Huella en disco · 5.001 .cs | **1,91 MB** | 46,44 MB (24×) |
+| Latencia MCP por tool · 5.001 .cs | **10-30 ms** | n/a (CLI: ~0,6 s por query) |
+
+Matiz honesto: por invocación CLI suelta (proceso + índice + query) CodeGraph es
+más rápido en el corpus grande (~0,6 s vs ~2,1 s) porque su CLI solo abre el
+índice, mientras que cada CLI de SharpGraph re-hashea los ficheros como paso de
+seguridad incremental. En el modo que usan los agentes (servidor MCP vivo), la
+latencia real por llamada es de milisegundos.
+
+Uso: `python bench/compare_perf.py [ruta_exe_sharpgraph]`
