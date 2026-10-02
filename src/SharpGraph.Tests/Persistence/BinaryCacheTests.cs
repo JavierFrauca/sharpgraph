@@ -139,11 +139,11 @@ public class BinaryCacheTests : IDisposable
         var store = new GraphStore(_dir);
         var fragment = ParseReal(_codeFile);
 
-        // pre-historia: una caché v1 JSON con el mismo ParserVersion (8)
+        // pre-historia: una caché v1 JSON con el mismo ParserVersion (9)
         var jsonOpts = new JsonSerializerOptions();
         var envelope = new
         {
-            Version = 8,
+            Version = 9,
             Fragments = new[] { fragment }
         };
         var key = Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(

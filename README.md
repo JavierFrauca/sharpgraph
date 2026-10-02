@@ -122,8 +122,12 @@ Por cada fichero, `TypeReferenceVisitor` extrae:
   `implements`, `call` (invocación real), `sends`/`handled-by` (MediatR), `di-bound` (DI).
 - **Call-sites**: invocaciones reales `_servicio.Metodo()` resueltas por el tipo del campo/var.
 - **Endpoints**: métodos `[HttpGet]`/etc. (ruta **concatenada** con el `[Route]` de la clase) y
-  **minimal APIs** `app.MapGet("/x", handler)`. Los parámetros tipados del lambda handler se
-  resuelven, de modo que la traza llega hasta el endpoint minimal API.
+  **minimal APIs** en sus dos familias: clásica `app.MapGet("/x", handler)` y **tipada por
+  grupos** `groupBuilder.MapGet(GetTodoLists)` / `groupBuilder.MapPut(UpdateTodoList, "{id}")`
+  (estilo CleanArchitecture v2 — el endpoint se adscribe a la clase que declara el handler;
+  la ruta mostrada es la relativa del argumento, el prefijo del grupo no se resuelve). Los
+  parámetros tipados del lambda handler se resuelven, de modo que la traza llega hasta el
+  endpoint minimal API.
 - **Bindings DI**: `AddScoped<I,C>()`, `AddSingleton(typeof(I), typeof(C))`, etc.
 - **Clases anidadas cualificadas**: `OuterClass.Handler` en lugar de `Handler`.
 

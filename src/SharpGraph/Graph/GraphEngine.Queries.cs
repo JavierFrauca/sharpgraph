@@ -167,9 +167,12 @@ public sealed partial class GraphEngine
                 return $"'{Display(typeName)}' no tiene afectados: nada depende de él (nivel 1 vacío).{di}";
             }
 
+            // el conteo que importa son los ENDPOINTS (una clase puede declarar varios)
+            var endpointCount = endpoints.Sum(t => _endpoints[t].Count);
+
             var sb = new StringBuilder();
             sb.AppendLine($"Impact of '{Display(typeName)}' — si lo cambias, esto es lo afectado:");
-            sb.AppendLine($"  {totalAffected} tipos en {levels.Count} nivel(es) · {endpoints.Count} endpoints HTTP · {tests.Count} tests");
+            sb.AppendLine($"  {totalAffected} tipos en {levels.Count} nivel(es) · {endpointCount} endpoints HTTP · {tests.Count} tests");
             if (truncated) sb.AppendLine("  (alcance truncado a 2000 tipos; usa maxDepth menor para el detalle)");
             sb.AppendLine();
 
@@ -184,7 +187,9 @@ public sealed partial class GraphEngine
                     .Select(kv =>
                     {
                         var (via, viaDi) = kv.Value;
-                        var rel = viaDi ? "di-impl" : DominantRelation(via, kv.Key).Label();
+                        // la arista real va del AFECTADO hacia su dependencia (via):
+                        // "Handler [ctor-param]" = afectado porque inyecta lo cambiado
+                        var rel = viaDi ? "di-impl" : DominantRelation(kv.Key, via).Label();
                         var ep = _endpoints.TryGetValue(kv.Key, out var eps) && eps.Count > 0
                             ? $" [ENDPOINT: {eps.Select(e => $"{e.Verb} {e.Route}").First()}]"
                             : "";
@@ -196,12 +201,12 @@ public sealed partial class GraphEngine
                 sb.AppendLine($"  Nivel {i + 1}: {string.Join(", ", shown)}{(extra > 0 ? $" … +{extra} más" : "")}");
             }
 
-            if (endpoints.Count > 0)
+            if (endpointCount > 0)
             {
                 sb.AppendLine();
-                sb.AppendLine($"  Endpoints en riesgo ({endpoints.Count}):");
+                sb.AppendLine($"  Endpoints en riesgo ({endpointCount}):");
                 foreach (var t in endpoints.Take(15))
-                    foreach (var ep in _endpoints[t].Take(2))
+                    foreach (var ep in _endpoints[t].Take(4))
                         sb.AppendLine($"    [{ep.Verb} {ep.Route}] {Display(t)}.{ep.MethodName}");
                 if (endpoints.Count > 15) sb.AppendLine($"    … +{endpoints.Count - 15} tipos más con endpoints");
             }
