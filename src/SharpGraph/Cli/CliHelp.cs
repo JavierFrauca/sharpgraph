@@ -8,7 +8,7 @@ namespace SharpGraph.Cli;
 /// </summary>
 internal static class CliHelp
 {
-    public const string Version = "2.1.0";
+    public const string Version = "2.2.0";
 
     // ────────────────────────── HELP GENERAL ──────────────────────────
 
@@ -39,6 +39,9 @@ internal static class CliHelp
                               Flags: -m <miembro>, -l <límite> (defecto 50).
           trace <tipo>        Camino hacia atrás hasta endpoints HTTP.
                               Flags: -d <profundidad> (defecto 8).
+          impact <tipo>       Radio de impacto transitivo: qué rompes si cambias X
+                              (niveles + endpoints en riesgo + tests). Propaga DI.
+                              Flags: -d <profundidad> (defecto 6), --with-tests.
           flow <tipo>         Árbol de llamadas SALIENTES (sin código).
                               Flags: -m <miembro>, -d <profundidad> (defecto 2).
           hubs                Tipos más centrales (PageRank).
@@ -114,6 +117,7 @@ internal static class CliHelp
         "usages" or "get-usages" => CmdUsages,
         "callsites" or "find-callsites" or "find_call_sites" => CmdCallsites,
         "trace" or "trace-to-endpoints" => CmdTrace,
+        "impact" => CmdImpact,
         "flow" => CmdFlow,
         "hubs" => CmdHubs,
         "di" or "resolve-di" or "resolve_di" => CmdDi,
@@ -128,8 +132,8 @@ internal static class CliHelp
             Comando desconocido: '{command}'
 
             Comandos disponibles: scan, stats, search, callers, usages, callsites,
-            trace, flow, hubs, di, source, understand, read-file, semantic,
-            explore, setup, help.
+            trace, impact, flow, hubs, di, source, understand, read-file,
+            semantic, explore, setup, help.
 
             Ejecuta 'sharpgraph help' para la lista completa.
             """
@@ -276,6 +280,35 @@ internal static class CliHelp
             sharpgraph trace IGrossService
 
           EQUIVALENTE MCP: trace_to_endpoints(typeName, maxDepth)
+        """;
+
+    private const string CmdImpact = """
+        sharpgraph impact — Impacto de cambio (blast radius)
+
+          ANTES de tocar un tipo: calcula el radio de impacto TRANSITIVO —
+          todo lo que se rompe o hay que revisar si lo cambias. Resumen por
+          niveles (no un árbol): tipos afectados con su relación, endpoints
+          HTTP en riesgo y tests que ejercitan el área.
+
+          Propaga DI: si cambias una implementación, el impacto sube a la
+          interfaz que registra y de ahí a todos sus consumidores.
+
+          USO:
+            sharpgraph impact <tipo> [-d <profundidad>] [--with-tests]
+
+          FLAGS:
+            -d <profundidad>   Profundidad máxima (1-10, defecto 6).
+            --with-tests       Incluir tipos de test dentro de los niveles
+                               (siempre se listan aparte al final).
+
+          EJEMPLO:
+            sharpgraph impact Repo0
+              87 tipos en 6 niveles · 8 endpoints HTTP · 2 tests
+              Nivel 1: IRepo0 [di-impl], Service0 [ctor-param]
+              Nivel 2: Controller0 [sends] [ENDPOINT: POST /d001/op0]
+              Endpoints en riesgo (8): [POST /d001/op0] Controller0.Op0 ...
+
+          EQUIVALENTE MCP: impact(typeName, maxDepth, includeTests)
         """;
 
     private const string CmdFlow = """
@@ -490,8 +523,8 @@ internal static class CliHelp
             sharpgraph help <comando>    # ayuda detallada de un comando
 
           COMANDOS DISPONIBLES:
-            scan, stats, search, callers, usages, callsites, trace, flow,
-            hubs, di, source, understand, read-file, semantic, explore,
+            scan, stats, search, callers, usages, callsites, trace, impact,
+            flow, hubs, di, source, understand, read-file, semantic, explore,
             setup, help
 
           EJEMPLOS:

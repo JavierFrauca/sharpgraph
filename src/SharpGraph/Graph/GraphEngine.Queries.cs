@@ -56,6 +56,129 @@ public sealed partial class GraphEngine
 
     // ----------------------------------------------------------------- queries
 
+    // ---- NUEVO: impacto de cambio (blast radius) ----
+    // BFS transivo sobre los callers con propagación DI: si tocas una
+    // implementación, el impacto sube hasta la interfaz que implementa y de
+    // ahí a todos sus consumidores. Es LA pregunta antes de refactorizar:
+    // "¿qué rompo si cambio X?" respondida como resumen por niveles, no como
+    // árbol (find_callers ya da el árbol).
+    public string Impact(string typeName, int maxDepth = 6, bool includeTests = false)
+    {
+        lock (_lock)
+        {
+            maxDepth = Math.Clamp(maxDepth, 1, 10);
+            var key = ResolveInput(typeName, out var amb);
+            if (amb is not null) return amb;
+            if (key is null) return $"Type '{typeName}' not found. Try search().";
+            typeName = key;
+
+            // BFS con nivel; cada afectado recuerda de qué predecesor llegó
+            // (para mostrar la relación) y si llegó vía binding DI.
+            var levels = new List<Dictionary<string, (string Via, bool ViaDi)>>();
+            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { typeName };
+            var frontier = new List<string> { typeName };
+            var truncated = false;
+
+            for (var depth = 1; depth <= maxDepth && frontier.Count > 0; depth++)
+            {
+                var level = new Dictionary<string, (string, bool)>(StringComparer.OrdinalIgnoreCase);
+                var next = new List<string>();
+                foreach (var current in frontier)
+                {
+                    if (levels.Sum(l => l.Count) + level.Count >= 2_000) { truncated = true; break; }
+
+                    void Candidate(string candidate, bool viaDi)
+                    {
+                        if (!visited.Add(candidate)) return;
+                        if (levels.Sum(l => l.Count) + level.Count >= 2_000) { truncated = true; return; }
+                        level[candidate] = (current, viaDi);
+                        next.Add(candidate);
+                    }
+
+                    // vecinos estructurales: quien referencia a current
+                    if (_in.TryGetValue(current, out var callers))
+                        foreach (var caller in callers)
+                            Candidate(caller, viaDi: false);
+
+                    // propagación DI: una implementación afecta al servicio que
+                    // registra — sus consumidores entran por la interfaz.
+                    if (_diByImpl.TryGetValue(current, out var bindings))
+                        foreach (var b in bindings)
+                            Candidate(b.ServiceType, viaDi: true);
+                }
+                levels.Add(level);
+                frontier = next;
+            }
+
+            // Los tests se reportan SIEMPRE (separados), y solo entran en los
+            // niveles si includeTests=true.
+            var tests = levels.SelectMany(l => l.Keys).Where(IsTestType).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            var affectedAll = levels
+                .SelectMany(l => l.Keys.Where(k => includeTests || !IsTestType(k)))
+                .ToList();
+            var endpoints = affectedAll.Where(t => _endpoints.ContainsKey(t)).ToList();
+            var totalAffected = affectedAll.Count;
+
+            if (totalAffected == 0)
+            {
+                var di = _diByImpl.TryGetValue(typeName, out var asImpl)
+                    ? $"\nDI: es implementación de {string.Join(", ", asImpl.Select(d => Display(d.ServiceType)).Distinct())} — usa impact sobre el servicio para ver los consumidores."
+                    : "";
+                return $"'{Display(typeName)}' no tiene afectados: nada depende de él (nivel 1 vacío).{di}";
+            }
+
+            var sb = new StringBuilder();
+            sb.AppendLine($"Impact of '{Display(typeName)}' — si lo cambias, esto es lo afectado:");
+            sb.AppendLine($"  {totalAffected} tipos en {levels.Count} nivel(es) · {endpoints.Count} endpoints HTTP · {tests.Count} tests");
+            if (truncated) sb.AppendLine("  (alcance truncado a 2000 tipos; usa maxDepth menor para el detalle)");
+            sb.AppendLine();
+
+            const int perLevel = 12;
+            for (var i = 0; i < levels.Count; i++)
+            {
+                var shown = levels[i]
+                    .Where(kv => includeTests || !IsTestType(kv.Key))
+                    .OrderByDescending(kv => Rank(kv.Key))
+                    .ThenBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
+                    .Take(perLevel)
+                    .Select(kv =>
+                    {
+                        var (via, viaDi) = kv.Value;
+                        var rel = viaDi ? "di-impl" : DominantRelation(via, kv.Key).Label();
+                        var ep = _endpoints.TryGetValue(kv.Key, out var eps) && eps.Count > 0
+                            ? $" [ENDPOINT: {eps.Select(e => $"{e.Verb} {e.Route}").First()}]"
+                            : "";
+                        return $"{Display(kv.Key)} [{rel}]{ep}";
+                    })
+                    .ToList();
+                if (shown.Count == 0) continue;
+                var extra = levels[i].Count(kv => includeTests || !IsTestType(kv.Key)) - perLevel;
+                sb.AppendLine($"  Nivel {i + 1}: {string.Join(", ", shown)}{(extra > 0 ? $" … +{extra} más" : "")}");
+            }
+
+            if (endpoints.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine($"  Endpoints en riesgo ({endpoints.Count}):");
+                foreach (var t in endpoints.Take(15))
+                    foreach (var ep in _endpoints[t].Take(2))
+                        sb.AppendLine($"    [{ep.Verb} {ep.Route}] {Display(t)}.{ep.MethodName}");
+                if (endpoints.Count > 15) sb.AppendLine($"    … +{endpoints.Count - 15} tipos más con endpoints");
+            }
+
+            if (tests.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine($"  Tests que lo ejercitan ({tests.Count}): {string.Join(", ", tests.Take(15).Select(Display))}{(tests.Count > 15 ? $" … +{tests.Count - 15}" : "")}");
+            }
+
+            sb.AppendLine();
+            sb.AppendLine("Detalle por rama: find_callers; camino a HTTP: trace_to_endpoints.");
+            return sb.ToString();
+        }
+    }
+
+
     public string Stats()
     {
         lock (_lock)

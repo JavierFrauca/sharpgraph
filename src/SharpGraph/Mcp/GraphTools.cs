@@ -150,6 +150,35 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
         [Description("Profundidad máxima hacia atrás (defecto 8).")] int maxDepth = 8)
         => graph.TraceToEndpoints(typeName, maxDepth);
 
+    [McpServerTool(Title = "Impacto de cambio (blast radius)", ReadOnly = true, Idempotent = true), Description("""
+        ANTES de tocar un tipo: calcula el RADIO DE IMPACTO transitivo — todo lo
+        que se rompe o hay que revisar si lo cambias. "¿Qué afecto si modifico X?".
+
+        Recorre el grafo hacia arriba (quién depende de quién, transitivo) y lo
+        destila en un RESUMEN POR NIVELES, no un árbol:
+          - tipos afectados por nivel con la relación [ctor-param]/[call]/[sends]...
+          - endpoints HTTP en riesgo (con verbo y ruta)
+          - tests que ejercitan el área afectada
+
+        Propaga DI: si cambias una IMPLEMENTACIÓN, el impacto sube a la interfaz
+        que registra y de ahí a todos sus consumidores.
+
+        Ejemplo:
+          impact("Repo0")
+            87 tipos en 6 niveles · 8 endpoints HTTP · 2 tests
+            Nivel 1: IRepo0 [di-impl], Service0 [ctor-param]
+            Nivel 2: Controller0 [sends] [ENDPOINT: POST /d001/op0]
+            Endpoints en riesgo (8): [POST /d001/op0] Controller0.Op0 ...
+
+        Para el árbol detallado usa find_callers; para el camino exacto a HTTP,
+        trace_to_endpoints.
+        """)]
+    public string Impact(
+        [Description("Tipo que se plantea cambiar (ej: GrossService, Repo0).")] string typeName,
+        [Description("Profundidad máxima del análisis (1-10, defecto 6).")] int maxDepth = 6,
+        [Description("Incluir tipos de test dentro de los niveles (siempre se listan aparte). Defecto false.")] bool includeTests = false)
+        => graph.Impact(typeName, maxDepth, includeTests);
+
     [McpServerTool(Title = "Quién usa este tipo", ReadOnly = true, Idempotent = true), Description("""
         Árbol de tipos que dependen de un tipo dado, N niveles hacia arriba.
         "¿Qué partes del sistema usan este servicio?".
