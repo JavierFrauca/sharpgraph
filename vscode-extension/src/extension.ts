@@ -133,13 +133,12 @@ export function activate(context: vscode.ExtensionContext): void {
                     vscode.workspace.getConfiguration("sharpgraphFlow").get<string>("serverPath", "SharpGraph"));
                 currentSolution = solution;
             }
-            // 3) scan incremental (con caché caliente es casi gratis) + catálogo
+            // 3) scan incremental (SOLO aquí y en el botón: re-hashea toda la
+            //    solución y puede tardar minutos — el motor se auto-vigila después)
+            //    + catálogo
             await client.callTool("scan", { path: solution });
-            const json = await client.callTool("list_endpoints");
-            const items = (JSON.parse(json).endpoints ?? []) as EndpointItem[];
-            provider.setData(items);
-            await context.workspaceState.update(cacheKey, items);
-            log(`refresco de ${path.basename(solution)}: ${items.length} endpoints en ${Date.now() - t0} ms`);
+            await listAndApply(solution);
+            log(`refresco de ${path.basename(solution)}: ${provider.totalCount} endpoints en ${Date.now() - t0} ms`);
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
             log(`refresco falló: ${message}`);
@@ -158,6 +157,38 @@ export function activate(context: vscode.ExtensionContext): void {
                 refreshQueued = false;
                 void refreshTree();
             }
+        }
+    }
+
+    /** lista del servidor vivo → árbol + caché local. Ignora resultados vacíos:
+     * no borra lo sembrado si el motor aún no ha escaneado. */
+    async function listAndApply(solution: string): Promise<void> {
+        const json = await client.callTool("list_endpoints");
+        const items = (JSON.parse(json).endpoints ?? []) as EndpointItem[];
+        if (items.length === 0) {
+            return;
+        }
+        provider.setData(items);
+        await context.workspaceState.update("endpoints:" + solution, items);
+    }
+
+    /** refresco LIGERO del watcher: SOLO lista del servidor vivo — el motor se
+     * auto-vigila tras su primer scan; aquí NUNCA se lanza un scan (re-hashear
+     * 5.000 ficheros bloqueaba el servidor y todos los clics detrás). */
+    async function quickRefresh(): Promise<void> {
+        if (!client.isRunning || refreshing) {
+            return;
+        }
+        try {
+            const solution = currentSolution ?? await resolveSolution();
+            if (!solution) {
+                return;
+            }
+            const t0 = Date.now();
+            await listAndApply(solution);
+            log(`catálogo actualizado (sin scan): ${provider.totalCount} endpoints en ${Date.now() - t0} ms`);
+        } catch {
+            // silencioso: el siguiente evento del watcher lo reintenta
         }
     }
 
@@ -246,14 +277,15 @@ export function activate(context: vscode.ExtensionContext): void {
     // arranque perezoso: al abrir la vista (el propio onView ya activa la extensión)
     void refreshTree();
 
-    // re-scan con el watcher del propio VS Code: debounce 2 s por cambios .cs
+    // re-catálogo ligero con el watcher del propio VS Code (SIN scan — el motor
+    // se auto-vigila tras su primer scan): debounce 2 s por cambios .cs
     let rescanTimer: NodeJS.Timeout | undefined;
     const codeWatcher = vscode.workspace.createFileSystemWatcher("**/*.cs");
     const scheduleRescan = () => {
         if (rescanTimer) {
             clearTimeout(rescanTimer);
         }
-        rescanTimer = setTimeout(() => void refreshTree(), 2000);
+        rescanTimer = setTimeout(() => void quickRefresh(), 2000);
     };
     codeWatcher.onDidChange(scheduleRescan);
     codeWatcher.onDidCreate(scheduleRescan);
