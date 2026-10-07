@@ -1,0 +1,255 @@
+{
+  "endpoint": "POST /api/orders",
+  "matchedEndpoints": 1,
+  "root": "N0",
+  "nodeCount": 15,
+  "edgeCount": 15,
+  "backEdges": 1,
+  "omitted": 0,
+  "truncated": false,
+  "nodes": [
+    {
+      "id": "N0",
+      "kind": "endpoint",
+      "name": "POST /api/orders",
+      "fqn": "FlowDemo.OrdersController",
+      "file": "C:\\Users\\javier.frauca\\AppData\\Local\\Temp\\sgflow\\Demo.cs",
+      "line": 53,
+      "infra": false
+    },
+    {
+      "id": "N1",
+      "kind": "controller",
+      "name": "OrdersController",
+      "fqn": "FlowDemo.OrdersController",
+      "file": "C:\\Users\\javier.frauca\\AppData\\Local\\Temp\\sgflow\\Demo.cs",
+      "line": 46,
+      "infra": false
+    },
+    {
+      "id": "N2",
+      "kind": "external",
+      "name": "ControllerBase",
+      "fqn": "ControllerBase",
+      "file": null,
+      "line": 0,
+      "infra": true
+    },
+    {
+      "id": "N3",
+      "kind": "infra",
+      "name": "IMediator",
+      "fqn": "IMediator",
+      "file": null,
+      "line": 0,
+      "infra": true
+    },
+    {
+      "id": "N4",
+      "kind": "command",
+      "name": "CreateOrderCommand",
+      "fqn": "FlowDemo.CreateOrderCommand",
+      "file": "C:\\Users\\javier.frauca\\AppData\\Local\\Temp\\sgflow\\Demo.cs",
+      "line": 8,
+      "infra": false
+    },
+    {
+      "id": "N5",
+      "kind": "external",
+      "name": "IRequest",
+      "fqn": "IRequest",
+      "file": null,
+      "line": 0,
+      "infra": true
+    },
+    {
+      "id": "N6",
+      "kind": "handler",
+      "name": "CreateOrderCommandHandler",
+      "fqn": "FlowDemo.CreateOrderCommandHandler",
+      "file": "C:\\Users\\javier.frauca\\AppData\\Local\\Temp\\sgflow\\Demo.cs",
+      "line": 29,
+      "infra": false
+    },
+    {
+      "id": "N7",
+      "kind": "external",
+      "name": "IRequestHandler",
+      "fqn": "IRequestHandler",
+      "file": null,
+      "line": 0,
+      "infra": true
+    },
+    {
+      "id": "N8",
+      "kind": "interface",
+      "name": "IOrderRepository",
+      "fqn": "FlowDemo.IOrderRepository",
+      "file": "C:\\Users\\javier.frauca\\AppData\\Local\\Temp\\sgflow\\Demo.cs",
+      "line": 10,
+      "infra": false
+    },
+    {
+      "id": "N9",
+      "kind": "interface",
+      "name": "IEmailService",
+      "fqn": "FlowDemo.IEmailService",
+      "file": "C:\\Users\\javier.frauca\\AppData\\Local\\Temp\\sgflow\\Demo.cs",
+      "line": 11,
+      "infra": false
+    },
+    {
+      "id": "N10",
+      "kind": "infra",
+      "name": "ILogger",
+      "fqn": "ILogger",
+      "file": null,
+      "line": 0,
+      "infra": true
+    },
+    {
+      "id": "N11",
+      "kind": "implementation",
+      "name": "OrderRepository",
+      "fqn": "FlowDemo.OrderRepository",
+      "file": "C:\\Users\\javier.frauca\\AppData\\Local\\Temp\\sgflow\\Demo.cs",
+      "line": 15,
+      "infra": false
+    },
+    {
+      "id": "N12",
+      "kind": "implementation",
+      "name": "SmtpEmailService",
+      "fqn": "FlowDemo.SmtpEmailService",
+      "file": "C:\\Users\\javier.frauca\\AppData\\Local\\Temp\\sgflow\\Demo.cs",
+      "line": 22,
+      "infra": false
+    },
+    {
+      "id": "N13",
+      "kind": "interface",
+      "name": "IUnitOfWork",
+      "fqn": "FlowDemo.IUnitOfWork",
+      "file": "C:\\Users\\javier.frauca\\AppData\\Local\\Temp\\sgflow\\Demo.cs",
+      "line": 9,
+      "infra": false
+    },
+    {
+      "id": "N14",
+      "kind": "implementation",
+      "name": "UnitOfWork",
+      "fqn": "FlowDemo.UnitOfWork",
+      "file": "C:\\Users\\javier.frauca\\AppData\\Local\\Temp\\sgflow\\Demo.cs",
+      "line": 13,
+      "infra": false
+    }
+  ],
+  "edges": [
+    {
+      "from": "N0",
+      "to": "N1",
+      "relation": "call",
+      "line": 53,
+      "back": false
+    },
+    {
+      "from": "N1",
+      "to": "N2",
+      "relation": "inherits",
+      "line": 48,
+      "back": false
+    },
+    {
+      "from": "N1",
+      "to": "N3",
+      "relation": "call",
+      "line": 50,
+      "back": false
+    },
+    {
+      "from": "N1",
+      "to": "N4",
+      "relation": "sends",
+      "line": 56,
+      "back": false
+    },
+    {
+      "from": "N4",
+      "to": "N5",
+      "relation": "implements",
+      "line": 8,
+      "back": false
+    },
+    {
+      "from": "N4",
+      "to": "N6",
+      "relation": "handled-by",
+      "line": 29,
+      "back": false
+    },
+    {
+      "from": "N6",
+      "to": "N7",
+      "relation": "implements",
+      "line": 29,
+      "back": false
+    },
+    {
+      "from": "N6",
+      "to": "N8",
+      "relation": "call",
+      "line": 31,
+      "back": false
+    },
+    {
+      "from": "N6",
+      "to": "N9",
+      "relation": "call",
+      "line": 32,
+      "back": false
+    },
+    {
+      "from": "N6",
+      "to": "N10",
+      "relation": "call",
+      "line": 33,
+      "back": false
+    },
+    {
+      "from": "N8",
+      "to": "N11",
+      "relation": "di-bound",
+      "line": 66,
+      "back": false
+    },
+    {
+      "from": "N9",
+      "to": "N12",
+      "relation": "di-bound",
+      "line": 67,
+      "back": false
+    },
+    {
+      "from": "N11",
+      "to": "N13",
+      "relation": "call",
+      "line": 17,
+      "back": false
+    },
+    {
+      "from": "N12",
+      "to": "N13",
+      "relation": "call",
+      "line": 24,
+      "back": true
+    },
+    {
+      "from": "N13",
+      "to": "N14",
+      "relation": "di-bound",
+      "line": 65,
+      "back": false
+    }
+  ],
+  "mermaid": "\u0060\u0060\u0060mermaid\r\n%% endpoint_flow \u2014 15 nodos \u00B7 15 aristas\r\nflowchart TD\r\n  classDef entry fill:#d4edda,stroke:#1e7e34,color:#111;\r\n  classDef iface stroke-dasharray:4 3,color:#111;\r\n  classDef external fill:#ececec,stroke:#8a8a8a,stroke-dasharray:2 3,color:#333;\r\n  N0[\u0022POST /api/orders\u0022]:::entry\r\n  N1[\u0022OrdersController\u0022]\r\n  N2[\u0022ControllerBase\u0022]:::external\r\n  N3[\u0022IMediator\u0022]:::external\r\n  N4[\u0022CreateOrderCommand\u0022]\r\n  N5[\u0022IRequest\u0022]:::external\r\n  N6[\u0022CreateOrderCommandHandler\u0022]\r\n  N7[\u0022IRequestHandler\u0022]:::external\r\n  N8[\u0022IOrderRepository\u0022]:::iface\r\n  N9[\u0022IEmailService\u0022]:::iface\r\n  N10[\u0022ILogger\u0022]:::external\r\n  N11[\u0022OrderRepository\u0022]\r\n  N12[\u0022SmtpEmailService\u0022]\r\n  N13[\u0022IUnitOfWork\u0022]:::iface\r\n  N14[\u0022UnitOfWork\u0022]\r\n  N0 --\u003E N1\r\n  N1 ==\u003E N2\r\n  N1 --\u003E N3\r\n  N1 -.-\u003E|sends| N4\r\n  N4 ==\u003E N5\r\n  N4 -.-\u003E|handled-by| N6\r\n  N6 ==\u003E N7\r\n  N6 --\u003E N8\r\n  N6 --\u003E N9\r\n  N6 --\u003E N10\r\n  N8 -.-\u003E|di-bound| N11\r\n  N9 -.-\u003E|di-bound| N12\r\n  N11 --\u003E N13\r\n  N12 --\u003E N13\r\n  N13 -.-\u003E|di-bound| N14\r\n  linkStyle 13 stroke:#f14c4c,stroke-dasharray:4 3;\r\n\u0060\u0060\u0060\r\n"
+}

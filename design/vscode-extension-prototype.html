@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Prototipo · Extensión SharpGraph para VS Code</title>
+<style>
+  :root{
+    --bg:#181818; --bg-editor:#1f1f1f; --border:#2b2b2b; --fg:#cccccc;
+    --dim:#9a9a9a; --dimmer:#6e6e6e; --accent:#0078d4; --accent2:#4ec9b0;
+    --hover:#2a2d2e; --selbg:#04395e;
+    --get:#61affe; --post:#49cc90; --put:#fca130; --del:#f93e3e;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; user-select:none;}
+  html,body{height:100%;}
+  body{
+    font-family:"Segoe UI",system-ui,sans-serif; font-size:13px; color:var(--fg);
+    background:var(--bg); display:flex; flex-direction:column; overflow:hidden; min-width:1180px;
+  }
+  .mono{font-family:Consolas,"Cascadia Mono",monospace;}
+
+  /* ============ TITLE BAR ============ */
+  #titlebar{
+    height:34px; background:var(--bg); border-bottom:1px solid var(--border);
+    display:flex; align-items:center; padding:0 8px; flex-shrink:0; font-size:12px;
+  }
+  #titlebar .menu span{padding:4px 8px; border-radius:4px; cursor:default;}
+  #titlebar .menu span:hover{background:var(--hover);}
+  #titlebar .title{flex:1; text-align:center; color:var(--dim);}
+  #titlebar .win{display:flex; gap:2px;}
+  #titlebar .win span{width:40px; height:26px; display:grid; place-items:center; border-radius:4px; color:var(--dim); cursor:default;}
+  #titlebar .win span:hover{background:var(--hover);}
+  #titlebar .win span.close:hover{background:#c42b1c; color:#fff;}
+
+  /* ============ MAIN ============ */
+  #main{flex:1; display:flex; min-height:0;}
+
+  /* ============ ACTIVITY BAR ============ */
+  #activitybar{
+    width:48px; background:var(--bg); border-right:1px solid var(--border);
+    display:flex; flex-direction:column; align-items:center; flex-shrink:0; padding-top:2px;
+  }
+  #activitybar .action{width:48px; height:48px; display:grid; place-items:center; position:relative; cursor:pointer; color:#868686;}
+  #activitybar .action:hover{color:#fff;}
+  #activitybar .action.active{color:#fff;}
+  #activitybar .action.active::before{
+    content:""; position:absolute; left:0; top:6px; bottom:6px; width:2px; background:#fff;
+  }
+  #activitybar .action svg{width:24px; height:24px; fill:currentColor;}
+  #activitybar .badge{
+    position:absolute; right:6px; bottom:6px; background:var(--accent); color:#fff;
+    font-size:9px; font-weight:700; border-radius:9px; padding:1px 5px; line-height:1.2;
+  }
+  #activitybar .sep{width:24px; height:1px; background:var(--border); margin:4px 0;}
+  #activitybar .spacer{flex:1;}
+
+  /* ============ SIDEBAR ============ */
+  #sidebar{
+    width:262px; background:var(--bg); border-right:1px solid var(--border);
+    display:flex; flex-direction:column; flex-shrink:0;
+  }
+  #sidebar .panel-title{
+    height:35px; display:flex; align-items:center; padding:0 8px 0 16px;
+    font-size:11px; letter-spacing:.06em; flex-shrink:0;
+  }
+  #sidebar .panel-title .t{flex:1; font-weight:600;}
+  #sidebar .panel-title .act{color:var(--dim); padding:3px; border-radius:4px; cursor:pointer;}
+  #sidebar .panel-title .act:hover{background:var(--hover); color:#fff;}
+  #sidebar .search{padding:0 10px 8px; flex-shrink:0;}
+  #sidebar .search input{
+    width:100%; background:#313131; border:1px solid transparent; border-radius:3px;
+    color:var(--fg); font-size:12px; padding:5px 8px; outline:none; font-family:inherit;
+  }
+  #sidebar .search input:focus{border-color:var(--accent);}
+  #sidebar .tree{flex:1; overflow-y:auto; padding-bottom:8px;}
+  #sidebar .group-h{
+    display:flex; align-items:center; gap:4px; padding:4px 8px; cursor:pointer; font-weight:600;
+    white-space:nowrap; overflow:hidden;
+  }
+  #sidebar .group-h:hover{background:var(--hover);}
+  #sidebar .group-h .chev{font-size:9px; color:var(--dim); width:10px; transition:transform .1s;}
+  #sidebar .group.closed .chev{transform:rotate(-90deg);}
+  #sidebar .group.closed .children{display:none;}
+  #sidebar .group-h .cnt{color:var(--dimmer); font-weight:400; margin-left:auto; font-size:11px;}
+  #sidebar .ep{
+    display:flex; align-items:center; gap:7px; padding:3px 8px 3px 30px; cursor:pointer;
+    white-space:nowrap; overflow:hidden;
+  }
+  #sidebar .ep:hover{background:var(--hover);}
+  #sidebar .ep.selected{background:var(--selbg); outline:1px solid var(--accent); outline-offset:-1px;}
+  #sidebar .verb{
+    font-size:9px; font-weight:800; color:#fff; border-radius:3px; padding:1px 5px;
+    width:36px; text-align:center; flex-shrink:0; letter-spacing:.03em;
+  }
+  .verb.GET{background:var(--get);} .verb.POST{background:var(--post);}
+  .verb.PUT{background:var(--put);} .verb.DELETE{background:var(--del);}
+  #sidebar .ep .route{font-size:12px;}
+  #sidebar .ep .mname{color:var(--dimmer); font-size:11px; overflow:hidden; text-overflow:ellipsis;}
+  #sidebar .hint{padding:10px 16px; color:var(--dimmer); font-size:11px; line-height:1.5;}
+
+  /* ============ WORKBENCH ============ */
+  #workbench{flex:1; display:flex; flex-direction:column; min-width:0; background:var(--bg-editor);}
+  #tabbar{
+    height:35px; display:flex; align-items:stretch; background:var(--bg);
+    border-bottom:1px solid var(--border); flex-shrink:0; overflow-x:auto;
+  }
+  #tabbar::-webkit-scrollbar{display:none;}
+  .tab{
+    display:flex; align-items:center; gap:7px; padding:0 12px; cursor:pointer;
+    background:var(--bg); color:var(--dim); border-right:1px solid var(--border);
+    font-size:12px; white-space:nowrap;
+  }
+  .tab.active{background:var(--bg-editor); color:#fff; border-top:1px solid var(--accent);}
+  .tab .close{color:var(--dimmer); font-size:13px; padding:2px; border-radius:3px;}
+  .tab:hover .close{background:var(--hover);}
+  #breadcrumbs{
+    height:22px; display:flex; align-items:center; gap:5px; padding:0 16px;
+    color:var(--dimmer); font-size:11px; flex-shrink:0; border-bottom:1px solid var(--border);
+  }
+  #split{flex:1; display:flex; min-height:0;}
+
+  /* ============ WEBVIEW (diagrama) ============ */
+  #webview{flex:1.55; min-width:0; display:flex; flex-direction:column; border-right:1px solid var(--border); position:relative;}
+  #webview .wv-header{
+    padding:8px 14px 6px; display:flex; align-items:center; gap:10px; flex-shrink:0; flex-wrap:wrap;
+  }
+  #webview .wv-title{font-weight:600; font-size:13px; display:flex; align-items:center; gap:7px;}
+  #webview .wv-stats{color:var(--dimmer); font-size:11px;}
+  #webview .wv-toolbar{
+    display:flex; align-items:center; gap:12px; padding:0 14px 8px; flex-shrink:0; flex-wrap:wrap;
+    border-bottom:1px solid var(--border);
+  }
+  #webview .legend{display:flex; gap:10px; flex-wrap:wrap; align-items:center; font-size:10.5px; color:var(--dim);}
+  .chip{display:inline-flex; align-items:center; gap:4px;}
+  .chip i{width:10px; height:10px; border-radius:3px; display:inline-block; border:1.5px solid;}
+  #webview .toggle{display:flex; align-items:center; gap:5px; font-size:11.5px; color:var(--fg); cursor:pointer;}
+  #webview .toggle input{accent-color:var(--accent); cursor:pointer;}
+  #btn-mermaid{
+    background:#313131; color:var(--fg); border:1px solid var(--border); border-radius:3px;
+    font-size:11px; padding:3px 9px; cursor:pointer; font-family:inherit;
+  }
+  #btn-mermaid:hover{background:#3c3c3c;}
+  #canvasOuter{flex:1; overflow:hidden; position:relative; background:#1b1b1b;}
+  #canvas{position:absolute; left:0; top:0; width:1150px; height:640px; transform-origin:0 0;}
+  #edges{position:absolute; inset:0; pointer-events:none;}
+  .edge-label{font-size:10px; fill:#a8b0b8; paint-order:stroke; stroke:#1b1b1b; stroke-width:4px; font-family:"Segoe UI",sans-serif;}
+  .node{
+    position:absolute; border-radius:8px; padding:6px 11px 7px; cursor:pointer;
+    border:1.5px solid; background:rgba(30,30,30,.92); transition:box-shadow .1s;
+  }
+  .node:hover{box-shadow:0 0 0 2px var(--accent), 0 4px 14px rgba(0,0,0,.5); z-index:30;}
+  .node .kind{font-size:8.5px; letter-spacing:.1em; color:var(--dimmer); font-weight:700; margin-bottom:2px;}
+  .node .name{font-family:Consolas,monospace; font-size:12.5px; font-weight:600; display:flex; align-items:center; gap:6px;}
+  .node .file{font-size:9.5px; color:var(--dimmer); margin-top:2px; white-space:nowrap;}
+  .node.flash{animation:flash .7s;}
+  @keyframes flash{0%{box-shadow:0 0 0 3px #fff;} 100%{}}
+  .k-endpoint{border-color:var(--get); background:rgba(97,175,238,.10);}
+  .k-endpoint .kind{color:#79b8ff;}
+  .k-controller{border-color:#569cd6; background:rgba(86,156,214,.08);}
+  .k-controller .kind{color:#569cd6;}
+  .k-command{border-color:#c586c0; background:rgba(197,134,192,.08);}
+  .k-command .kind{color:#c586c0;}
+  .k-handler{border-color:#d7ba7d; background:rgba(215,186,125,.08);}
+  .k-handler .kind{color:#d7ba7d;}
+  .k-interface{border-color:var(--accent2); background:rgba(78,201,176,.08);}
+  .k-interface .kind{color:var(--accent2);}
+  .k-impl{border-color:#6a9955; background:rgba(106,153,85,.08);}
+  .k-impl .kind{color:#6a9955;}
+  .k-validator{border-color:#9cdcfe; background:rgba(156,220,254,.07);}
+  .k-validator .kind{color:#9cdcfe;}
+  .k-infra{border-style:dashed; border-color:#6e7a8a; background:rgba(110,122,138,.06);}
+  .k-infra .name{color:#9aa4af;}
+  .k-infra .kind{color:#6e7a8a;}
+  body.no-infra .node.k-infra{display:none;}
+  body.no-infra g.e-infra{display:none;}
+
+  #tooltip{
+    position:fixed; display:none; z-index:99; background:#252526; border:1px solid #454545;
+    border-radius:4px; padding:6px 10px; font-size:11.5px; pointer-events:none;
+    box-shadow:0 4px 12px rgba(0,0,0,.5); color:var(--fg);
+  }
+  #tooltip b{color:var(--accent2);}
+  #toast{
+    position:absolute; bottom:14px; left:50%; transform:translateX(-50%);
+    background:#252526; border:1px solid #454545; border-radius:5px; padding:7px 14px;
+    font-size:11.5px; display:none; z-index:98; box-shadow:0 4px 12px rgba(0,0,0,.5);
+  }
+
+  /* ============ EDITOR ============ */
+  #editor{flex:1; min-width:320px; display:flex; flex-direction:column; background:var(--bg-editor);}
+  #codeArea{flex:1; overflow:auto; display:flex;}
+  #gutter{
+    padding:8px 0; text-align:right; color:#5a5a5a; font-size:12px; line-height:19px;
+    font-family:Consolas,monospace; min-width:44px; padding-right:12px; flex-shrink:0;
+  }
+  #gutter div{padding-right:12px;}
+  #gutter div.hl{color:#c6c6c6; background:rgba(255,255,255,.06);}
+  #code{
+    padding:8px 8px 8px 0; font-size:12px; line-height:19px; font-family:Consolas,monospace;
+    white-space:pre; flex:1;
+  }
+  #code .line{min-height:19px; padding-left:10px;}
+  #code .line.hl{background:rgba(255,255,255,.06); box-shadow:inset 3px 0 0 var(--accent);}
+  #code .k{color:#569cd6;} #code .t{color:#4ec9b0;} #code .s{color:#ce9178;}
+  #code .c{color:#6a9955; font-style:italic;}
+  .empty-editor{display:grid; place-items:center; color:var(--dimmer); flex:1; font-size:12px;}
+
+  /* ============ STATUS BAR ============ */
+  #statusbar{
+    height:23px; background:var(--bg); border-top:1px solid var(--border);
+    display:flex; align-items:center; padding:0 10px; gap:14px; font-size:11.5px;
+    color:var(--dim); flex-shrink:0;
+  }
+  #statusbar .it{display:flex; align-items:center; gap:5px; cursor:default;}
+  #statusbar .it:hover{color:#fff;}
+  #statusbar .right{margin-left:auto; display:flex; gap:14px;}
+  #statusbar .ok{color:var(--accent2);}
+</style>
+</head>
+<body class="no-infra">
+
+<!-- TITLE BAR -->
+<div id="titlebar">
+  <div class="menu"><span>Archivo</span><span>Edición</span><span>Selección</span><span>Ver</span><span>Ir</span><span>Ejecutar</span><span>Terminal</span><span>Ayuda</span></div>
+  <div class="title">CreateOrderCommandHandler.cs — Payroll — Visual Studio Code</div>
+  <div class="win"><span>─</span><span>☐</span><span class="close">✕</span></div>
+</div>
+
+<div id="main">
+
+  <!-- ACTIVITY BAR -->
+  <div id="activitybar">
+    <div class="action" title="Explorador (Ctrl+Mayús+E)">
+      <svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6V2zm8 1.5V8h4.5L14 3.5zM8 4v16h10V10h-6V4H8z"/></svg>
+    </div>
+    <div class="action" title="Buscar (Ctrl+Mayús+F)">
+      <svg viewBox="0 0 24 24"><path d="M10 3a7 7 0 1 1 0 14c-1.5 0-3-.5-4.2-1.3L3 18.5 4.5 20l2.8-2.8A7 7 0 0 0 10 3zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10z"/></svg>
+    </div>
+    <div class="action" title="Control de código fuente">
+      <svg viewBox="0 0 24 24"><path d="M7 3a3.5 3.5 0 0 1 3.5 3.5c0 1.6-1 2.9-2.5 3.3v1c0 .8.7 1.5 1.5 1.5h5c1.9 0 3.5 1.5 3.5 3.4v1.1c1.5.4 2.5 1.7 2.5 3.3A3.5 3.5 0 1 1 17 16.7v-1.1c0-.8-.7-1.5-1.5-1.5h-5c-.6 0-1.2-.2-1.7-.5v3.6c1.5.4 2.7 1.7 2.7 3.3A3.5 3.5 0 1 1 8 16.7V7.8C6.9 7.4 6.5 6.6 6.5 6.5A3.5 3.5 0 0 1 7 3z"/></svg>
+      <span class="badge">3</span>
+    </div>
+    <div class="action" title="Ejecutar y depurar">
+      <svg viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 1 6 6v2h2v7a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-7h2V9a6 6 0 0 1 6-6zm0 2a4 4 0 0 0-4 4v2h8V9a4 4 0 0 0-4-4zm-1 8v4h2v-4h-2z"/></svg>
+    </div>
+    <div class="action" title="Extensiones">
+      <svg viewBox="0 0 24 24"><path d="M9 3h4a2 2 0 0 1 2 2v2h2a2 2 0 0 1 2 2v4h-2v-4h-4v4h-2v-4H7v4H5V9a2 2 0 0 1 2-2h2V5a2 2 0 0 1 2-2zm-4 9h2v4h4v2H7a2 2 0 0 1-2-2v-4zm10 0h4v4a2 2 0 0 1-2 2h-4v-2h2v-4z"/></svg>
+    </div>
+    <div class="sep"></div>
+    <!-- NUESTRO ICONO -->
+    <div class="action active" title="SharpGraph Flow — Endpoint → Capas">
+      <svg viewBox="0 0 24 24">
+        <rect x="8.5" y="2" width="7" height="5" rx="1.4"/>
+        <rect x="2" y="16.5" width="7" height="5" rx="1.4"/>
+        <rect x="15" y="16.5" width="7" height="5" rx="1.4"/>
+        <path d="M11 7h2v4h4v2h-4v3.5h-2V13H7v-2h4V7z" opacity=".95"/>
+      </svg>
+      <span class="badge">23</span>
+    </div>
+    <div class="spacer"></div>
+    <div class="action" title="Cuentas">
+      <svg viewBox="0 0 24 24"><path d="M12 3a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9zm0 11c4 0 8 2 8 4.5V21H4v-2.5C4 16 8 14 12 14z"/></svg>
+    </div>
+    <div class="action" title="Administrar">
+      <svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM10.7 2h2.6l.4 2.5c.6.2 1.2.5 1.7.9l2.4-.9 1.8 3.1-1.9 1.7a7 7 0 0 1 0 2l1.9 1.7-1.8 3.1-2.4-.9c-.5.4-1.1.7-1.7.9L13.3 22h-2.6l-.4-2.5a7 7 0 0 1-1.7-.9l-2.4.9-1.8-3.1 1.9-1.7a7 7 0 0 1 0-2L4.4 10.6l1.8-3.1 2.4.9c.5-.4 1.1-.7 1.7-.9L10.7 2z"/></svg>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div class="panel-title">
+      <span class="t">SHARPGRAPH FLOW</span>
+      <span class="act" title="Reindexar">⟳</span>
+      <span class="act" title="Opciones">…</span>
+    </div>
+    <div class="search"><input id="filter" type="text" placeholder="Filtrar endpoints (ruta, controlador)…"></div>
+    <div class="tree" id="tree">
+
+      <div class="group" data-g="orders">
+        <div class="group-h"><span class="chev">▼</span> OrdersController <span class="cnt">3</span></div>
+        <div class="children">
+          <div class="ep selected" data-diagram="orders"><span class="verb POST">POST</span><span class="route mono">/api/orders</span><span class="mname">Create</span></div>
+          <div class="ep" data-diagram="none"><span class="verb GET">GET</span><span class="route mono">/api/orders/{id}</span><span class="mname">GetById</span></div>
+          <div class="ep" data-diagram="none"><span class="verb GET">GET</span><span class="route mono">/api/orders</span><span class="mname">List</span></div>
+        </div>
+      </div>
+
+      <div class="group" data-g="employees">
+        <div class="group-h"><span class="chev">▼</span> EmployeesController <span class="cnt">2</span></div>
+        <div class="children">
+          <div class="ep" data-diagram="employee"><span class="verb GET">GET</span><span class="route mono">/api/employees/{id}</span><span class="mname">GetById</span></div>
+          <div class="ep" data-diagram="none"><span class="verb PUT">PUT</span><span class="route mono">/api/employees/{id}</span><span class="mname">Update</span></div>
+        </div>
+      </div>
+
+      <div class="group closed" data-g="customers">
+        <div class="group-h"><span class="chev">▼</span> CustomersController <span class="cnt">5</span></div>
+        <div class="children">
+          <div class="ep" data-diagram="none"><span class="verb GET">GET</span><span class="route mono">/api/customers</span><span class="mname">List</span></div>
+          <div class="ep" data-diagram="none"><span class="verb POST">POST</span><span class="route mono">/api/customers</span><span class="mname">Create</span></div>
+        </div>
+      </div>
+
+      <div class="group closed" data-g="payroll">
+        <div class="group-h"><span class="chev">▼</span> PayrollController <span class="cnt">4</span></div>
+        <div class="children">
+          <div class="ep" data-diagram="none"><span class="verb POST">POST</span><span class="route mono">/api/payroll/run</span><span class="mname">RunPayroll</span></div>
+          <div class="ep" data-diagram="none"><span class="verb GET">GET</span><span class="route mono">/api/payroll/{id}</span><span class="mname">GetPayslip</span></div>
+        </div>
+      </div>
+
+      <div class="group" data-g="minimal">
+        <div class="group-h"><span class="chev">▼</span> Minimal APIs · Program.cs <span class="cnt">3</span></div>
+        <div class="children">
+          <div class="ep" data-diagram="none"><span class="verb GET">GET</span><span class="route mono">/health</span><span class="mname">lambda</span></div>
+          <div class="ep" data-diagram="none"><span class="verb GET">GET</span><span class="route mono">/version</span><span class="mname">lambda</span></div>
+          <div class="ep" data-diagram="none"><span class="verb POST">POST</span><span class="route mono">/reports/run</span><span class="mname">lambda</span></div>
+        </div>
+      </div>
+
+      <div class="hint">Clic en un endpoint → abre el diagrama de flujo descendente.<br>Clic en un bloque del diagrama → abre el fichero en la línea exacta.</div>
+    </div>
+  </div>
+
+  <!-- WORKBENCH -->
+  <div id="workbench">
+    <div id="tabbar"></div>
+    <div id="breadcrumbs"></div>
+    <div id="split">
+
+      <!-- WEBVIEW: DIAGRAMA -->
+      <div id="webview">
+        <div class="wv-header">
+          <div class="wv-title">⚡ Endpoint Flow — <span id="dgTitle" class="mono">POST /api/orders</span></div>
+          <div class="wv-stats" id="dgStats"></div>
+        </div>
+        <div class="wv-toolbar">
+          <div class="legend">
+            <span class="chip"><i style="border-color:#61affe"></i>endpoint</span>
+            <span class="chip"><i style="border-color:#569cd6"></i>controller</span>
+            <span class="chip"><i style="border-color:#c586c0"></i>command / query</span>
+            <span class="chip"><i style="border-color:#d7ba7d"></i>handler</span>
+            <span class="chip"><i style="border-color:#4ec9b0"></i>interfaz (DI)</span>
+            <span class="chip"><i style="border-color:#6a9955"></i>implementación</span>
+            <span class="chip"><i style="border-color:#6e7a8a;border-style:dashed"></i>infra / ruido</span>
+            <span class="chip"><i style="border-color:#f14c4c;border-style:dashed"></i>↺ back-edge (ya dibujado)</span>
+          </div>
+          <label class="toggle"><input type="checkbox" id="infraChk" checked> Ocultar infraestructura (ILogger, IMapper…)</label>
+          <button id="btn-mermaid" title="Ver el Mermaid que genera SharpGraph 2.3.0">Ver Mermaid</button>
+        </div>
+        <div id="canvasOuter">
+          <div id="canvas">
+            <svg id="edges" width="1150" height="640"></svg>
+            <div id="dg-orders"></div>
+            <div id="dg-employee" style="display:none"></div>
+          </div>
+        </div>
+        <div id="toast"></div>
+      </div>
+
+      <!-- EDITOR -->
+      <div id="editor">
+        <div id="codeArea"><div class="empty-editor" id="emptyEd">Clic en un bloque del diagrama para abrir su fichero</div><div id="gutter" style="display:none"></div><div id="code" style="display:none"></div></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- STATUS BAR -->
+<div id="statusbar">
+  <span class="it">⎇ main*</span>
+  <span class="it">⊘ 0 &nbsp;⚠ 0</span>
+  <span class="it ok">⚡ SharpGraph · Payroll.sln indexado</span>
+  <div class="right">
+    <span class="it">4.912 ficheros · 132.410 aristas</span>
+    <span class="it ok">caché binaria ✓ 11 ms</span>
+  </div>
+</div>
+
+<div id="tooltip"></div>
+
+<script>
+/* ==================== DATOS DEL DIAGRAMA ==================== */
+const DIAGRAMS = {
+  orders: {
+    title: "POST /api/orders",
+    nodes: [
+      {id:"ep",  k:"endpoint",  x:470,y:18, w:210, kind:"HTTP ENDPOINT",  name:'<span class="verb POST">POST</span> /api/orders', file:"…/Api/Controllers/OrdersController.cs : 56", snip:"ctl"},
+      {id:"ctl", k:"controller", x:455,y:108,w:240, kind:"CONTROLLER",     name:"OrdersController.Create", file:"…/Api/Controllers/OrdersController.cs : 58", snip:"ctl"},
+      {id:"cmd", k:"command",    x:455,y:198,w:240, kind:"MEDIATR · COMMAND", name:"CreateOrderCommand", file:"…/Application/Orders/Create/CreateOrderCommand.cs : 3", snip:"cmd"},
+      {id:"hnd", k:"handler",    x:435,y:288,w:280, kind:"MEDIATR · HANDLER", name:"CreateOrderCommandHandler", file:"…/Application/Orders/Create/CreateOrderCommandHandler.cs : 42", snip:"hnd"},
+      {id:"val", k:"validator",  x:25, y:408,w:250, kind:"VALIDACIÓN",     name:"CreateOrderCommandValidator", file:"…/Application/Orders/Create/CreateOrderCommandValidator.cs : 7", snip:"val"},
+      {id:"repo",k:"interface", x:295,y:408,w:180, kind:"INTERFAZ · DI",  name:"IOrderRepository", file:"…/Domain/Orders/IOrderRepository.cs : 6", snip:"repo"},
+      {id:"map", k:"infra",      x:510,y:408,w:130, kind:"INFRA · RUIDO",  name:"IMapper", file:"(paquete externo)", snip:"map"},
+      {id:"mail",k:"interface", x:690,y:408,w:170, kind:"INTERFAZ · DI",  name:"IEmailService", file:"…/Application/Abstractions/IEmailService.cs : 5", snip:"mail"},
+      {id:"log", k:"infra",      x:925,y:408,w:170, kind:"INFRA · RUIDO",  name:"ILogger&lt;T&gt;", file:"Microsoft.Extensions.Logging", snip:"log"},
+      {id:"sql", k:"impl",       x:285,y:518,w:200, kind:"IMPLEMENTACIÓN", name:"SqlOrderRepository", file:"…/Infrastructure/Persistence/SqlOrderRepository.cs : 15", snip:"sql"},
+      {id:"smtp",k:"impl",       x:695,y:518,w:180, kind:"IMPLEMENTACIÓN", name:"SmtpEmailService", file:"…/Infrastructure/Email/SmtpEmailService.cs : 22", snip:"smtp"},
+      {id:"uow", k:"interface",  x:505,y:518,w:160, kind:"INTERFAZ · DI",  name:"IUnitOfWork", file:"…/Application/Abstractions/IUnitOfWork.cs : 5", snip:"uow"}
+    ],
+    edges: [
+      {a:"ep", b:"ctl", label:"call",  cls:"call"},
+      {a:"ctl",b:"cmd", label:"sends", cls:"med"},
+      {a:"cmd",b:"hnd", label:"handled-by", cls:"med"},
+      {a:"hnd",b:"val", label:"", cls:"call"},
+      {a:"hnd",b:"repo",label:"", cls:"call"},
+      {a:"hnd",b:"map", label:"", cls:"infra"},
+      {a:"hnd",b:"mail",label:"", cls:"call"},
+      {a:"hnd",b:"log", label:"", cls:"infra"},
+      {a:"repo",b:"sql",label:"di: AddScoped", cls:"di"},
+      {a:"mail",b:"smtp",label:"di: AddScoped", cls:"di"},
+      {a:"sql", b:"uow",label:"", cls:"call"},
+      {a:"smtp",b:"uow",label:"↺ ya dibujado", cls:"back"}
+    ]
+  },
+  employee: {
+    title: "GET /api/employees/{id}",
+    nodes: [
+      {id:"ep2",  k:"endpoint",  x:470,y:18, w:210, kind:"HTTP ENDPOINT",  name:'<span class="verb GET">GET</span> /api/employees/{id}', file:"…/Api/Controllers/EmployeesController.cs : 26", snip:"empCtl"},
+      {id:"ctl2", k:"controller", x:445,y:108,w:260, kind:"CONTROLLER",     name:"EmployeesController.GetById", file:"…/Api/Controllers/EmployeesController.cs : 31", snip:"empCtl"},
+      {id:"qry2", k:"command",    x:445,y:198,w:260, kind:"MEDIATR · QUERY", name:"GetEmployeeByIdQuery", file:"…/Application/Employees/ById/GetEmployeeByIdQuery.cs : 3", snip:"empQry"},
+      {id:"hnd2", k:"handler",    x:435,y:288,w:280, kind:"MEDIATR · HANDLER", name:"GetEmployeeByIdQueryHandler", file:"…/Application/Employees/ById/GetEmployeeByIdQueryHandler.cs : 24", snip:"empHnd"},
+      {id:"rep2", k:"interface",  x:455,y:408,w:240, kind:"INTERFAZ · DI",  name:"IEmployeeRepository", file:"…/Domain/Employees/IEmployeeRepository.cs : 5", snip:"empRepo"},
+      {id:"sql2", k:"impl",       x:435,y:518,w:280, kind:"IMPLEMENTACIÓN", name:"SqlEmployeeRepository", file:"…/Infrastructure/Persistence/SqlEmployeeRepository.cs : 12", snip:"empSql"}
+    ],
+    edges: [
+      {a:"ep2", b:"ctl2", label:"call", cls:"call"},
+      {a:"ctl2",b:"qry2", label:"sends", cls:"med"},
+      {a:"qry2",b:"hnd2", label:"handled-by", cls:"med"},
+      {a:"hnd2",b:"rep2", label:"", cls:"call"},
+      {a:"rep2",b:"sql2", label:"di: AddScoped", cls:"di"}
+    ]
+  }
+};
+
+/* ==================== SNIPPETS DE CÓDIGO (simulados) ==================== */
+const SNIPPETS = {
+  ctl:    {path:"Payroll ▸ src ▸ Api ▸ Controllers ▸ OrdersController.cs", tab:"OrdersController.cs", start:52, hl:58, code:
+`namespace Payroll.Api.Controllers;
+
+[ApiController]
+[Route("api/orders")]
+public class OrdersController : ControllerBase
+{
+    private readonly IMediator _mediator;
+    public OrdersController(IMediator mediator) => _mediator = mediator;
+
+    [HttpPost]
+    public async Task<IActionResult> Create(CreateOrderRequest req, CancellationToken ct)
+    {
+        var result = await _mediator.Send(new CreateOrderCommand(req), ct);
+        return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+    }
+}`},
+  cmd:    {path:"Payroll ▸ src ▸ Application ▸ Orders ▸ Create ▸ CreateOrderCommand.cs", tab:"CreateOrderCommand.cs", start:1, hl:3, code:
+`namespace Payroll.Application.Orders.Create;
+
+public record CreateOrderCommand(string Customer, decimal Amount)
+    : IRequest<CreateOrderResponse>;
+
+public sealed record CreateOrderResponse(Guid Id);`},
+  hnd:    {path:"Payroll ▸ src ▸ Application ▸ Orders ▸ Create ▸ CreateOrderCommandHandler.cs", tab:"CreateOrderCommandHandler.cs", start:36, hl:42, code:
+`public sealed class CreateOrderCommandHandler
+    : IRequestHandler<CreateOrderCommand, CreateOrderResponse>
+{
+    private readonly IOrderRepository _orders;
+    private readonly IUnitOfWork _uow;
+    private readonly IEmailService _email;
+
+    public async Task<CreateOrderResponse> Handle(CreateOrderCommand cmd, CancellationToken ct)
+    {
+        var order = Order.From(cmd);
+        await _orders.AddAsync(order, ct);
+        await _uow.SaveChangesAsync(ct);
+        await _email.SendOrderConfirmationAsync(order, ct);
+        return new CreateOrderResponse(order.Id);
+    }
+}`},
+  val:    {path:"Payroll ▸ src ▸ Application ▸ Orders ▸ Create ▸ CreateOrderCommandValidator.cs", tab:"CreateOrderCommandValidator.cs", start:1, hl:7, code:
+`namespace Payroll.Application.Orders.Create;
+
+public sealed class CreateOrderCommandValidator : AbstractValidator<CreateOrderCommand>
+{
+    public CreateOrderCommandValidator()
+    {
+        RuleFor(x => x.Amount).GreaterThan(0);
+        RuleFor(x => x.Customer).NotEmpty();
+    }
+}`},
+  repo:   {path:"Payroll ▸ src ▸ Domain ▸ Orders ▸ IOrderRepository.cs", tab:"IOrderRepository.cs", start:1, hl:6, code:
+`namespace Payroll.Domain.Orders;
+
+public interface IOrderRepository
+{
+    Task AddAsync(Order order, CancellationToken ct);
+    Task<Order?> GetAsync(Guid id, CancellationToken ct);
+}`},
+  sql:    {path:"Payroll ▸ src ▸ Infrastructure ▸ Persistence ▸ SqlOrderRepository.cs", tab:"SqlOrderRepository.cs", start:10, hl:15, code:
+`public sealed class SqlOrderRepository : IOrderRepository
+{
+    private readonly PayrollDbContext _db;
+    public SqlOrderRepository(PayrollDbContext db) => _db = db;
+
+    public async Task AddAsync(Order order, CancellationToken ct)
+    {
+        await _db.Orders.AddAsync(order, ct);
+    }
+}`},
+  mail:   {path:"Payroll ▸ src ▸ Application ▸ Abstractions ▸ IEmailService.cs", tab:"IEmailService.cs", start:1, hl:5, code:
+`namespace Payroll.Application.Abstractions;
+
+public interface IEmailService
+{
+    Task SendOrderConfirmationAsync(Order order, CancellationToken ct);
+}`},
+  smtp:   {path:"Payroll ▸ src ▸ Infrastructure ▸ Email ▸ SmtpEmailService.cs", tab:"SmtpEmailService.cs", start:18, hl:22, code:
+`public sealed class SmtpEmailService : IEmailService
+{
+    private readonly IUnitOfWork _uow;   // ⚠ también usa IUnitOfWork → back-edge
+
+    public async Task SendOrderConfirmationAsync(Order order, CancellationToken ct)
+    {
+        await _smtp.SendAsync(BuildMessage(order), ct);
+    }
+}`},
+  uow:    {path:"Payroll ▸ src ▸ Application ▸ Abstractions ▸ IUnitOfWork.cs", tab:"IUnitOfWork.cs", start:1, hl:5, code:
+`namespace Payroll.Application.Abstractions;
+
+public interface IUnitOfWork
+{
+    Task SaveChangesAsync(CancellationToken ct);
+}`},
+  map:    {path:"(paquete externo)", tab:"IMapper (externo)", start:1, hl:0, code:
+`// IMapper — AutoMapper (paquete NuGet)
+// SharpGraph lo detecta como dependencia externa:
+// no hay fichero local que abrir.
+// El diagrama lo muestra atenuado y configurable
+// (se oculta con "Ocultar infraestructura").`},
+  log:    {path:"(paquete externo)", tab:"ILogger (externo)", start:1, hl:0, code:
+`// ILogger<T> — Microsoft.Extensions.Logging
+// El análisis lo marca como "ruido" (IsDiagramNoise):
+// sale atenuado con borde discontinuo y se puede
+// ocultar sin perder las aristas reales.`},
+  empCtl: {path:"Payroll ▸ src ▸ Api ▸ Controllers ▸ EmployeesController.cs", tab:"EmployeesController.cs", start:24, hl:31, code:
+`    private readonly IMediator _mediator;
+
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
+    {
+        var q = new GetEmployeeByIdQuery(id);
+        var employee = await _mediator.Send(q, ct);
+        return employee is null ? NotFound() : Ok(employee);
+    }`},
+  empQry: {path:"Payroll ▸ src ▸ Application ▸ Employees ▸ ById ▸ GetEmployeeByIdQuery.cs", tab:"GetEmployeeByIdQuery.cs", start:1, hl:3, code:
+`namespace Payroll.Application.Employees.ById;
+
+public record GetEmployeeByIdQuery(Guid Id) : IRequest<EmployeeDto?>;`},
+  empHnd: {path:"Payroll ▸ src ▸ Application ▸ Employees ▸ ById ▸ GetEmployeeByIdQueryHandler.cs", tab:"GetEmployeeByIdQueryHandler.cs", start:20, hl:24, code:
+`public sealed class GetEmployeeByIdQueryHandler
+    : IRequestHandler<GetEmployeeByIdQuery, EmployeeDto?>
+{
+    private readonly IEmployeeRepository _employees;
+
+    public async Task<EmployeeDto?> Handle(GetEmployeeByIdQuery q, CancellationToken ct)
+        => await _employees.GetDtoAsync(q.Id, ct);
+}`},
+  empRepo:{path:"Payroll ▸ src ▸ Domain ▸ Employees ▸ IEmployeeRepository.cs", tab:"IEmployeeRepository.cs", start:1, hl:5, code:
+`namespace Payroll.Domain.Employees;
+
+public interface IEmployeeRepository
+{
+    Task<EmployeeDto?> GetDtoAsync(Guid id, CancellationToken ct);
+}`},
+  empSql: {path:"Payroll ▸ src ▸ Infrastructure ▸ Persistence ▸ SqlEmployeeRepository.cs", tab:"SqlEmployeeRepository.cs", start:9, hl:12, code:
+`public sealed class SqlEmployeeRepository : IEmployeeRepository
+{
+    private readonly PayrollDbContext _db;
+
+    public async Task<EmployeeDto?> GetDtoAsync(Guid id, CancellationToken ct)
+        => await _db.Employees
+            .Where(e => e.Id == id)
+            .Select(EmployeeExpressions.Dto)
+            .FirstOrDefaultAsync(ct);
+}`}
+};
+
+const MERMAID_SRC =
+`// sharpgraph · mermaid-endpoint-flow · POST /api/orders   (prototipo)
+flowchart TD
+  N0["POST /api/orders"]
+  N1["OrdersController.Create"]
+  N2["CreateOrderCommand"]
+  N3["CreateOrderCommandHandler"]
+  N4["CreateOrderCommandValidator"]
+  N5["IOrderRepository"]
+  N6["IEmailService"]
+  N7["SqlOrderRepository"]
+  N8["SmtpEmailService"]
+  N9["IUnitOfWork"]
+  N0 --> N1
+  N1 -.->|sends| N2
+  N2 -.->|handled-by| N3
+  N3 --> N4
+  N3 --> N5
+  N3 --> N6
+  N5 -.->|di AddScoped| N7
+  N6 -.->|di AddScoped| N8
+  N7 --> N9
+  N8 -.->|"↺ ya dibujado"| N9`;
+
+/* ==================== RENDER DEL DIAGRAMA ==================== */
+const EDGE_STYLE = {
+  call:  {stroke:"#569cd6", dash:"",   marker:"arr-call"},
+  med:   {stroke:"#c586c0", dash:"5,4", marker:"arr-med"},
+  di:    {stroke:"#6a9955", dash:"",   marker:"arr-di"},
+  back:  {stroke:"#f14c4c", dash:"5,4", marker:"arr-back"},
+  infra: {stroke:"#6e7a8a", dash:"3,4", marker:"arr-infra"}
+};
+const svg = document.getElementById("edges");
+let currentDiag = "orders";
+
+function renderDiagram(key){
+  currentDiag = key;
+  const d = DIAGRAMS[key];
+  document.getElementById("dgTitle").textContent = d.title;
+  const cont = document.getElementById("dg-" + key);
+  const other = document.getElementById(key === "orders" ? "dg-employee" : "dg-orders");
+  cont.style.display = ""; other.style.display = "none";
+  cont.innerHTML = "";
+  cont.querySelectorAll("g").forEach(g=>g.remove());
+  other.innerHTML = "";
+  svg.querySelectorAll("g.edge").forEach(g=>g.remove());
+
+  d.nodes.forEach(n=>{
+    const el = document.createElement("div");
+    el.className = "node k-" + n.k;
+    el.id = "n_" + key + "_" + n.id;
+    el.style.left = n.x+"px"; el.style.top = n.y+"px"; el.style.width = n.w+"px";
+    el.innerHTML = `<div class="kind">${n.kind}</div><div class="name">${n.name}</div><div class="file">${n.file}</div>`;
+    el.addEventListener("click", ()=>openSnippet(n.snip));
+    el.addEventListener("mousemove", ev=>showTip(ev, n));
+    el.addEventListener("mouseleave", hideTip);
+    cont.appendChild(el);
+  });
+
+  const defMarker = (id,color)=>`<marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${color}"/></marker>`;
+  if(!svg.querySelector("defs")) svg.innerHTML = `<defs>
+    ${defMarker("arr-call","#569cd6")}${defMarker("arr-med","#c586c0")}${defMarker("arr-di","#6a9955")}
+    ${defMarker("arr-back","#f14c4c")}${defMarker("arr-infra","#6e7a8a")}</defs>`;
+
+  d.edges.forEach(e=>{
+    const s = document.getElementById("n_"+key+"_"+e.a), t = document.getElementById("n_"+key+"_"+e.b);
+    const st = EDGE_STYLE[e.cls];
+    let sx = s.offsetLeft + s.offsetWidth/2, sy = s.offsetTop + s.offsetHeight;
+    let tx = t.offsetLeft + t.offsetWidth/2, ty = t.offsetTop - 2;
+    let c1x = sx, c1y = sy + (ty-sy)*0.45, c2x = tx, c2y = ty - (ty-sy)*0.45;
+    if(e.cls === "back"){ // rodear el nodo por la derecha y entrar de lado
+      sx = s.offsetLeft + s.offsetWidth*0.75; tx = t.offsetLeft + t.offsetWidth + 2;
+      ty = t.offsetTop + t.offsetHeight/2;
+      c1x = sx; c1y = sy + 45; c2x = tx + 45; c2y = ty;
+    }
+    const g = document.createElementNS("http://www.w3.org/2000/svg","g");
+    g.setAttribute("class","edge" + (e.cls==="infra" ? " e-infra" : ""));
+    const lt = e.cls === "back" ? 0.3 : 0.5, lu = 1 - lt;
+    const lx = lu*lu*lu*sx + 3*lu*lu*lt*c1x + 3*lu*lt*lt*c2x + lt*lt*lt*tx;
+    const ly = lu*lu*lu*sy + 3*lu*lu*lt*c1y + 3*lu*lt*lt*c2y + lt*lt*lt*ty;
+    g.innerHTML = `<path d="M${sx},${sy} C${c1x},${c1y} ${c2x},${c2y} ${tx},${ty}" fill="none"
+        stroke="${st.stroke}" stroke-width="1.4" ${st.dash?`stroke-dasharray="${st.dash}"`:""} marker-end="url(#${st.marker})"/>`
+      + (e.label ? `<text class="edge-label" x="${lx}" y="${ly - 6}" text-anchor="middle">${e.label}</text>` : "");
+    svg.appendChild(g);
+  });
+
+  const vis = d.nodes.filter(n=>n.k!=="infra").length;
+  const visE = d.edges.filter(e=>e.cls!=="infra").length;
+  document.getElementById("dgStats").textContent =
+    `${d.nodes.length} nodos · ${d.edges.length} aristas · ${vis} visibles tras filtro · cache ✓`;
+}
+
+/* ==================== EDITOR SIMULADO ==================== */
+const tabsEl = document.getElementById("tabbar");
+const crumbs = document.getElementById("breadcrumbs");
+const gutter = document.getElementById("gutter");
+const codeEl = document.getElementById("code");
+const emptyEd = document.getElementById("emptyEd");
+let openTabs = [{snip:"hnd"}];
+let activeSnip = "hnd";
+
+function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function highlight(src){
+  const KW = "public|private|sealed|record|class|interface|namespace|return|await|async|var|new|using|Task|is|null|=>";
+  return esc(src).replace(
+    new RegExp(`(\\/\\/[^\\n]*)|("[^"\\n]*")|\\b(${KW})\\b|\\b([A-Z][A-Za-z0-9_]*)\\b`,"g"),
+    (m,c,s,k,t)=> c?`<span class="c">${c}</span>` : s?`<span class="s">${s}</span>`
+      : k?`<span class="k">${k}</span>` : `<span class="t">${t}</span>`);
+}
+function renderEditor(){
+  tabsEl.innerHTML = "";
+  openTabs.forEach(t=>{
+    const s = t.snip==="__mmd" ? {tab:"endpoint-flow.mmd"} : SNIPPETS[t.snip];
+    const el = document.createElement("div");
+    el.className = "tab" + (t.snip===activeSnip?" active":"");
+    el.innerHTML = `<span>📄</span><span>${s.tab}</span><span class="close">✕</span>`;
+    el.onclick = (ev)=>{ if(ev.target.classList.contains("close")){closeTab(t.snip); return;} activeSnip=t.snip; renderEditor(); };
+    tabsEl.appendChild(el);
+  });
+  if(activeSnip==="__mmd"){
+    crumbs.innerHTML = "<span>⚡ generado por SharpGraph 2.3.0</span>";
+    emptyEd.style.display="none"; gutter.style.display=""; codeEl.style.display="";
+    gutter.innerHTML = MERMAID_SRC.split("\n").map((_,i)=>`<div>${i+1}</div>`).join("");
+    codeEl.innerHTML = MERMAID_SRC.split("\n").map(l=>`<div class="line">${esc(l)}</div>`).join("");
+    return;
+  }
+  const s = SNIPPETS[activeSnip];
+  if(!s){ return; }
+  crumbs.innerHTML = "<span>"+s.path+"</span><span>›</span><span>Línea "+s.hl+"</span>";
+  emptyEd.style.display="none"; gutter.style.display=""; codeEl.style.display="";
+  const lines = s.code.split("\n");
+  gutter.innerHTML = lines.map((_,i)=>`<div class="${s.start+i===s.hl?"hl":""}">${s.start+i}</div>`).join("");
+  codeEl.innerHTML = lines.map((l,i)=>`<div class="line ${s.start+i===s.hl?"hl":""}">${highlight(l)||"&nbsp;"}</div>`).join("");
+  const hlEl = codeEl.querySelector(".hl");
+  if(hlEl) hlEl.scrollIntoView({block:"center"});
+}
+function openSnippet(snip){
+  if(!openTabs.find(t=>t.snip===snip)) openTabs.push({snip});
+  activeSnip = snip; renderEditor();
+}
+function closeTab(snip){
+  openTabs = openTabs.filter(t=>t.snip!==snip);
+  if(activeSnip===snip) activeSnip = openTabs.length ? openTabs[openTabs.length-1].snip : null;
+  if(!openTabs.length){ tabsEl.innerHTML=""; crumbs.innerHTML=""; gutter.style.display="none"; codeEl.style.display="none"; emptyEd.style.display="grid"; return; }
+  renderEditor();
+}
+document.getElementById("btn-mermaid").onclick = ()=>{ openSnippet("__mmd"); };
+
+/* ==================== INTERACCIONES VARIAS ==================== */
+const tip = document.getElementById("tooltip");
+function showTip(ev, n){
+  tip.style.display = "block";
+  tip.innerHTML = `📄 <b>${n.file}</b><br>clic para abrir en esta línea`;
+  tip.style.left = Math.min(ev.clientX+14, window.innerWidth-260)+"px";
+  tip.style.top = (ev.clientY+16)+"px";
+}
+function hideTip(){ tip.style.display = "none"; }
+
+document.getElementById("infraChk").addEventListener("change", function(){
+  document.body.classList.toggle("no-infra", this.checked);
+  toast(this.checked ? "Infraestructura oculta (ILogger, IMapper) — el grafo sigue conexo" : "Infraestructura visible en gris discontinuo");
+});
+
+document.querySelectorAll("#sidebar .group-h").forEach(h=>{
+  h.addEventListener("click", ()=>h.parentElement.classList.toggle("closed"));
+});
+document.querySelectorAll("#sidebar .ep").forEach(ep=>{
+  ep.addEventListener("click", ()=>{
+    document.querySelectorAll("#sidebar .ep").forEach(e=>e.classList.remove("selected"));
+    ep.classList.add("selected");
+    const dg = ep.dataset.diagram;
+    if(dg === "none"){ toast("Prototipo: diagrama preparado solo para POST /api/orders y GET /api/employees/{id}"); return; }
+    renderDiagram(dg);
+  });
+});
+document.getElementById("filter").addEventListener("input", function(){
+  const q = this.value.toLowerCase();
+  document.querySelectorAll("#sidebar .group").forEach(g=>{
+    let any = false;
+    g.querySelectorAll(".ep").forEach(ep=>{
+      const hit = ep.textContent.toLowerCase().includes(q);
+      ep.style.display = hit ? "" : "none";
+      if(hit) any = true;
+    });
+    g.style.display = any ? "" : "none";
+  });
+});
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.style.display = "block";
+  clearTimeout(t._h); t._h = setTimeout(()=>t.style.display="none", 2600);
+}
+
+/* ==================== ESCALADO DEL CANVAS ==================== */
+function fitCanvas(){
+  const outer = document.getElementById("canvasOuter");
+  const c = document.getElementById("canvas");
+  const s = Math.min(1, outer.clientWidth/1150, outer.clientHeight/640);
+  c.style.transform = `scale(${s})`;
+  c.style.left = Math.max(0,(outer.clientWidth - 1150*s)/2)+"px";
+  c.style.top  = Math.max(0,(outer.clientHeight - 640*s)/2)+"px";
+}
+window.addEventListener("resize", fitCanvas);
+
+/* INIT */
+renderDiagram("orders");
+renderEditor();
+fitCanvas();
+</script>
+</body>
+</html>
