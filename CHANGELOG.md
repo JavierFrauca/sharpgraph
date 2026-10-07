@@ -10,6 +10,33 @@ minor versions).
 ## [2.3.0] - 2026-10-07
 
 ### Added
+- **Auto-actualización explícita (`sharpgraph update`) + aviso de versión nueva**:
+  dos niveles, ambos del lado del usuario — nunca se descarga ni se sustituye nada
+  sin pedido:
+  - **Aviso por defecto**: check contra `releases/latest` de la API de GitHub con
+    caché de 24 h en `%LOCALAPPDATA%/SharpGraph/` (≤1 petición/día), fail-silent
+    (sin conexión no estorba) y opt-out con `SHARPGRAPH_NO_UPDATE_CHECK=1`. En CLI
+    avisa a stderr al arrancar cualquier comando; en modo MCP `stats()` refresca la
+    caché EN BACKGROUND y avisa leyendo solo la caché — las tools no pagan nunca la
+    red.
+  - **`sharpgraph update [--check]`**: descarga el zip del RID actual
+    (win-x64/linux-x64/osx-arm64 detectado en runtime), verifica SHA-256 contra el
+    `SHA256SUMS.txt` del release y sustituye el binario EN SITU con el truco del
+    rename (un exe vivo no puede sobrescribirse pero sí renombrarse) y rollback si
+    falla; el `.old` se limpia al siguiente arranque. Se niega si detecta árbol
+    fuente (hay .git cerca: ahí el camino es `git pull` + `publish.ps1`). Sin
+    equivalente MCP, deliberado: el servidor no se actualiza a sí mismo durante
+    una sesión del LLM.
+  - **Versión consolidada**: `VersionInfo.Current` única fuente (antes literal
+    duplicado en ServerInfo y CliHelp).
+  - **release.yml**: ahora empaqueta zip para los TRES RID (el updater tiene una
+    sola ruta de extracción — System.IO.Compression, cero deps nuevas; el tar.gz
+    unix se mantiene para el flujo manual/install.sh) y genera `SHA256SUMS.txt`
+    con el hash de todos los artefactos.
+  - 20 tests nuevos (`UpdateTests`): comparador de tags (numérico, prereleases
+    fuera), mapa de RID, selección de asset, SHA256SUMS estándar, frescura de
+    caché y el swap real con zip + rollback. Verificado E2E contra la API real
+    (guard de árbol fuente, aviso con caché simulada, opt-out).
 - **`mermaid_context()` — diagrama Mermaid del contexto de un tipo (19.ª tool MCP +
   `sharpgraph mermaid`)**: travesía bidireccional desde un ancla — cadena de llamadores
   hacia arriba (los endpoints se dibujan con su verbo+ruta pero no se expanden: son
