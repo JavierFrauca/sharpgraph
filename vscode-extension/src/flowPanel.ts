@@ -23,9 +23,10 @@ export class FlowPanelManager implements vscode.Disposable {
             return;
         }
 
+        const fullTitle = `${ep.verb} ${ep.route} · ${ep.controllerName}.${ep.method}`;
         const panel = vscode.window.createWebviewPanel(
             "sharpgraphFlow.editorPanel",
-            `${ep.verb} ${ep.route}`,
+            fullTitle,
             vscode.ViewColumn.Active,
             { enableScripts: true, retainContextWhenHidden: true },
         );
@@ -78,6 +79,7 @@ export class FlowPanelManager implements vscode.Disposable {
                 includeInfra: config.get<boolean>("includeInfra", false),
                 depth,
                 includeDtos: dtos,
+            title: `${ep.verb} ${ep.route} · ${ep.controllerName}.${ep.method}`,
             });
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);

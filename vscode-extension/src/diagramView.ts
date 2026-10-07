@@ -67,12 +67,13 @@ export class DiagramViewProvider implements vscode.WebviewViewProvider {
 
     /** Renderiza el flujo de UN endpoint concreto en la vista embebida. */
     async show(ep: EndpointItem, reveal = true, keepParams = false): Promise<void> {
-        await this.showExpression(`${ep.verb} ${ep.route}`, `${ep.verb} ${ep.route}`, ep, reveal, keepParams);
+        const title = `${ep.verb} ${ep.route} · ${ep.controllerName}.${ep.method}`;
+        await this.showExpression(`${ep.verb} ${ep.route}`, title, ep, reveal, keepParams);
     }
 
     /** Flujo COMPLETO de un controlador (clic en su nombre en el árbol). */
     async showController(controllerName: string, reveal = true): Promise<void> {
-        await this.showExpression(controllerName, controllerName, undefined, reveal);
+        await this.showExpression(controllerName, `Controller ${controllerName}`, undefined, reveal);
     }
 
     /** Renderiza el flujo en la vista embebida. reveal=false cuando ya es visible
@@ -141,6 +142,7 @@ export class DiagramViewProvider implements vscode.WebviewViewProvider {
                 openInEditor: ep !== undefined,
                 depth: this.lastDepth,
                 includeDtos: this.lastDtos,
+                title,
             });
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);

@@ -51,6 +51,9 @@ export interface RenderOptions {
     depth: number;
     /** contratos (DTOs) visibles inicialmente */
     includeDtos: boolean;
+    /** título completo del flujo (verb + ruta + controller.metodo); si no,
+     * el header usa data.endpoint */
+    title?: string;
 }
 
 // geometría del layout (px de diseño; el canvas se escala para caber)
@@ -308,7 +311,7 @@ export function renderFlowHtml(data: FlowData, opts: RenderOptions): string {
 <body class="${opts.includeInfra ? "" : "no-infra"}">
 <div class="wrap">
   <div class="hdr">
-    <span class="t">⚡ Endpoint Flow — <span class="mono">${esc(data.endpoint ?? "")}</span></span>
+    <span class="t">⚡ Endpoint Flow — <span class="mono">${esc(opts.title ?? data.endpoint ?? "")}</span></span>
     <span class="stats">${esc(stats)}</span>
   </div>
   <div class="bar">

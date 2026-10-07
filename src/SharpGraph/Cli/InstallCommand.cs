@@ -145,17 +145,20 @@ internal static class InstallCommand
         };
         if (OperatingSystem.IsWindows())
         {
+            // ArgumentList cita cada ruta por separado y cmd.exe /c, con más de dos
+            // comillas en la línea, se carga la primera y la última (regla de cmd /?):
+            // con VS Code en "Program Files" la línea sale troceada. Un único
+            // Arguments envuelto en un par extra de comillas lo desmonta bien.
             psi.FileName = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe";
-            psi.ArgumentList.Add("/c");
-            psi.ArgumentList.Add(codeCli);
+            psi.Arguments = BuildWindowsCmdLine(codeCli, Path.GetFullPath(vsixPath));
         }
         else
         {
             psi.FileName = codeCli;
+            psi.ArgumentList.Add("--install-extension");
+            psi.ArgumentList.Add(vsixPath);
+            psi.ArgumentList.Add("--force");
         }
-        psi.ArgumentList.Add("--install-extension");
-        psi.ArgumentList.Add(Path.GetFullPath(vsixPath));
-        psi.ArgumentList.Add("--force");
 
         using var process = Process.Start(psi)!;
         var stdout = await process.StandardOutput.ReadToEndAsync();
@@ -175,6 +178,13 @@ internal static class InstallCommand
         Console.WriteLine("Extensión SharpGraph Flow instalada. Abre (o recarga) VS Code para verla.");
         return 0;
     }
+
+    /// <summary>Línea de comandos para cmd.exe /c en Windows: las rutas van citadas
+    /// y TODO va envuelto en un par extra de comillas, que es lo que cmd espera para
+    /// no trocear la orden cuando las rutas tienen espacios (p.ej. "Program Files").
+    /// Internal + puro para poder testear la forma exacta.</summary>
+    internal static string BuildWindowsCmdLine(string codeCli, string vsixPath)
+        => $"/c \"\"{codeCli}\" --install-extension \"{vsixPath}\" --force\"";
 
     internal static string? LocateCodeCli()
     {
