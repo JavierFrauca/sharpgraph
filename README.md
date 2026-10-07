@@ -84,6 +84,9 @@ Un LLM que intente trazar esta ruta leyendo código necesitaría abrir varios fi
 | `hubs(topK)` | Tipos más **centrales** (PageRank): por dónde empezar a entender un codebase. |
 | `search_semantic(query, topK)` | Búsqueda semántica sin LLM (BM25) sobre nombre + summary + miembros + dependencias. |
 | `search_literals(pattern)` | **¿Dónde está este string?** Busca en los literales de cadena indexados: `file:line` + tipo contenedor, salida acotada. El grep de SharpGraph dentro de los `.cs`. |
+| `mermaid_context(typeName)` | **Diagrama Mermaid del contexto de un tipo** en 1 llamada: llamadores hasta los endpoints arriba, dependencias abajo, relación en cada flecha. Devuelve un bloque `mermaid` pegable en docs/Markdown. |
+| `mermaid_sequence(typeName)` | **Diagrama de secuencia** de las cadenas ancla → endpoint HTTP (MediatR exacto) + llamadas salientes del ancla a nivel de método. |
+| `mermaid_overview(area)` | **Mapa de arquitectura**: BFS desde todos los endpoints hacia sus dependencias, agrupado por namespace. Cabecera ideal de `docs/architecture/overview.md`. |
 | `stats()` | Tipos, aristas, endpoints, call-sites, bindings DI y ficheros. |
 
 ### Ahorro de tokens

@@ -60,7 +60,7 @@ builder.Services.AddMcpServer(options =>
         Name = "SharpGraph",
         Title = "SharpGraph — grafo de código C#",
         Description = "Indexa proyectos C# en un grafo de dependencias. Responde quién llama a quién, qué implementa cada interfaz (DI), desde qué endpoint HTTP se llega y cómo funciona un flujo — y devuelve código fuente puntual, todo en texto compacto para gastar los mínimos tokens.",
-        Version = "2.2.0",
+        Version = "2.3.0",
         WebsiteUrl = "https://github.com/JavierFrauca/sharpgraph",
     };
     options.ServerInstructions = """
@@ -75,7 +75,9 @@ builder.Services.AddMcpServer(options =>
         funciona un flujo · entender un tipo con contexto en 1 llamada · buscar
         tipos por intención · el código de un solo método en vez del fichero entero ·
         qué rompes si cambias un tipo (impact) · buscar strings/literales en los .cs
-        (search_literals, sustituye a grep dentro del código C#).
+        (search_literals, sustituye a grep dentro del código C#) · VER el grafo:
+        diagramas Mermaid pegables en Markdown (mermaid_context de un tipo,
+        mermaid_sequence hasta el endpoint, mermaid_overview de la app).
         NO: buscar texto en ficheros que NO son .cs (docs, configs): grep ·
         proyectos que no son C# (solo se indexan .cs) · editar o ejecutar (solo
         lectura) · búsqueda en documentación (.md, ADRs, PDF/DOCX): fuera de
@@ -98,6 +100,8 @@ builder.Services.AddMcpServer(options =>
         9. COMPRENDER un tipo (código+contexto en 1 llamada) → understand(X)
         10. ¿CÓMO FUNCIONA? (árbol de llamadas sin código) → flow(X, member)
         11. Buscar tipos por intención    → search_semantic("...")
+        12. ¿CÓMO SE VE ESTO? (para el humano / para docs) → mermaid_context(X),
+            mermaid_sequence(X[, member]) o mermaid_overview([area])
 
         == CLAVE PARA AHORRAR TOKENS ==
         find_call_sites para localizar la invocación + get_source(tipo, miembro)
