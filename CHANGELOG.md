@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (with the caveat that, during beta, the MCP tool surface may change between
 minor versions).
 
+## [2.4.4] - 2026-10-07
+
+### Added
+- **Extensión SharpGraph Flow — diagrama embebido en la barra lateral**: el
+  contenedor del ActivityBar pasa a tener DOS vistas apiladas: el árbol de
+  endpoints arriba y una vista webview "Diagrama" abajo (divisor arrastrable,
+  VS Code recuerda las proporciones). Clic en un endpoint → el diagrama gráfico
+  real (mismo render, zoom y back-edges) se pinta embebido SIN abrir paneles,
+  sin robar el foco (navegable con flechas actualizando el diagrama); botón
+  "Editor" en su cabecera y botón `⤖` inline en cada fila para abrir el panel
+  grande del editor como hasta ahora. Se re-renderiza con guard de generación
+  para ignorar respuestas del motor desfasadas.
+
 ## [2.4.3] - 2026-10-07
 
 ### Added

@@ -21,10 +21,17 @@ stdio y consume `list_endpoints` + `endpoint_flow`. Un motor, dos consumidores
 
 1. Icono **SharpGraph Flow** en la Activity Bar (badge = nº de endpoints indexados).
 2. Árbol de endpoints agrupado por controlador, con verbos de color.
-3. Clic en un endpoint → webview con el diagrama descendente.
-4. Clic en cualquier bloque → abre el fichero en esa línea (editor real de VS Code).
-5. Toggle **infraestructura** en el webview: muestra/oculta ILogger, ControllerBase…
-6. **Ver Mermaid**: el bloque `flowchart` equivalente para pegar en docs.
+3. **Clic en un endpoint → el diagrama aparece embebido en la zona inferior de la
+   barra lateral** (arranca legible al 90% con zoom si el árbol es grande).
+4. **Editor** (botón del diagrama) o el botón `⤖` al hacer hover en una fila →
+   abre el diagrama grande en un panel del editor.
+5. Clic en cualquier bloque del diagrama → abre el fichero en esa línea (editor
+   real de VS Code), también desde la vista embebida.
+6. Toggle **infraestructura**: muestra/oculta ILogger, ControllerBase…
+7. **Ver Mermaid**: el bloque `flowchart` equivalente para pegar en docs.
+
+La vista "Diagrama" convive con el árbol: arrastra el divisor para darle más o
+menos altura (VS Code recuerda las proporciones).
 
 ## Comandos
 
