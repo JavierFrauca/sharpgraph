@@ -6,8 +6,9 @@ namespace SharpGraph;
 /// (compara contra el tag del último release de GitHub). Antes del
 /// update-checker estaba duplicada como literal en dos sitios y cada
 /// release había que recordarla dos veces.
+/// Pública: los tests del comparador de tags y la extensión VS Code la leen.
 /// </summary>
-internal static class VersionInfo
+public static class VersionInfo
 {
-    public const string Current = "2.3.0";
+    public const string Current = "2.4.0";
 }

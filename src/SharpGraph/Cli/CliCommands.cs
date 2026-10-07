@@ -42,6 +42,28 @@ internal static class CliCommands
         return 0;
     }
 
+    // ────────────────────────── ENDPOINTS ──────────────────────────
+
+    public static int Endpoints(GraphEngine graph)
+    {
+        Console.WriteLine(graph.ListEndpoints());
+        return 0;
+    }
+
+    public static int EndpointFlow(string[] args, GraphEngine graph)
+    {
+        var endpoint = GetPositional(args, 0);
+        if (endpoint is null)
+        {
+            Console.Error.WriteLine("Uso: sharpgraph endpoint-flow \"POST /api/orders\" | /api/orders | OrdersController [-d <depth>] [-n <nodos>]");
+            return 1;
+        }
+        var depth = GetFlagInt(args, "-d", 8);
+        var maxNodes = GetFlagInt(args, "-n", 80);
+        Console.WriteLine(graph.EndpointFlow(endpoint, depth, maxNodes));
+        return 0;
+    }
+
     // ────────────────────────── NAVEGACIÓN ──────────────────────────
 
     public static int Search(string[] args, GraphEngine graph)

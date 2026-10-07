@@ -28,17 +28,24 @@ public class UpdateTests : IDisposable
     // ─────────────────────────── comparador de tags ───────────────────────────
 
     [Theory]
-    [InlineData("v2.4.0", true)]
-    [InlineData("2.4.0", true)]
-    [InlineData("v2.3.0", false)]   // igual
-    [InlineData("v2.2.9", false)]   // anterior
+    [InlineData("v3.0.0", true)]
+    [InlineData("3.0.0", true)]
     [InlineData("v2.10.0", true)]   // comparación numérica, no léxica
+    [InlineData("v2.2.9", false)]   // anterior
     [InlineData("v2.3.0-beta", false)] // prerelease no parsea → mejor no avisar
     [InlineData("", false)]
     [InlineData("garbage", false)]
     [InlineData(null, false)]
     public void IsNewer_ComparesVersionsNumerically(string? tag, bool expected)
         => Assert.Equal(expected, UpdateChecker.IsNewer(tag));
+
+    [Fact]
+    public void IsNewer_SameTagAsCurrent_IsNeverNewer()
+    {
+        // inmune a bumps de versión: el tag igual al Current nunca avisa
+        Assert.False(UpdateChecker.IsNewer("v" + VersionInfo.Current));
+        Assert.False(UpdateChecker.IsNewer(VersionInfo.Current));
+    }
 
     // ─────────────────────────── RID ───────────────────────────
 

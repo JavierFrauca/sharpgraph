@@ -515,6 +515,49 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
         [Description("Tope de nodos del diagrama (10-150, defecto 60).")] int maxNodes = 60)
         => graph.MermaidOverview(area, depsDepth, maxNodes);
 
+    [McpServerTool(Title = "Catálogo de endpoints HTTP", ReadOnly = true, Idempotent = true), Description("""
+        Lista TODOS los endpoints HTTP indexados (controllers + minimal APIs) en JSON:
+        controlador, verbo, ruta, método y file:line. Es el catálogo para elegir el
+        endpoint exacto que luego dibujas con endpoint_flow.
+
+        Formato:
+          { "count": 23, "endpoints": [ { "controller": "…OrdersController",
+            "verb": "POST", "route": "/api/orders", "method": "Create",
+            "file": "…/OrdersController.cs", "line": 58 } ] }
+
+        También alimenta el árbol de la extensión SharpGraph Flow (VS Code).
+        """)]
+    public string ListEndpoints() => graph.ListEndpoints();
+
+    [McpServerTool(Title = "Diagrama descendente desde un endpoint", ReadOnly = true, Idempotent = true), Description("""
+        SUBGRAFO DESCENDENTE desde un endpoint HTTP en JSON estructurado:
+        controller → command/query (MediatR) → handler → servicios → implementaciones
+        DI. Es el "qué toca este endpoint de arriba abajo" para humanos (extensión
+        SharpGraph Flow) y para máquinas.
+
+        Acepta tres formatos de entrada:
+          endpoint_flow("POST /api/orders")   verbo + ruta
+          endpoint_flow("/api/orders")        ruta (exacta o substring, máx 5)
+          endpoint_flow("OrdersController")   controlador (todas sus rutas)
+
+        Cada NODO lleva: id (N0..Nn), kind (endpoint/controller/command/query/handler/
+        interface/implementation/validator/class/infra), name, fqn, file y line —
+        abre el fichero en esa línea con click. Las dependencias externas
+        (ILogger, IMapper…) entran marcadas con infra=true: el cliente decide si
+        las muestra. Cada ARISTA lleva relation (call/sends/handled-by/di-bound…),
+        la línea de la primera referencia y back=true cuando su destino YA estaba
+        dibujado (dependencia compartida o ciclo): no se re-expande, no hay explosión.
+
+        Incluye además el bloque ```mermaid``` equivalente (clave "mermaid") para
+        pegar en docs. Para texto narrativo usa flow(); para arriba-hacia-endpoints,
+        trace_to_endpoints.
+        """)]
+    public string EndpointFlow(
+        [Description("Endpoint: \"POST /api/orders\", \"/api/orders\" o nombre del controlador.")] string endpoint,
+        [Description("Profundidad máxima del BFS descendente (1-12, defecto 8).")] int maxDepth = 8,
+        [Description("Tope de nodos del subgrafo (5-200, defecto 80).")] int maxNodes = 80)
+        => graph.EndpointFlow(endpoint, maxDepth, maxNodes);
+
     [McpServerTool(Title = "Estadísticas del grafo", ReadOnly = true, Idempotent = true), Description("""
         Estadísticas del grafo: tipos definidos, aristas, endpoints HTTP, call-sites
         (invocaciones reales), bindings DI, ficheros y ruta actual.

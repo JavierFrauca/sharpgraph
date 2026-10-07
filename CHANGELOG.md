@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (with the caveat that, during beta, the MCP tool surface may change between
 minor versions).
 
+## [2.4.0] - 2026-10-07
+
+### Added
+- **`endpoint_flow()` — subgrafo descendente desde un endpoint HTTP (22.ª tool MCP +
+  `sharpgraph endpoint-flow`)**: el "qué toca este endpoint de arriba abajo" en JSON
+  estructurado — controller → command/query (MediatR) → handler → servicios →
+  implementaciones DI — pensado para el consumo por herramienta (extensión SharpGraph
+  Flow para VS Code) y para el LLM. Acepta `"POST /api/orders"`, `"/api/orders"`
+  (exacta o substring, máx 5) o el nombre del controlador (todas sus rutas). Cada
+  **nodo** lleva `id` (N0..Nn), `kind` (endpoint/controller/command/query/handler/
+  interface/implementation/validator/class/infra/external), `name`, `fqn`, `file` y
+  `line` (click-to-open); cada **arista** lleva `relation`, la línea de la primera
+  referencia y `back=true` cuando su destino YA estaba dibujado (dependencia
+  compartida o ciclo: no se re-expande — el árbol ramifica sin explosión). Las
+  dependencias externas (ILogger, IMapper, ControllerBase…) entran marcadas con
+  `infra=true` (el cliente decide si las pinta); la arista `implements` de una impl
+  hacia su interfaz ya dibujada por di-bound se deduplica (el mismo binding dos veces,
+  igual que `IsMediatRArtifact` hace con MediatR). Incluye el bloque ```mermaid```
+  equivalente (clave `mermaid`, back-edges en rojo con `linkStyle`). Podas habituales:
+  tests/mocks fuera, `ParamType`/`ReturnType` fuera, tope duro de `maxNodes` con
+  `truncated`/`omitted`. 7 tests nuevos (`EndpointFlowTests`): catálogo, las 4 capas,
+  back-edge de IUnitOfWork compartido, flag de ILogger/IMediator, resolución por
+  controlador/ruta, presupuesto y error JSON.
+- **`list_endpoints()` — catálogo de endpoints HTTP (23.ª tool MCP +
+  `sharpgraph endpoints`)**: todos los endpoints indexados (controllers + minimal
+  APIs) en JSON: controlador, verbo, ruta, método y file:line. El punto de partida
+  de endpoint_flow y la fuente del árbol lateral de la extensión.
+- **`vscode-extension/` — extensión SharpGraph Flow para VS Code (VSIX)**: icono en
+  la Activity Bar con badge de nº de endpoints; árbol de endpoints agrupado por
+  controlador con verbos de color (GET/POST/PUT/DELETE como SVG); clic en un endpoint
+  → webview con el diagrama descendente (layout jerárquico dagre, capas con el mismo
+  código de color que el grafo, back-edges discontinuos, toggle "ocultar
+  infraestructura") y clic en cualquier bloque → abre el fichero real en la línea
+  exacta. Habla con el motor SharpGraph como cliente MCP stdio (mismo exe, sin
+  duplicar parsing); configuración `sharpgraphflow.serverPath` y
+  `sharpgraphflow.solutionPath`.
+
 ## [2.3.0] - 2026-10-07
 
 ### Added

@@ -25,7 +25,8 @@ internal static class CliDispatcher
         "read-file", "read-file", "readfile", "semantic",
         "search-semantic", "literals", "search-literals", "explore",
         "explore-context", "mermaid", "mermaid-context", "mermaid-seq",
-        "mermaid-sequence", "mermaid-overview", "update", "self-update",
+        "mermaid-sequence", "mermaid-overview", "endpoints", "list-endpoints",
+        "endpoint-flow", "update", "self-update",
         "setup", "help",
     };
 
@@ -74,6 +75,8 @@ internal static class CliDispatcher
             "mermaid" or "mermaid-context" => CliCommands.Mermaid(rest, graph),
             "mermaid-seq" or "mermaid-sequence" => CliCommands.MermaidSeq(rest, graph),
             "mermaid-overview" => CliCommands.MermaidOverview(rest, graph),
+            "endpoints" or "list-endpoints" => CliCommands.Endpoints(graph),
+            "endpoint-flow" => CliCommands.EndpointFlow(rest, graph),
             "update" or "self-update" => await CliCommands.Update(rest),
             "setup" => await SetupWizard.Run(rest),
             "help" => CliCommands.Help(rest),
