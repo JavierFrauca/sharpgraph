@@ -38,7 +38,8 @@ export class DiagramViewProvider implements vscode.WebviewViewProvider {
         view.webview.html = this.emptyHtml();
         view.webview.onDidReceiveMessage((msg) => {
             if (msg?.type === "open" && typeof msg.file === "string" && msg.file.length > 0) {
-                void openAtLine(vscode.Uri.file(msg.file), Number(msg.line) || 0);
+                // desde la barra lateral: columna ACTIVA, sin partir la pantalla
+                void openAtLine(vscode.Uri.file(msg.file), Number(msg.line) || 0, vscode.ViewColumn.Active);
             } else if (msg?.type === "openInEditor" && this.lastEndpoint) {
                 this.onOpenInEditor(this.lastEndpoint);
             } else if (msg?.type === "params") {
