@@ -1,0 +1,126 @@
+{
+  "name": "sharpgraph-flow",
+  "displayName": "SharpGraph Flow",
+  "description": "Diagrama descendente desde cualquier endpoint HTTP: controller → command → handler → servicios. Clic en un bloque para abrir el fichero en su línea. Requiere el MCP server SharpGraph.",
+  "version": "2.4.0",
+  "publisher": "javierfrauca",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JavierFrauca/sharpgraph"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "keywords": [
+    "architecture",
+    "diagram",
+    "mediatr",
+    "cqrs",
+    "aspnetcore"
+  ],
+  "activationEvents": [
+    "onView:sharpgraphFlow.endpoints"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "sharpgraph-flow",
+          "title": "SharpGraph Flow",
+          "icon": "media/activity-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "sharpgraph-flow": [
+        {
+          "id": "sharpgraphFlow.endpoints",
+          "name": "Endpoints",
+          "when": "workspaceFolderCount > 0"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "sharpgraphFlow.openEndpoint",
+        "title": "Ver flujo del endpoint",
+        "icon": "$(symbol-method)"
+      },
+      {
+        "command": "sharpgraphFlow.refresh",
+        "title": "Reindexar",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "sharpgraphFlow.configureServer",
+        "title": "Configurar ruta de SharpGraph",
+        "icon": "$(gear)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "sharpgraphFlow.refresh",
+          "group": "navigation@1",
+          "when": "view == sharpgraphFlow.endpoints"
+        },
+        {
+          "command": "sharpgraphFlow.configureServer",
+          "group": "navigation@2",
+          "when": "view == sharpgraphFlow.endpoints"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "sharpgraphFlow.openEndpoint",
+          "group": "inline",
+          "when": "view == sharpgraphFlow.endpoints && viewItem == endpoint"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "SharpGraph Flow",
+      "properties": {
+        "sharpgraphFlow.serverPath": {
+          "type": "string",
+          "default": "SharpGraph",
+          "description": "Ruta al ejecutable del MCP server SharpGraph (SharpGraph.exe publicado o 'dotnet run' no soportado: publica con publish.ps1). Si está en PATH basta 'SharpGraph'."
+        },
+        "sharpgraphFlow.solutionPath": {
+          "type": "string",
+          "default": "",
+          "description": "Ruta al .sln/.csproj/carpeta a indexar. Vacío = autodetectar el primer .sln/.csproj del workspace (o la carpeta del workspace)."
+        },
+        "sharpgraphFlow.includeInfra": {
+          "type": "boolean",
+          "default": false,
+          "description": "Mostrar por defecto la infraestructura (ILogger, ControllerBase…) en los diagramas."
+        },
+        "sharpgraphFlow.maxNodes": {
+          "type": "number",
+          "default": 80,
+          "description": "Tope de nodos por diagrama (5-200)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "package": "node esbuild.js --production && npx @vscode/vsce package --no-dependencies",
+    "preview": "node tools/preview.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.21.5",
+    "typescript": "^5.4.5"
+  }
+}
