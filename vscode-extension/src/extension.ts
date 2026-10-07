@@ -8,9 +8,24 @@ import { DiagramViewProvider } from "./diagramView";
 export function activate(context: vscode.ExtensionContext): void {
     const client = new SharpGraphClient();
     const panels = new FlowPanelManager(client, context.extensionUri);
-    const diagram = new DiagramViewProvider(client, (ep) => {
-        void panels.open(ep);
-    });
+
+    const output = vscode.window.createOutputChannel("SharpGraph Flow");
+    context.subscriptions.push(output);
+    const log = (msg: string) => output.appendLine(`[${new Date().toLocaleTimeString()}] ${msg}`);
+    client.onStderr((text) => output.append(text));
+
+    /** true mientras haya un scan en curso (los clics durante el indexado
+     * reciben un mensaje honesto en vez de un error de catálogo vacío) */
+    let indexing = false;
+
+    const diagram = new DiagramViewProvider(
+        client,
+        (ep) => {
+            void panels.open(ep);
+        },
+        (msg) => log(msg),
+        () => (indexing ? "Estoy indexando la solución — espera a que acabe la notificación de progreso y vuelve a clicar." : null),
+    );
     const provider = new EndpointsWebviewProvider(
         // clic en una fila → SOLO ese endpoint (del controller sale su método)
         (ep) => void diagram.show(ep),
@@ -38,10 +53,6 @@ export function activate(context: vscode.ExtensionContext): void {
         }),
     );
 
-    const output = vscode.window.createOutputChannel("SharpGraph Flow");
-    context.subscriptions.push(output);
-    const log = (msg: string) => output.appendLine(`[${new Date().toLocaleTimeString()}] ${msg}`);
-    client.onStderr((text) => output.append(text));
     client.onExit((code) => {
         log(`el servidor terminó (código ${code})`);
         if (code !== null && code !== 0) {
@@ -127,17 +138,40 @@ export function activate(context: vscode.ExtensionContext): void {
                 log(`sembrado desde caché local: ${cached.length} endpoints`);
             }
             // 2) servidor vivo: solo se arranca si no lo hay — y SIN path, para que
-            //    initialize sea instantáneo (nada de recargar la caché del motor aquí)
+            //    initialize sea instantáneo (nada de recargar la caché del motor aquí).
+            //    Si el exe del disco es MÁS NUEVO que el proceso vivo, se reinicia:
+            //    las actualizaciones del motor aplican sin recargar la ventana.
+            const serverPath = vscode.workspace.getConfiguration("sharpgraphFlow").get<string>("serverPath", "SharpGraph");
+            if (client.isRunning && client.isStale(serverPath)) {
+                log("el ejecutable de SharpGraph cambió: reiniciando el servidor");
+                client.stop();
+            }
             if (!client.isRunning || currentSolution !== solution) {
-                await client.start(
-                    vscode.workspace.getConfiguration("sharpgraphFlow").get<string>("serverPath", "SharpGraph"));
+                await client.start(serverPath);
                 currentSolution = solution;
             }
             // 3) scan incremental (SOLO aquí y en el botón: re-hashea toda la
             //    solución y puede tardar minutos — el motor se auto-vigila después)
-            //    + catálogo
-            await client.callTool("scan", { path: solution });
-            await listAndApply(solution);
+            //    + catálogo. CON PROGRESO VISIBLE: el indexado completo tras una
+            //    invalidación de caché tarda minutos y no puede ser silencioso.
+            indexing = true;
+            try {
+                await vscode.window.withProgress(
+                    {
+                        location: vscode.ProgressLocation.Notification,
+                        title: `SharpGraph: indexando ${path.basename(solution)}…`,
+                        cancellable: false,
+                    },
+                    async (progress) => {
+                        progress.report({ message: "scan incremental (puede tardar en la primera carga)" });
+                        await client.callTool("scan", { path: solution });
+                        progress.report({ message: "catalogando endpoints…" });
+                        await listAndApply(solution);
+                    },
+                );
+            } finally {
+                indexing = false;
+            }
             log(`refresco de ${path.basename(solution)}: ${provider.totalCount} endpoints en ${Date.now() - t0} ms`);
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);

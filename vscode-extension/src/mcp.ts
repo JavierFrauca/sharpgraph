@@ -1,4 +1,5 @@
 import * as cp from "child_process";
+import * as fs from "fs";
 import * as readline from "readline";
 import * as vscode from "vscode";
 
@@ -23,6 +24,19 @@ export class SharpGraphClient implements vscode.Disposable {
 
     get isRunning(): boolean {
         return this.proc !== undefined && this.proc.exitCode === null;
+    }
+
+    /** ¿el exe del disco es más nuevo que el proceso vivo? (las actualizaciones
+     * del motor aplican en el siguiente refresco, sin recargar la ventana) */
+    isStale(exePath: string): boolean {
+        if (!this.isRunning) {
+            return false;
+        }
+        try {
+            return fs.statSync(exePath).mtimeMs > this.startedAt;
+        } catch {
+            return false;
+        }
     }
 
     /** Arranca el servidor. SIN solutionPath el initialize es instantáneo (el
@@ -85,7 +99,7 @@ export class SharpGraphClient implements vscode.Disposable {
         await this.request("initialize", {
             protocolVersion: "2024-11-05",
             capabilities: {},
-            clientInfo: { name: "sharpgraph-flow", version: "2.5.6" },
+            clientInfo: { name: "sharpgraph-flow", version: "2.5.7" },
         });
         this.notify("notifications/initialized");
     }

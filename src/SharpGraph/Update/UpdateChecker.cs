@@ -147,6 +147,25 @@ public static class UpdateChecker
         return null;
     }
 
+    /// <summary>Localiza el asset .vsix de la extensión SharpGraph Flow en un release.
+    /// Devuelve (nombre, url) o null si el release no lo trae (anteriores a la extensión).</summary>
+    public static (string Name, string Url)? PickVsixAsset(JsonElement assets)
+    {
+        foreach (var a in assets.EnumerateArray())
+        {
+            var name = a.TryGetProperty("name", out var n) ? n.GetString() : null;
+            var url = a.TryGetProperty("browser_download_url", out var u) ? u.GetString() : null;
+            if (name is not null && url is not null && IsVsixAsset(name))
+                return (name, url);
+        }
+        return null;
+    }
+
+    /// <summary>vsce nombra el paquete "sharpgraph-flow-&lt;versión&gt;.vsix" (name de package.json).</summary>
+    public static bool IsVsixAsset(string name)
+        => name.StartsWith("sharpgraph-flow-", StringComparison.OrdinalIgnoreCase)
+           && name.EndsWith(".vsix", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>¿El par (marca temporal, tag) de la caché sirve para avisar?</summary>
     public static bool IsCacheFresh(DateTimeOffset checkedUtc, string? tag)
         => tag is not null
@@ -158,20 +177,27 @@ public static class UpdateChecker
     /// no está en la lista (mejor no verificar que verificar mal).</summary>
     public static bool VerifySha256(string filePath, string sha256SumsContent)
     {
+        if (!TryGetExpectedSha256(sha256SumsContent, filePath, out var expected)) return false;
+
+        using var sha = System.Security.Cryptography.SHA256.Create();
+        using var stream = File.OpenRead(filePath);
+        var actual = Convert.ToHexString(sha.ComputeHash(stream)).ToLowerInvariant();
+        return actual == expected;
+    }
+
+    /// <summary>Extrae de un SHA256SUMS.txt el hash esperado para un fichero.
+    /// false si el nombre no tiene línea (p.ej. releases que no sumaban el .vsix).</summary>
+    public static bool TryGetExpectedSha256(string sha256SumsContent, string filePath, out string expected)
+    {
         var name = Path.GetFileName(filePath);
-        string? expected = null;
+        expected = "";
         foreach (var line in sha256SumsContent.Split('\n'))
         {
             var parts = line.Split(' ', 2, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length == 2 && (parts[1] == name || parts[1].EndsWith("/" + name, StringComparison.Ordinal)))
                 expected = parts[0].ToLowerInvariant();
         }
-        if (expected is null) return false;
-
-        using var sha = System.Security.Cryptography.SHA256.Create();
-        using var stream = File.OpenRead(filePath);
-        var actual = Convert.ToHexString(sha.ComputeHash(stream)).ToLowerInvariant();
-        return actual == expected;
+        return expected.Length > 0;
     }
 
     // ─────────────────────────── red y caché ───────────────────────────

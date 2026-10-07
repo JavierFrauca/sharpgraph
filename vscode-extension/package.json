@@ -2,7 +2,7 @@
   "name": "sharpgraph-flow",
   "displayName": "SharpGraph Flow",
   "description": "Diagrama descendente desde cualquier endpoint HTTP: controller → command → handler → servicios. Clic en un bloque para abrir el fichero en su línea. Requiere el MCP server SharpGraph.",
-  "version": "2.5.6",
+  "version": "2.5.7",
   "publisher": "javierfrauca",
   "license": "MIT",
   "repository": {

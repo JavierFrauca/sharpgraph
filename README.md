@@ -305,6 +305,7 @@ con `SHARPGRAPH_NO_UPDATE_CHECK=1`) y se actualiza cuando TÚ lo pides — nunca
 ```
 sharpgraph update --check   # ¿hay versión nueva?
 sharpgraph update           # descarga + verifica SHA-256 + sustituye el binario
+sharpgraph install vscode   # instala la extensión SharpGraph Flow (VS Code)
 ```
 
 Tras actualizar, reinicia tu cliente MCP para que recargue el servidor.

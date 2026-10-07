@@ -27,7 +27,7 @@ internal static class CliDispatcher
         "explore-context", "mermaid", "mermaid-context", "mermaid-seq",
         "mermaid-sequence", "mermaid-overview", "endpoints", "list-endpoints",
         "endpoint-flow", "update", "self-update",
-        "setup", "help",
+        "setup", "install", "help",
     };
 
     public static bool IsCliCommand(string arg)
@@ -38,9 +38,9 @@ internal static class CliDispatcher
         var cmd = args[0].ToLowerInvariant();
         var rest = args.Skip(1).ToArray();
 
-        // El grafo necesita un path cargado para casi todo excepto scan/help/setup/update.
+        // El grafo necesita un path cargado para casi todo excepto scan/help/setup/update/install.
         // Si no hay path cargado y el comando lo necesita, intentamos cargar el cwd.
-        if (cmd is not ("scan" or "setup" or "help" or "update"))
+        if (cmd is not ("scan" or "setup" or "help" or "update" or "install"))
         {
             EnsureGraphLoaded(graph, store, watcher);
         }
@@ -79,6 +79,7 @@ internal static class CliDispatcher
             "endpoint-flow" => CliCommands.EndpointFlow(rest, graph),
             "update" or "self-update" => await CliCommands.Update(rest),
             "setup" => await SetupWizard.Run(rest),
+            "install" => await InstallCommand.Run(rest),
             "help" => CliCommands.Help(rest),
             _ => PrintUnknown(cmd),
         };
