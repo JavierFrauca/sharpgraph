@@ -127,7 +127,8 @@ jobs:
 
       - name: Generate SHA256SUMS
         working-directory: artifacts
-        run: sha256sum SharpGraph-* > SHA256SUMS.txt
+        # el .vsix entra en la lista para que 'sharpgraph install vscode' pueda verificarlo
+        run: sha256sum SharpGraph-* sharpgraph-flow-*.vsix > SHA256SUMS.txt
 
       - name: Create release with assets
         uses: softprops/action-gh-release@v2

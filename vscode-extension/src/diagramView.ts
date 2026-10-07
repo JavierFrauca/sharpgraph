@@ -31,6 +31,9 @@ export class DiagramViewProvider implements vscode.WebviewViewProvider {
         private readonly client: SharpGraphClient,
         private readonly onOpenInEditor: (ep: EndpointItem) => void,
         private readonly onLog: (msg: string) => void = () => {},
+        /** texto si hay un indexado en curso (clic durante el indexado = mensaje
+         * honesto en vez de un error de catálogo vacío) */
+        private readonly isIndexing: () => string | null = () => null,
     ) {}
 
     get current(): EndpointItem | undefined {
@@ -122,6 +125,14 @@ export class DiagramViewProvider implements vscode.WebviewViewProvider {
             }
             if (flow.mode) {
                 this.onLog(`endpoint_flow ${expression} → modo ${flow.mode} · aristas controller ${flow.controllerEdges?.matched ?? "?"}/${flow.controllerEdges?.total ?? "?"} · profundidad ${this.lastDepth}`);
+            }
+            if (flow.error) {
+                // clic durante el indexado (catálogo aún vacío): mensaje honesto
+                const indexing = this.isIndexing();
+                if (indexing) {
+                    view.webview.html = this.loadingHtml(`${title} — ${indexing}`);
+                    return;
+                }
             }
             view.webview.html = renderFlowHtml(flow, {
                 nonce: crypto.randomBytes(16).toString("hex"),

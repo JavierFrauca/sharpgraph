@@ -95,6 +95,10 @@ internal static class CliHelp
                               Continue, VS Code, Zed, OpenCode, Crush, genérico).
                               Flags: --client <nombre>, --no-hook,
                                      --install-path <dir>.
+          install vscode      Instala la extensión SharpGraph Flow (VS Code):
+                              descarga el .vsix del último release de GitHub
+                              (SHA-256) y ejecuta code --install-extension.
+                              Flags: --vsix <ruta> (fichero local).
           help [comando]      Esta ayuda, o ayuda detallada de un comando.
 
         ── MODO MCP (servidor para LLMs) ─────────────────────────────
@@ -140,6 +144,10 @@ internal static class CliHelp
           sharpgraph setup
           sharpgraph setup --client cursor
 
+          # Instalar la extensión SharpGraph Flow en VS Code
+          sharpgraph install vscode
+          sharpgraph install vscode --vsix .\sharpgraph-flow-2.5.6.vsix
+
         ── MÁS INFORMACIÓN ───────────────────────────────────────────
           GitHub:    https://github.com/JavierFrauca/sharpgraph
           Docs:      docs/CLIENTS.md (registro manual por cliente)
@@ -177,6 +185,7 @@ internal static class CliHelp
         "endpoint-flow" or "endpoint_flow" => CmdEndpointFlow,
         "update" or "self-update" => CmdUpdate,
         "setup" => CmdSetup,
+        "install" => CmdInstall,
         "help" => CmdHelp,
         _ => $"""
             Comando desconocido: '{command}'
@@ -184,7 +193,7 @@ internal static class CliHelp
             Comandos disponibles: scan, stats, search, callers, usages, callsites,
             trace, impact, flow, hubs, di, endpoints, endpoint-flow, source,
             understand, read-file, semantic, literals, explore, mermaid,
-            mermaid-seq, mermaid-overview, update, setup, help.
+            mermaid-seq, mermaid-overview, update, setup, install, help.
 
             Ejecuta 'sharpgraph help' para la lista completa.
             """
@@ -732,6 +741,33 @@ internal static class CliHelp
             sharpgraph setup --client claude --no-hook    # Claude Code sin auto-scan
         """;
 
+    private const string CmdInstall = """
+        sharpgraph install vscode — Instala la extensión SharpGraph Flow (VS Code)
+
+          Descarga el .vsix de la extensión desde el último release de GitHub
+          (misma maquinaria que 'update': verifica SHA-256 contra SHA256SUMS.txt
+          cuando el release lo cubre) y ejecuta 'code --install-extension'.
+          Localiza la CLI de VS Code en el PATH y en las rutas habituales
+          ('code'; alternativa 'code-insiders' / 'codium').
+
+          USO:
+            sharpgraph install vscode [--vsix <ruta>]
+
+          FLAGS:
+            --vsix <ruta>   Instala ese fichero .vsix local en vez de descargar
+                            (útil offline o con builds de desarrollo:
+                            cd vscode-extension && npm run package).
+
+          NOTAS:
+            - Si el .vsix del release es más nuevo que tu binario, sugiere
+              'sharpgraph update' (motor y extensión van en pareja).
+            - Tras instalar, abre o recarga VS Code.
+
+          EJEMPLOS:
+            sharpgraph install vscode
+            sharpgraph install vscode --vsix .\sharpgraph-flow-2.5.6.vsix
+        """;
+
     private const string CmdHelp = """
         sharpgraph help — Ayuda de la CLI
 
@@ -743,7 +779,7 @@ internal static class CliHelp
             scan, stats, search, callers, usages, callsites, trace, impact,
             flow, hubs, di, endpoints, endpoint-flow, source, understand,
             read-file, semantic, literals, explore, mermaid, mermaid-seq,
-            mermaid-overview, update, setup, help
+            mermaid-overview, update, setup, install, help
 
           EJEMPLOS:
             sharpgraph help flow         # ayuda del comando flow

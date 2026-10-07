@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (with the caveat that, during beta, the MCP tool surface may change between
 minor versions).
 
+## [Unreleased]
+
+### Added
+- **`sharpgraph install vscode`** — instala la extensión SharpGraph Flow en
+  VS Code: descarga el `.vsix` del último release de GitHub (misma maquinaria
+  que `update`, con verificación SHA-256 cuando SHA256SUMS.txt lo cubre) y
+  ejecuta `code --install-extension`. Localiza la CLI en PATH y rutas
+  habituales de Windows/macOS/Linux (`code`; alternativa `code-insiders` /
+  `codium`). `--vsix <ruta>` instala un fichero local (offline/desarrollo).
+  Avisa si la versión del `.vsix` y la del binario no van alineadas.
+- El release ahora incluye el `.vsix` en `SHA256SUMS.txt` (antes solo los
+  zips del binario), para que `install vscode` pueda verificarlo.
+
 ## [2.5.6] — extensión
 
 ### Fixed
