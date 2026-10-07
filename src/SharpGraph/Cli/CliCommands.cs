@@ -55,12 +55,13 @@ internal static class CliCommands
         var endpoint = GetPositional(args, 0);
         if (endpoint is null)
         {
-            Console.Error.WriteLine("Uso: sharpgraph endpoint-flow \"POST /api/orders\" | /api/orders | OrdersController [-d <depth>] [-n <nodos>]");
+            Console.Error.WriteLine("Uso: sharpgraph endpoint-flow \"POST /api/orders\" | /api/orders | OrdersController [-d <depth>] [-n <nodos>] [--dtos]");
             return 1;
         }
         var depth = GetFlagInt(args, "-d", 8);
         var maxNodes = GetFlagInt(args, "-n", 80);
-        Console.WriteLine(graph.EndpointFlow(endpoint, depth, maxNodes));
+        var dtos = HasFlag(args, "--dtos");
+        Console.WriteLine(graph.EndpointFlow(endpoint, depth, maxNodes, dtos));
         return 0;
     }
 

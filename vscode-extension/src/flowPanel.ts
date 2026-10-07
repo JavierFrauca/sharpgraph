@@ -23,7 +23,6 @@ export class FlowPanelManager implements vscode.Disposable {
             return;
         }
 
-        const config = vscode.workspace.getConfiguration("sharpgraphFlow");
         const panel = vscode.window.createWebviewPanel(
             "sharpgraphFlow.editorPanel",
             `${ep.verb} ${ep.route}`,
@@ -35,27 +34,50 @@ export class FlowPanelManager implements vscode.Disposable {
         panel.onDidDispose(() => this.panels.delete(key));
 
         panel.webview.html = loadingHtml(crypto.randomBytes(16).toString("hex"), ep);
+        panel.webview.onDidReceiveMessage((msg) => {
+            if (msg?.type === "open" && typeof msg.file === "string" && msg.file.length > 0) {
+                void openAtLine(vscode.Uri.file(msg.file), Number(msg.line) || 0);
+            } else if (msg?.type === "openInEditor" && this.panels.has(key)) {
+                // el propio panel ya es el editor: nada que hacer aquí
+            } else if (msg?.type === "params") {
+                const depth = Math.min(12, Math.max(1, Number(msg.depth) || 4));
+                void this.renderFlow(panel, key, ep, depth, !!msg.dtos);
+            }
+        });
 
+        const cfg = vscode.workspace.getConfiguration("sharpgraphFlow");
+        await this.renderFlow(panel, key, ep,
+            Math.min(12, Math.max(1, cfg.get<number>("defaultDepth", 4))),
+            cfg.get<boolean>("includeDtos", false));
+    }
+
+    /** Consulta endpoint_flow con los niveles/contratos dados y pinta el panel. */
+    private async renderFlow(
+        panel: vscode.WebviewPanel,
+        key: string,
+        ep: EndpointItem,
+        depth: number,
+        dtos: boolean,
+    ): Promise<void> {
         try {
+            const config = vscode.workspace.getConfiguration("sharpgraphFlow");
             const maxNodes = Math.min(200, Math.max(5, config.get<number>("maxNodes", 80)));
             const json = await this.client.callTool("endpoint_flow", {
                 endpoint: `${ep.verb} ${ep.route}`,
+                maxDepth: depth,
                 maxNodes,
+                includeDtos: dtos,
             });
             const flow = JSON.parse(json) as FlowData;
-            // el panel pudo cerrarse mientras el motor respondía
+            // el panel pudo cerrarse (o cambiar de params) mientras respondía el motor
             if (!this.panels.has(key)) {
                 return;
             }
-            const nonce = crypto.randomBytes(16).toString("hex");
             panel.webview.html = renderFlowHtml(flow, {
-                nonce,
+                nonce: crypto.randomBytes(16).toString("hex"),
                 includeInfra: config.get<boolean>("includeInfra", false),
-            });
-            panel.webview.onDidReceiveMessage((msg) => {
-                if (msg?.type === "open" && typeof msg.file === "string" && msg.file.length > 0) {
-                    openAtLine(vscode.Uri.file(msg.file), Number(msg.line) || 0);
-                }
+                depth,
+                includeDtos: dtos,
             });
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);

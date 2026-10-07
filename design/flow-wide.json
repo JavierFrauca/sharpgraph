@@ -1,0 +1,368 @@
+{
+ "endpoint": "POST /api/payroll/run",
+ "root": "N0",
+ "nodes": [
+  {
+   "id": "N0",
+   "kind": "endpoint",
+   "name": "POST /api/payroll/run",
+   "fqn": "X",
+   "file": "C:/demo/PayrollController.cs",
+   "line": 30,
+   "infra": false
+  },
+  {
+   "id": "N1",
+   "kind": "controller",
+   "name": "PayrollController",
+   "fqn": "X",
+   "file": "C:/demo/PayrollController.cs",
+   "line": 12,
+   "infra": false
+  },
+  {
+   "id": "N2",
+   "kind": "command",
+   "name": "RunPayrollCommand",
+   "fqn": "X",
+   "file": "C:/demo/RunPayrollCommand.cs",
+   "line": 3,
+   "infra": false
+  },
+  {
+   "id": "N3",
+   "kind": "handler",
+   "name": "RunPayrollCommandHandler",
+   "fqn": "X",
+   "file": "C:/demo/Handler.cs",
+   "line": 20,
+   "infra": false
+  },
+  {
+   "id": "N4",
+   "kind": "interface",
+   "name": "IService0",
+   "fqn": "X",
+   "file": "C:/demo/S0.cs",
+   "line": 5,
+   "infra": false
+  },
+  {
+   "id": "N5",
+   "kind": "implementation",
+   "name": "Service0",
+   "fqn": "X",
+   "file": "C:/demo/S0.cs",
+   "line": 15,
+   "infra": false
+  },
+  {
+   "id": "N6",
+   "kind": "interface",
+   "name": "IService1",
+   "fqn": "X",
+   "file": "C:/demo/S1.cs",
+   "line": 5,
+   "infra": false
+  },
+  {
+   "id": "N7",
+   "kind": "implementation",
+   "name": "Service1",
+   "fqn": "X",
+   "file": "C:/demo/S1.cs",
+   "line": 15,
+   "infra": false
+  },
+  {
+   "id": "N8",
+   "kind": "interface",
+   "name": "IService2",
+   "fqn": "X",
+   "file": "C:/demo/S2.cs",
+   "line": 5,
+   "infra": false
+  },
+  {
+   "id": "N9",
+   "kind": "implementation",
+   "name": "Service2",
+   "fqn": "X",
+   "file": "C:/demo/S2.cs",
+   "line": 15,
+   "infra": false
+  },
+  {
+   "id": "N10",
+   "kind": "interface",
+   "name": "IService3",
+   "fqn": "X",
+   "file": "C:/demo/S3.cs",
+   "line": 5,
+   "infra": false
+  },
+  {
+   "id": "N11",
+   "kind": "implementation",
+   "name": "Service3",
+   "fqn": "X",
+   "file": "C:/demo/S3.cs",
+   "line": 15,
+   "infra": false
+  },
+  {
+   "id": "N12",
+   "kind": "interface",
+   "name": "IService4",
+   "fqn": "X",
+   "file": "C:/demo/S4.cs",
+   "line": 5,
+   "infra": false
+  },
+  {
+   "id": "N13",
+   "kind": "implementation",
+   "name": "Service4",
+   "fqn": "X",
+   "file": "C:/demo/S4.cs",
+   "line": 15,
+   "infra": false
+  },
+  {
+   "id": "N14",
+   "kind": "interface",
+   "name": "IService5",
+   "fqn": "X",
+   "file": "C:/demo/S5.cs",
+   "line": 5,
+   "infra": false
+  },
+  {
+   "id": "N15",
+   "kind": "implementation",
+   "name": "Service5",
+   "fqn": "X",
+   "file": "C:/demo/S5.cs",
+   "line": 15,
+   "infra": false
+  },
+  {
+   "id": "N16",
+   "kind": "interface",
+   "name": "IService6",
+   "fqn": "X",
+   "file": "C:/demo/S6.cs",
+   "line": 5,
+   "infra": false
+  },
+  {
+   "id": "N17",
+   "kind": "implementation",
+   "name": "Service6",
+   "fqn": "X",
+   "file": "C:/demo/S6.cs",
+   "line": 15,
+   "infra": false
+  },
+  {
+   "id": "N18",
+   "kind": "interface",
+   "name": "IService7",
+   "fqn": "X",
+   "file": "C:/demo/S7.cs",
+   "line": 5,
+   "infra": false
+  },
+  {
+   "id": "N19",
+   "kind": "implementation",
+   "name": "Service7",
+   "fqn": "X",
+   "file": "C:/demo/S7.cs",
+   "line": 15,
+   "infra": false
+  },
+  {
+   "id": "N20",
+   "kind": "interface",
+   "name": "IService8",
+   "fqn": "X",
+   "file": "C:/demo/S8.cs",
+   "line": 5,
+   "infra": false
+  },
+  {
+   "id": "N21",
+   "kind": "implementation",
+   "name": "Service8",
+   "fqn": "X",
+   "file": "C:/demo/S8.cs",
+   "line": 15,
+   "infra": false
+  },
+  {
+   "id": "N22",
+   "kind": "interface",
+   "name": "IService9",
+   "fqn": "X",
+   "file": "C:/demo/S9.cs",
+   "line": 5,
+   "infra": false
+  },
+  {
+   "id": "N23",
+   "kind": "implementation",
+   "name": "Service9",
+   "fqn": "X",
+   "file": "C:/demo/S9.cs",
+   "line": 15,
+   "infra": false
+  }
+ ],
+ "edges": [
+  {
+   "from": "N0",
+   "to": "N1",
+   "relation": "call",
+   "line": 30
+  },
+  {
+   "from": "N1",
+   "to": "N2",
+   "relation": "sends",
+   "line": 32
+  },
+  {
+   "from": "N2",
+   "to": "N3",
+   "relation": "handled-by",
+   "line": 3
+  },
+  {
+   "from": "N3",
+   "to": "N4",
+   "relation": "ctor-param",
+   "line": 22
+  },
+  {
+   "from": "N4",
+   "to": "N5",
+   "relation": "di-bound",
+   "line": 40
+  },
+  {
+   "from": "N3",
+   "to": "N6",
+   "relation": "ctor-param",
+   "line": 22
+  },
+  {
+   "from": "N6",
+   "to": "N7",
+   "relation": "di-bound",
+   "line": 40
+  },
+  {
+   "from": "N3",
+   "to": "N8",
+   "relation": "ctor-param",
+   "line": 22
+  },
+  {
+   "from": "N8",
+   "to": "N9",
+   "relation": "di-bound",
+   "line": 40
+  },
+  {
+   "from": "N3",
+   "to": "N10",
+   "relation": "ctor-param",
+   "line": 22
+  },
+  {
+   "from": "N10",
+   "to": "N11",
+   "relation": "di-bound",
+   "line": 40
+  },
+  {
+   "from": "N3",
+   "to": "N12",
+   "relation": "ctor-param",
+   "line": 22
+  },
+  {
+   "from": "N12",
+   "to": "N13",
+   "relation": "di-bound",
+   "line": 40
+  },
+  {
+   "from": "N3",
+   "to": "N14",
+   "relation": "ctor-param",
+   "line": 22
+  },
+  {
+   "from": "N14",
+   "to": "N15",
+   "relation": "di-bound",
+   "line": 40
+  },
+  {
+   "from": "N3",
+   "to": "N16",
+   "relation": "ctor-param",
+   "line": 22
+  },
+  {
+   "from": "N16",
+   "to": "N17",
+   "relation": "di-bound",
+   "line": 40
+  },
+  {
+   "from": "N3",
+   "to": "N18",
+   "relation": "ctor-param",
+   "line": 22
+  },
+  {
+   "from": "N18",
+   "to": "N19",
+   "relation": "di-bound",
+   "line": 40
+  },
+  {
+   "from": "N3",
+   "to": "N20",
+   "relation": "ctor-param",
+   "line": 22
+  },
+  {
+   "from": "N20",
+   "to": "N21",
+   "relation": "di-bound",
+   "line": 40
+  },
+  {
+   "from": "N3",
+   "to": "N22",
+   "relation": "ctor-param",
+   "line": 22
+  },
+  {
+   "from": "N22",
+   "to": "N23",
+   "relation": "di-bound",
+   "line": 40
+  }
+ ],
+ "nodeCount": 24,
+ "edgeCount": 23,
+ "backEdges": 0,
+ "omitted": 0,
+ "truncated": false,
+ "mermaid": "```mermaid\nflowchart TD\n```\n"
+}

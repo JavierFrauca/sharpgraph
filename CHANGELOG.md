@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (with the caveat that, during beta, the MCP tool surface may change between
 minor versions).
 
+## [2.5.0] - 2026-10-07
+
+### Added
+- **`endpoint_flow(includeDtos:)` — nivel 4: contratos de entrada/salida**:
+  nuevo parámetro que incluye los DTOs (parámetros y retornos de métodos
+  públicos) como nodos hoja `kind=dto` (no se expanden). La detección es doble:
+  descubrimiento por arista ParamType/ReturnType, o por nombre (Dto/Request/
+  Response/Result) porque los `new XxxResponse()` generan arista `New` que
+  domina sobre ReturnType en la relación dominante. Sin el flag, esos nodos son
+  "class" normales — el nivel de contratos solo existe cuando se pide.
+  CLI: `sharpgraph endpoint-flow … --dtos`. Test nuevo (8 en total de
+  endpoint_flow). Es el nivel 4 del control de profundidad de la extensión
+  SharpGraph Flow (slider de niveles: 1=mediator, 2=deps 1er nivel,
+  3=deps de deps, 4=+contratos).
+- **Extensión SharpGraph Flow 2.5.0 — niveles con slider, contratos y pan**:
+  la barra del diagrama añade un SLIDER DE NIVELES (1-8) que re-consulta el
+  motor al soltarlo (nivel 1 = endpoint→mediator, 2 = dependencias de primer
+  nivel, 3 = dependencias de las dependencias…), un checkbox **contratos**
+  (DTOs, nivel 4, requiere motor 2.5.0) y **arrastre con el ratón** para
+  desplazarse (grab; los clics en bloques tras arrastrar no se disparan).
+  Con pocos niveles el grafo es una columna vertical — se acabó el "se ve en
+  horizontal". Settings nuevos: `sharpgraphFlow.defaultDepth` (4) y
+  `sharpgraphFlow.includeDtos` (false). Nodos DTO con color propio en la leyenda.
+
 ## [2.4.7] - 2026-10-07
 
 ### Changed

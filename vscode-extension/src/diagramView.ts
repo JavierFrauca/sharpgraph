@@ -17,6 +17,9 @@ export class DiagramViewProvider implements vscode.WebviewViewProvider {
 
     private view?: vscode.WebviewView;
     private lastEndpoint?: EndpointItem;
+    /** niveles/contratos vigentes (los cambia el slider del propio diagrama) */
+    private lastDepth = 4;
+    private lastDtos = false;
     /** genera del lado del host cuando el usuario pide el panel grande */
     private gen = 0;
 
@@ -38,6 +41,14 @@ export class DiagramViewProvider implements vscode.WebviewViewProvider {
                 void openAtLine(vscode.Uri.file(msg.file), Number(msg.line) || 0);
             } else if (msg?.type === "openInEditor" && this.lastEndpoint) {
                 this.onOpenInEditor(this.lastEndpoint);
+            } else if (msg?.type === "params") {
+                this.lastDepth = Math.min(12, Math.max(1, Number(msg.depth) || 4));
+                this.lastDtos = !!msg.dtos;
+                if (this.lastEndpoint) {
+                    void this.show(this.lastEndpoint, false, true);
+                }
+            } else if (msg?.type === "cmd") {
+                // no aplicable en esta vista (placeholder por simetría)
             }
         });
         if (this.lastEndpoint) {
@@ -46,8 +57,9 @@ export class DiagramViewProvider implements vscode.WebviewViewProvider {
     }
 
     /** Renderiza el flujo del endpoint en la vista embebida. reveal=false cuando
-     * ya es visible (evita robar el foco mientras se navega el árbol con teclado). */
-    async show(ep: EndpointItem, reveal = true): Promise<void> {
+     * ya es visible (evita robar el foco mientras se navega el árbol con teclado);
+     * keepParams=true cuando el origen es el slider (conserva nivel/contratos). */
+    async show(ep: EndpointItem, reveal = true, keepParams = false): Promise<void> {
         this.lastEndpoint = ep;
         this.gen++;
         const myGen = this.gen;
@@ -68,10 +80,16 @@ export class DiagramViewProvider implements vscode.WebviewViewProvider {
         const config = vscode.workspace.getConfiguration("sharpgraphFlow");
         view.webview.html = this.loadingHtml(ep);
         try {
+            if (!keepParams) {
+                this.lastDepth = Math.min(12, Math.max(1, config.get<number>("defaultDepth", 4)));
+                this.lastDtos = config.get<boolean>("includeDtos", false);
+            }
             const maxNodes = Math.min(200, Math.max(5, config.get<number>("maxNodes", 80)));
             const json = await this.client.callTool("endpoint_flow", {
                 endpoint: `${ep.verb} ${ep.route}`,
+                maxDepth: this.lastDepth,
                 maxNodes,
+                includeDtos: this.lastDtos,
             });
             const flow = JSON.parse(json) as FlowData;
             // mientras esperábamos al motor cambió la selección o la vista murió
@@ -82,6 +100,8 @@ export class DiagramViewProvider implements vscode.WebviewViewProvider {
                 nonce: crypto.randomBytes(16).toString("hex"),
                 includeInfra: config.get<boolean>("includeInfra", false),
                 openInEditor: true,
+                depth: this.lastDepth,
+                includeDtos: this.lastDtos,
             });
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
