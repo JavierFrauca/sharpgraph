@@ -8,7 +8,7 @@ namespace SharpGraph.Cli;
 /// </summary>
 internal static class CliHelp
 {
-    public const string Version = "2.2.0";
+    public const string Version = "2.3.0";
 
     // ────────────────────────── HELP GENERAL ──────────────────────────
 
@@ -47,6 +47,19 @@ internal static class CliHelp
           hubs                Tipos más centrales (PageRank).
                               Flags: -n <topK> (defecto 15).
           di <tipo>           Resuelve inyección de dependencias (IFoo → Foo).
+
+        ── DIAGRAMAS MERMAID ─────────────────────────────────────────
+          mermaid <tipo>      Diagrama bidireccional (callers + deps) como bloque
+                              ```mermaid pegable en Markdown/docs.
+                              Flags: -u <callers> (defecto 3), -d <deps> (defecto 3),
+                                     -n <nodos> (defecto 40), --lr, --external.
+          mermaid-seq <tipo>  Cadena ancla → endpoints HTTP como sequenceDiagram.
+                              Flags: -m <miembro>, -p <caminos> (defecto 3),
+                                     -d <depth> (defecto 8).
+          mermaid-overview    Mapa de arquitectura: todos los endpoints + deps,
+                              agrupado por namespace.
+                              Flags: -a <área>, -d <deps> (defecto 2),
+                                     -n <nodos> (defecto 60).
 
         ── CÓDIGO FUENTE ─────────────────────────────────────────────
           source <tipo>       Ver código de un tipo o método concreto.
@@ -96,6 +109,11 @@ internal static class CliHelp
           sharpgraph search "Todo"
           sharpgraph semantic "cálculo de retención IRPF"
 
+          # Diagramas para docs / humano
+          sharpgraph mermaid CreateOrderCommandHandler
+          sharpgraph mermaid-seq IGrossService -p 2
+          sharpgraph mermaid-overview -a Billing
+
           # Instalar en tu cliente MCP
           sharpgraph setup
           sharpgraph setup --client cursor
@@ -130,6 +148,9 @@ internal static class CliHelp
         "semantic" or "search-semantic" or "search_semantic" => CmdSemantic,
         "literals" or "search-literals" or "search_literals" => CmdLiterals,
         "explore" or "explore-context" or "explore_context" => CmdExplore,
+        "mermaid" or "mermaid-context" or "mermaid_context" => CmdMermaid,
+        "mermaid-seq" or "mermaid-sequence" or "mermaid_sequence" => CmdMermaidSeq,
+        "mermaid-overview" or "mermaid_overview" => CmdMermaidOverview,
         "setup" => CmdSetup,
         "help" => CmdHelp,
         _ => $"""
@@ -137,7 +158,8 @@ internal static class CliHelp
 
             Comandos disponibles: scan, stats, search, callers, usages, callsites,
             trace, impact, flow, hubs, di, source, understand, read-file,
-            semantic, literals, explore, setup, help.
+            semantic, literals, explore, mermaid, mermaid-seq, mermaid-overview,
+            setup, help.
 
             Ejecuta 'sharpgraph help' para la lista completa.
             """
@@ -508,6 +530,79 @@ internal static class CliHelp
           EQUIVALENTE MCP: explore_context(typeOrPattern, depth, limitPerGroup)
         """;
 
+    private const string CmdMermaid = """
+        sharpgraph mermaid — Diagrama Mermaid bidireccional
+
+          Dibuja el contexto de un tipo como flowchart: la cadena de llamadores
+          hacia arriba (hasta los endpoints HTTP) y el árbol de dependencias hacia
+          abajo, con la relación de cada flecha (sends, handled-by, di-bound,
+          ctor-param, call...). El ancla sale resaltada.
+
+          La salida es un bloque ```mermaid pegable tal cual en Markdown
+          (GitHub, GitLab, Obsidian y mermaid.live lo renderizan).
+
+          USO:
+            sharpgraph mermaid <tipo> [-u <callers>] [-d <deps>] [-n <nodos>] [--lr] [--external]
+
+          FLAGS:
+            -u <callers>   Niveles hacia los llamadores (0-6, defecto 3).
+            -d <deps>      Niveles hacia las dependencias (0-6, defecto 3).
+            -n <nodos>     Tope de nodos (5-100, defecto 40).
+            --lr           Orientación izquierda→derecha (defecto TD).
+            --external     Incluir tipos BCL/NuGet (ILogger, IMediator…).
+
+          EJEMPLOS:
+            sharpgraph mermaid CreateOrderCommandHandler
+            sharpgraph mermaid OrderService -u 0 -d 4      # solo dependencias
+            sharpgraph mermaid IUserService --lr --external
+
+          EQUIVALENTE MCP: mermaid_context(typeName, callersDepth, depsDepth, ...)
+        """;
+
+    private const string CmdMermaidSeq = """
+        sharpgraph mermaid-seq — Diagrama de secuencia ancla → endpoint
+
+          Cada cadena estructural desde el ancla hasta los endpoints HTTP que la
+          invocan, dibujada como sequenceDiagram en orden de ejecución, seguida de
+          las llamadas salientes del ancla a nivel de método.
+
+          USO:
+            sharpgraph mermaid-seq <tipo> [-m <miembro>] [-p <caminos>] [-d <depth>]
+
+          FLAGS:
+            -m <miembro>   Mostrar solo las llamadas de ese método.
+            -p <caminos>   Máximo de cadenas a endpoint (1-8, defecto 3).
+            -d <depth>     Profundidad máxima de cadena (1-12, defecto 8).
+
+          EJEMPLOS:
+            sharpgraph mermaid-seq CreateOrderCommandHandler
+            sharpgraph mermaid-seq OrderService -m Place -p 2
+
+          EQUIVALENTE MCP: mermaid_sequence(typeName, member, maxPaths, maxDepth)
+        """;
+
+    private const string CmdMermaidOverview = """
+        sharpgraph mermaid-overview — Mapa de arquitectura Mermaid
+
+          Grafo de arquitectura: BFS desde todos los endpoints HTTP hacia sus
+          dependencias, agrupado en subgraphs por namespace. El diagrama de
+          cabecera para docs/architecture/overview.md.
+
+          USO:
+            sharpgraph mermaid-overview [-a <área>] [-d <deps>] [-n <nodos>]
+
+          FLAGS:
+            -a <área>      Filtrar endpoints por substring de tipo/namespace.
+            -d <deps>      Profundidad de dependencias (1-5, defecto 2).
+            -n <nodos>     Tope de nodos (10-150, defecto 60).
+
+          EJEMPLOS:
+            sharpgraph mermaid-overview
+            sharpgraph mermaid-overview -a Billing -d 3
+
+          EQUIVALENTE MCP: mermaid_overview(area, depsDepth, maxNodes)
+        """;
+
     private const string CmdSetup = """
         sharpgraph setup — Instalación interactiva
 
@@ -553,7 +648,7 @@ internal static class CliHelp
           COMANDOS DISPONIBLES:
             scan, stats, search, callers, usages, callsites, trace, impact,
             flow, hubs, di, source, understand, read-file, semantic, literals,
-            explore, setup, help
+            explore, mermaid, mermaid-seq, mermaid-overview, setup, help
 
           EJEMPLOS:
             sharpgraph help flow         # ayuda del comando flow
