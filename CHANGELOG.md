@@ -62,6 +62,21 @@ minor versions).
   de host equivocado) y cualquier error JS de la vista se reporta al canal
   "SharpGraph Flow" para diagnóstico.
 
+## [2.5.3] — motor
+
+### Fixed
+- **SCANNER — rutas de acción con [Route] separado (la raíz del "batiburrido")**:
+  el patrón `[HttpGet]` SIN plantilla + `[Route("sectors")]` en atributo separado
+  (así está escrito GeroaController de Payroll) NO componía ruta — las 25
+  acciones colapsaban a "/api/geroas" y CUALQUIER clic resolvía 11 endpoints a
+  la vez (el controlador entero; y los "no encontrado" del catálogo). Ahora el
+  visitor compone prefijo + `[Route]` de la acción cuando el `[HttpX]` va sin
+  plantilla. Verificado E2E contra el worktree Geroa real: 25 endpoints → 23
+  rutas distintas; clic en GET /api/geroas/sectors → modo endpoint, 1 match,
+  2/114 aristas del controller, 6 nodos (endpoint → controller → query).
+- **ParserVersion 9 → 10**: invalida todas las cachés (las rutas extraídas
+  cambian; el primer scan tras actualizar es completo, una sola vez).
+
 ## [2.5.2] — motor
 
 ### Fixed

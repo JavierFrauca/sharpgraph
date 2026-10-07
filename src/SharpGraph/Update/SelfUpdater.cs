@@ -187,7 +187,7 @@ public static class SelfUpdater
         return false;
     }
 
-    private static async Task DownloadToAsync(string url, string destination)
+    internal static async Task DownloadToAsync(string url, string destination)
     {
         using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
         http.DefaultRequestHeaders.UserAgent.ParseAdd($"SharpGraph/{VersionInfo.Current}");
@@ -199,7 +199,7 @@ public static class SelfUpdater
     }
 
     /// <summary>SHA256SUMS.txt del mismo release, si existe (null si no).</summary>
-    private static async Task<string?> TryDownloadSumsAsync(string assetUrl)
+    internal static async Task<string?> TryDownloadSumsAsync(string assetUrl)
     {
         var sumsUrl = assetUrl.Replace(
             "/" + assetUrl.Split('/')[^1],

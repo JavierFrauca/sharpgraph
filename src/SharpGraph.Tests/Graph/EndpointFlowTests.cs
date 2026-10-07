@@ -31,6 +31,8 @@ public class EndpointFlowTests
 
         public record UpdateOrderCommand(int Id, string Sku) : IRequest<int>;
 
+        public record ListGeroaSectorsQuery(CancellationToken Ct) : IRequest<int>;
+
         public interface IUnitOfWork { int Save(); }
 
         public interface IOrderRepository { int Create(string sku); }
@@ -81,12 +83,19 @@ public class EndpointFlowTests
             private readonly IMediator _mediator;
             public OrdersController(IMediator mediator) => _mediator = mediator;
 
-            [HttpPost]
-            public IActionResult Create(CreateOrderCommand cmd)
-            {
-                var id = _mediator.Send(cmd);
-                return Ok(id);
-            }
+        [HttpGet]
+        [Route("sectors")]
+        public async Task<IActionResult> GetSectors(CancellationToken ct)
+        {
+            return Ok(await _mediator.Send(new ListGeroaSectorsQuery(ct), ct));
+        }
+
+        [HttpPost]
+        public IActionResult Create(CreateOrderCommand cmd)
+        {
+            var id = _mediator.Send(cmd);
+            return Ok(id);
+        }
 
             [HttpPut("{id}")]
             public IActionResult Update(int id, UpdateOrderCommand cmd)
@@ -141,7 +150,8 @@ public class EndpointFlowTests
         var json = JsonDocument.Parse(BuildApp().ListEndpoints()).RootElement;
 
         Assert.True(json.GetProperty("count").GetInt32() >= 1);
-        var ep = json.GetProperty("endpoints").EnumerateArray().First();
+        var ep = json.GetProperty("endpoints").EnumerateArray()
+            .First(e => e.GetProperty("method").GetString() == "Create");
         Assert.Equal("POST", ep.GetProperty("verb").GetString());
         Assert.Equal("/api/orders", ep.GetProperty("route").GetString());
         Assert.Equal("OrdersController", ep.GetProperty("controllerName").GetString());
@@ -228,7 +238,7 @@ public class EndpointFlowTests
     public void Flow_ResolvesByControllerName_AndByRoute()
     {
         var byName = Flow(BuildApp(), "OrdersController");
-        Assert.Equal(2, byName.GetProperty("matchedEndpoints").GetInt32()); // POST + PUT
+        Assert.Equal(3, byName.GetProperty("matchedEndpoints").GetInt32()); // POST + PUT + GET sectors
 
         var byRoute = Flow(BuildApp(), "/api/orders");
         Assert.Equal("POST /api/orders", byRoute.GetProperty("endpoint").GetString());
@@ -268,7 +278,27 @@ public class EndpointFlowTests
             .Select(n => n.GetProperty("name").GetString()).ToHashSet();
         Assert.Contains("CreateOrderCommand", names);
         Assert.Contains("UpdateOrderCommand", names);
-        Assert.Equal(2, flow.GetProperty("matchedEndpoints").GetInt32());
+        Assert.Equal(3, flow.GetProperty("matchedEndpoints").GetInt32());
+    }
+
+    [Fact]
+    public void Flow_ActionRouteSeparateAttribute_ComposesRoute()
+    {
+        // patrón real de Payroll: [HttpGet] SIN plantilla + [Route("sectors")]
+        // separado — antes colapsaba a la ruta del controlador y TODAS las
+        // acciones compartían verb+route (el "batiburrido")
+        var graph = BuildApp();
+        var list = JsonDocument.Parse(graph.ListEndpoints()).RootElement;
+        Assert.Contains(list.GetProperty("endpoints").EnumerateArray(),
+            e => e.GetProperty("route").GetString() == "/api/orders/sectors"
+                 && e.GetProperty("method").GetString() == "GetSectors");
+
+        // con la ruta única, el modo endpoint resuelve UNO solo
+        var flow = JsonDocument.Parse(graph.EndpointFlow("GET /api/orders/sectors")).RootElement;
+        Assert.Equal("endpoint", flow.GetProperty("mode").GetString());
+        Assert.Equal(1, flow.GetProperty("matchedEndpoints").GetInt32());
+        Assert.Contains(flow.GetProperty("nodes").EnumerateArray(),
+            n => n.GetProperty("name").GetString() == "ListGeroaSectorsQuery");
     }
 
     [Fact]
