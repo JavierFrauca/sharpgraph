@@ -37,6 +37,7 @@ export class EndpointsWebviewProvider implements vscode.WebviewViewProvider {
         private readonly onOpenInEditor: (ep: EndpointItem) => void,
         private readonly onCommand: (cmd: "scan" | "configure") => void,
         private readonly onRefreshGroup: (key: string) => void,
+        private readonly onWebviewError: (message: string) => void,
     ) {}
 
     resolveWebviewView(view: vscode.WebviewView): void {
@@ -57,6 +58,8 @@ export class EndpointsWebviewProvider implements vscode.WebviewViewProvider {
                 this.onCommand(msg.cmd === "configure" ? "configure" : "scan");
             } else if (msg?.type === "refreshGroup" && typeof msg.key === "string") {
                 this.onRefreshGroup(msg.key);
+            } else if (msg?.type === "webviewError" && typeof msg.message === "string") {
+                this.onWebviewError(msg.message);
             }
         });
         if (this.status.kind !== "loading") {

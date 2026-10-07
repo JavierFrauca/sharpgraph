@@ -75,8 +75,8 @@ function shell(nonce: string, seed: EndpointItem[]): string {
 <body>
   <div class="filterbar">
     <input id="filter" type="text" placeholder="Filtrar: controlador, ruta, método, verbo…" spellcheck="false">
-    <button class="mini" id="expandAll" title="Expandir todo">▾▾</button>
-    <button class="mini" id="collapseAll" title="Contraer todo">▸▸</button>
+    <button class="mini" id="expandAll" data-action="expandAll" title="Expandir todo">▾▾</button>
+    <button class="mini" id="collapseAll" data-action="collapseAll" title="Contraer todo">▸▸</button>
   </div>
   <div class="count" id="count"></div>
   <div class="tree" id="tree"></div>
@@ -135,8 +135,7 @@ function shell(nonce: string, seed: EndpointItem[]): string {
     var gs = groups();
     if (!gs.length) {
       count.textContent = "";
-      tree.innerHTML = '<div class="empty-filter">Sin coincidencias para <b>' + esc(state.filter) + '</b>. <a id="clearF">Quitar filtro</a></div>';
-      document.getElementById("clearF").onclick = function(){ input.value = ""; state.filter = ""; render(); };
+      tree.innerHTML = '<div class="empty-filter">Sin coincidencias para <b>' + esc(state.filter) + '</b>. <a data-action="clearFilter" id="clearF">Quitar filtro</a></div>';
       return;
     }
     var visible = 0;
@@ -171,17 +170,32 @@ function shell(nonce: string, seed: EndpointItem[]): string {
     return null;
   }
 
-  document.getElementById("tree").addEventListener("click", function(ev) {
+  // ── delegación ÚNICA de clicks en document: inmune a re-render y a órdenes
+  // de registro (los botones/estados se resuelven por data-*, no por listener) ──
+  document.addEventListener("click", function(ev) {
     var t = ev.target;
-    var cmdEl = t.closest ? t.closest("[data-cmd]") : null;
+    if (!t || !t.closest) return;
+    var action = t.closest("[data-action]");
+    if (action) {
+      var kind = action.getAttribute("data-action");
+      if (kind === "expandAll" || kind === "collapseAll") {
+        var open = kind === "expandAll";
+        groups().forEach(function(g){ state.expanded[g.key] = open; });
+        render();
+      } else if (kind === "clearFilter") {
+        input.value = ""; state.filter = ""; render();
+      }
+      return;
+    }
+    var cmdEl = t.closest("[data-cmd]");
     if (cmdEl) { if (vsc) vsc.postMessage({ type: "cmd", cmd: cmdEl.getAttribute("data-cmd") }); return; }
-    var pop = t.closest ? t.closest(".pop") : null;
+    var pop = t.closest(".pop");
     if (pop) {
       var epPop = epFromRow(pop.closest(".ep"));
       if (epPop && vsc) vsc.postMessage({ type: "openInEditor", ep: epPop });
       return;
     }
-    var head = t.closest ? t.closest(".grp-h") : null;
+    var head = t.closest(".grp-h");
     if (head) {
       var grp = head.parentElement;
       var wasClosed = grp.classList.contains("closed");
@@ -196,7 +210,7 @@ function shell(nonce: string, seed: EndpointItem[]): string {
       }
       return;
     }
-    var row = t.closest ? t.closest(".ep") : null;
+    var row = t.closest(".ep");
     if (row) {
       var ep = epFromRow(row);
       if (ep && vsc) vsc.postMessage({ type: "select", ep: ep });
@@ -208,12 +222,6 @@ function shell(nonce: string, seed: EndpointItem[]): string {
   input.addEventListener("input", function() {
     clearTimeout(filterTimer);
     filterTimer = setTimeout(function(){ state.filter = input.value.trim(); render(); }, 120);
-  });
-  document.getElementById("expandAll").addEventListener("click", function(){
-    groups().forEach(function(g){ state.expanded[g.key] = true; }); render();
-  });
-  document.getElementById("collapseAll").addEventListener("click", function(){
-    groups().forEach(function(g){ state.expanded[g.key] = false; }); render();
   });
 
   window.addEventListener("message", function(e) {
@@ -233,7 +241,17 @@ function shell(nonce: string, seed: EndpointItem[]): string {
     } else if (m.type === "status") { state.status = m.status; if (m.status.kind !== "ok") render(); }
   });
 
-  render();
+  // telemetría: cualquier error JS del webview llega al host (canal de salida)
+  window.addEventListener("error", function(e) {
+    if (vsc) vsc.postMessage({ type: "webviewError", message: String((e && e.error && e.error.stack) || e.message || e) });
+  });
+
+  try {
+    render();
+  } catch (err) {
+    if (vsc) vsc.postMessage({ type: "webviewError", message: String((err && err.stack) || err) });
+    document.getElementById("tree").innerHTML = '<div class="state err">Error en la vista: ' + esc(String(err)) + '</div>';
+  }
 })();
 </script>
 </body>
