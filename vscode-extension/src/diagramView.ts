@@ -82,7 +82,7 @@ export class DiagramViewProvider implements vscode.WebviewViewProvider {
         view.webview.html = this.loadingHtml(ep);
         try {
             if (!keepParams) {
-                this.lastDepth = Math.min(12, Math.max(1, config.get<number>("defaultDepth", 4)));
+                this.lastDepth = Math.min(12, Math.max(1, config.get<number>("defaultDepth", 2)));
                 this.lastDtos = config.get<boolean>("includeDtos", false);
             }
             const maxNodes = Math.min(200, Math.max(5, config.get<number>("maxNodes", 80)));

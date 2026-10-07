@@ -58,6 +58,8 @@ const NODE_W = 196;
 const NODE_H = 54;
 const GAP_X = 30;
 const GAP_Y = 82;
+/** columnas máximas por nivel: lo que excede ENVUELVE a filas extra (vertical) */
+const MAX_COLS = 4;
 
 const KIND_CLASS: Record<string, string> = {
     endpoint: "k-endpoint",
@@ -97,14 +99,19 @@ interface Placed {
     y: number;
 }
 
-/** Layout tidy-tree: niveles por BFS, hojas en slots secuenciales, padre centrado. */
+/**
+ * Layout por NIVELES EN CUADRÍCULA: cada nivel BFS baja una "banda" y, si tiene
+ * más de MAX_COLS nodos, ENVUELVE en filas extra — el grafo es siempre más alto
+ * que ancho (vertical), aunque un nivel tenga 15 hermanos. Los niveles estrechos
+ * se centran (columna del prototipo). Los huérfanos (infra oculta) van a una
+ * banda final.
+ */
 function layout(data: FlowData): { pos: Map<string, Placed>; width: number; height: number } {
     const root = data.root ?? data.nodes[0]?.id;
     const byId = new Map(data.nodes.map((n) => [n.id, n]));
-    const children = new Map<string, string[]>();
     const levelOf = new Map<string, number>();
 
-    // árbol de expansión: primera arista no-back que alcanza cada nodo
+    // niveles por BFS sobre el árbol de expansión (primera arista no-back)
     const queue = root !== undefined ? [root] : [];
     if (root !== undefined) {
         levelOf.set(root, 0);
@@ -118,51 +125,48 @@ function layout(data: FlowData): { pos: Map<string, Placed>; width: number; heig
             }
             if (!levelOf.has(e.to)) {
                 levelOf.set(e.to, lvl + 1);
-                if (!children.has(cur)) {
-                    children.set(cur, []);
-                }
-                children.get(cur)!.push(e.to);
                 queue.push(e.to);
             }
         }
     }
-    // nodos colgando fuera del árbol (deps de nodos infra visibles): cuelgan al fondo
+
+    // nodos por nivel en orden de descubrimiento (los hermanos quedan juntos);
+    // los que quedan fuera del árbol (infra oculta u huérfanos) van a una banda final
+    const maxLevel = levelOf.size > 0 ? Math.max(...levelOf.values()) : 0;
+    const byLevel = new Map<number, FlowNode[]>();
     for (const n of data.nodes) {
-        if (!levelOf.has(n.id)) {
-            levelOf.set(n.id, 1);
+        const l = levelOf.get(n.id) ?? maxLevel + 1;
+        if (!byLevel.has(l)) {
+            byLevel.set(l, []);
         }
+        byLevel.get(l)!.push(n);
     }
 
     const pos = new Map<string, Placed>();
-    let nextSlot = 0;
-    const place = (id: string): number => {
-        const kids = children.get(id) ?? [];
-        let x: number;
-        if (kids.length === 0) {
-            x = nextSlot++;
-        } else {
-            // slots en orden natural de descubrimiento; el padre queda centrado
-            const xs = kids.map((k) => place(k));
-            x = (xs[0] + xs[xs.length - 1]) / 2;
-        }
-        pos.set(id, { x: x * (NODE_W + GAP_X), y: (levelOf.get(id) ?? 0) * (NODE_H + GAP_Y) });
-        return x;
-    };
-    if (root !== undefined) {
-        place(root);
-    }
-    // huérfanos (nunca alcanzables): una fila al final
-    const orphanLevel = Math.max(0, ...[...levelOf.values()]) + 1;
-    let orphanSlot = 0;
-    for (const n of data.nodes) {
-        if (!pos.has(n.id)) {
-            pos.set(n.id, { x: orphanSlot++ * (NODE_W + GAP_X), y: orphanLevel * (NODE_H + GAP_Y) });
-        }
+    const colW = NODE_W + GAP_X;
+    const rowH = NODE_H + GAP_Y;
+    let y = 0;
+    let maxColsUsed = 1;
+    for (const l of [...byLevel.keys()].sort((a, b) => a - b)) {
+        const list = byLevel.get(l)!;
+        const cols = Math.min(list.length, MAX_COLS);
+        maxColsUsed = Math.max(maxColsUsed, cols);
+        // centra los niveles estrechos dentro del ancho máximo
+        const offset = ((MAX_COLS - cols) * colW) / 2;
+        list.forEach((n, i) => {
+            pos.set(n.id, {
+                x: offset + (i % MAX_COLS) * colW,
+                y: y + Math.floor(i / MAX_COLS) * rowH,
+            });
+        });
+        y += Math.ceil(list.length / MAX_COLS) * rowH;
     }
 
-    const width = Math.max(1, (nextSlot - 1)) * (NODE_W + GAP_X) + NODE_W;
-    const height = (orphanLevel + 1) * (NODE_H + GAP_Y) - GAP_Y;
-    return { pos, width: Math.max(width, NODE_W), height };
+    return {
+        pos,
+        width: Math.max(maxColsUsed * colW - GAP_X + 4, NODE_W),
+        height: y + 4,
+    };
 }
 
 function edgePath(a: Placed, b: Placed, back: boolean): string {
