@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (with the caveat that, during beta, the MCP tool surface may change between
 minor versions).
 
+## [2.4.1] - 2026-10-07
+
+### Added
+- **Extensión SharpGraph Flow — acción "Indexar / actualizar repo"**: botón nuevo
+  en el título de la vista (y en el estado vacío/error del árbol) que escanea el
+  repo ABIERTO en ese momento: elige carpeta en multi-root y .sln/.slnx/.csproj si
+  hay varios, muestra progreso y lanza el `scan` incremental del motor (primera
+  inicialización y actualización, mismo botón). La vista muestra ahora la solución
+  cargada como descripción; "Reindexar" pasa a "Recargar catálogo desde caché"
+  (re-arranca el motor sin forzar scan).
+
 ## [2.4.0] - 2026-10-07
 
 ### Added
