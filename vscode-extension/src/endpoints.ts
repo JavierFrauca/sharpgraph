@@ -34,6 +34,7 @@ export class EndpointsWebviewProvider implements vscode.WebviewViewProvider {
 
     constructor(
         private readonly onSelect: (ep: EndpointItem) => void,
+        private readonly onSelectController: (controllerName: string) => void,
         private readonly onOpenInEditor: (ep: EndpointItem) => void,
         private readonly onCommand: (cmd: "scan" | "configure") => void,
         private readonly onRefreshGroup: (key: string) => void,
@@ -52,6 +53,8 @@ export class EndpointsWebviewProvider implements vscode.WebviewViewProvider {
         view.webview.onDidReceiveMessage((msg) => {
             if (msg?.type === "select" && msg.ep) {
                 this.onSelect(msg.ep as EndpointItem);
+            } else if (msg?.type === "selectController" && typeof msg.name === "string") {
+                this.onSelectController(msg.name);
             } else if (msg?.type === "openInEditor" && msg.ep) {
                 this.onOpenInEditor(msg.ep as EndpointItem);
             } else if (msg?.type === "cmd") {

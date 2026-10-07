@@ -97,10 +97,18 @@ public sealed partial class GraphEngine
             maxDepth = Math.Clamp(maxDepth, 1, 12);
             maxNodes = Math.Clamp(maxNodes, 5, 200);
 
-            var roots = ResolveEndpoints(endpoint, out var error);
+            var roots = ResolveEndpoints(endpoint, out var error, out var byName);
             if (error is not null || roots is null) return error ?? FlowError("Endpoint no encontrado.");
 
             if (_nodes.Count == 0) return FlowError("Grafo vacío: ejecuta scan() primero.");
+
+            // MODO ENDPOINT-CONCRETO: si la entrada resolvió por verbo+ruta (no por
+            // nombre de controlador), del controller SOLO se expanden las aristas de
+            // SU método de acción (FromMember) — no el batiburrido de los demás
+            // endpoints del mismo controller. Por nombre de controlador: todo.
+            var single = !byName && roots.Count == 1;
+            var rootCtrl = roots[0].Ctrl;
+            var methodName = single ? roots[0].Ep.MethodName : null;
 
             // ── recolección BFS ──
             var labels = new Dictionary<string, string>(Cmp);   // nodos sintéticos $ep: → label legible
@@ -130,12 +138,25 @@ public sealed partial class GraphEngine
             }
 
             var frontier = roots.Select(r => r.Ctrl).Distinct(Cmp).ToList();
+            var firstLevel = true;
             for (var depth = 0; depth < maxDepth && frontier.Count > 0; depth++)
             {
                 var next = new List<string>();
                 foreach (var current in frontier)
                 {
                     if (!_out.TryGetValue(current, out var outEdges)) continue;
+
+                    // primer nivel en modo endpoint-concreto: solo las aristas que
+                    // salen del método de acción de ESTE endpoint (si su método no
+                    // genera aristas resueltas, fallback al expansionado completo)
+                    if (single && firstLevel && methodName is not null && Cmp.Equals(current, rootCtrl))
+                    {
+                        var mine = outEdges
+                            .Where(e => e.FromMember is not null && Cmp.Equals(e.FromMember, methodName))
+                            .ToList();
+                        if (mine.Count > 0) outEdges = mine;
+                    }
+
                     foreach (var g in outEdges
                         .Where(e => IsStructuralRelation(e.Relation) ||
                                     (includeDtos && e.Relation is EdgeRelation.ParamType or EdgeRelation.ReturnType))
@@ -167,6 +188,7 @@ public sealed partial class GraphEngine
                     }
                 }
                 frontier = next;
+                firstLevel = false;
             }
 
             // ── clasificación por capa + metadatos ──
@@ -222,11 +244,13 @@ public sealed partial class GraphEngine
     }
 
     /// <summary>Resuelve la entrada a endpoints concretos: tipo controlador (simple o
-    /// FQN, todas sus rutas), "VERB /ruta" o "/ruta" (exacto primero, luego substring,
-    /// máx 5). Rellena error con JSON {"error": …} si no hay match.</summary>
-    private List<(string EpKey, string Ctrl, EndpointDef Ep)>? ResolveEndpoints(string input, out string? error)
+    /// FQN, todas sus rutas — <paramref name="byName"/>=true, modo controlador
+    /// completo), "VERB /ruta" o "/ruta" (exacto primero, luego substring, máx 5 —
+    /// modo endpoint-concreto). Rellena error con JSON {"error": …} si no hay match.</summary>
+    private List<(string EpKey, string Ctrl, EndpointDef Ep)>? ResolveEndpoints(string input, out string? error, out bool byName)
     {
         error = null;
+        byName = false;
         var result = new List<(string, string, EndpointDef)>();
 
         var key = ResolveInput(input, out var amb);
@@ -237,6 +261,7 @@ public sealed partial class GraphEngine
         }
         if (key is not null && _endpoints.TryGetValue(key, out var byType))
         {
+            byName = true;
             foreach (var ep in byType) result.Add((EpKeyOf(key, ep), key, ep));
             return result;
         }

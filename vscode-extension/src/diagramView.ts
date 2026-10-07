@@ -8,17 +8,21 @@ import { openAtLine } from "./flowPanel";
 /**
  * Zona inferior del contenedor en la barra lateral: webview embebido con el
  * diagrama del endpoint seleccionado en el árbol (mismo render que el panel
- * del editor). Clic en un endpoint → se actualiza aquí, sin abrir paneles;
- * "Editor" lo saca al panel grande. Guarda el último endpoint para renderizar
- * en cuanto VS Code resuelva la vista (lazy).
+ * del editor). Clic en un endpoint → SOLO ese endpoint (del controller salen
+ * únicamente las aristas de su método de acción); clic en el NOMBRE de un
+ * controlador → flujo completo del controlador. "Editor" lo saca al panel
+ * grande. Guarda la última expresión para renderizar en cuanto VS Code
+ * resuelva la vista (lazy).
  */
 export class DiagramViewProvider implements vscode.WebviewViewProvider {
     static readonly viewId = "sharpgraphFlow.diagram";
 
     private view?: vscode.WebviewView;
     private lastEndpoint?: EndpointItem;
+    private lastExpression?: string;
+    private lastTitle?: string;
     /** niveles/contratos vigentes (los cambia el slider del propio diagrama) */
-    private lastDepth = 4;
+    private lastDepth = 2;
     private lastDtos = false;
     /** genera del lado del host cuando el usuario pide el panel grande */
     private gen = 0;
@@ -43,25 +47,43 @@ export class DiagramViewProvider implements vscode.WebviewViewProvider {
             } else if (msg?.type === "openInEditor" && this.lastEndpoint) {
                 this.onOpenInEditor(this.lastEndpoint);
             } else if (msg?.type === "params") {
-                this.lastDepth = Math.min(12, Math.max(1, Number(msg.depth) || 4));
+                this.lastDepth = Math.min(12, Math.max(1, Number(msg.depth) || 2));
                 this.lastDtos = !!msg.dtos;
-                if (this.lastEndpoint) {
-                    void this.show(this.lastEndpoint, false, true);
+                if (this.lastExpression) {
+                    void this.showExpression(this.lastExpression, this.lastTitle ?? this.lastExpression, this.lastEndpoint, false, true);
                 }
             } else if (msg?.type === "cmd") {
                 // no aplicable en esta vista (placeholder por simetría)
             }
         });
-        if (this.lastEndpoint) {
-            void this.show(this.lastEndpoint, false);
+        if (this.lastExpression) {
+            void this.showExpression(this.lastExpression, this.lastTitle ?? this.lastExpression, this.lastEndpoint, false);
         }
     }
 
-    /** Renderiza el flujo del endpoint en la vista embebida. reveal=false cuando
-     * ya es visible (evita robar el foco mientras se navega el árbol con teclado);
-     * keepParams=true cuando el origen es el slider (conserva nivel/contratos). */
+    /** Renderiza el flujo de UN endpoint concreto en la vista embebida. */
     async show(ep: EndpointItem, reveal = true, keepParams = false): Promise<void> {
+        await this.showExpression(`${ep.verb} ${ep.route}`, `${ep.verb} ${ep.route}`, ep, reveal, keepParams);
+    }
+
+    /** Flujo COMPLETO de un controlador (clic en su nombre en el árbol). */
+    async showController(controllerName: string, reveal = true): Promise<void> {
+        await this.showExpression(controllerName, controllerName, undefined, reveal);
+    }
+
+    /** Renderiza el flujo en la vista embebida. reveal=false cuando ya es visible
+     * (evita robar el foco mientras se navega el árbol con teclado); keepParams=true
+     * cuando el origen es el slider (conserva nivel/contratos). */
+    private async showExpression(
+        expression: string,
+        title: string,
+        ep: EndpointItem | undefined,
+        reveal: boolean,
+        keepParams = false,
+    ): Promise<void> {
         this.lastEndpoint = ep;
+        this.lastExpression = expression;
+        this.lastTitle = title;
         this.gen++;
         const myGen = this.gen;
         if (reveal) {
@@ -75,11 +97,11 @@ export class DiagramViewProvider implements vscode.WebviewViewProvider {
         }
         const view = this.view;
         if (!view) {
-            return; // resolveWebviewView renderizará lastEndpoint
+            return; // resolveWebviewView renderizará la última expresión
         }
 
         const config = vscode.workspace.getConfiguration("sharpgraphFlow");
-        view.webview.html = this.loadingHtml(ep);
+        view.webview.html = this.loadingHtml(title);
         try {
             if (!keepParams) {
                 this.lastDepth = Math.min(12, Math.max(1, config.get<number>("defaultDepth", 2)));
@@ -87,7 +109,7 @@ export class DiagramViewProvider implements vscode.WebviewViewProvider {
             }
             const maxNodes = Math.min(200, Math.max(5, config.get<number>("maxNodes", 80)));
             const json = await this.client.callTool("endpoint_flow", {
-                endpoint: `${ep.verb} ${ep.route}`,
+                endpoint: expression,
                 maxDepth: this.lastDepth,
                 maxNodes,
                 includeDtos: this.lastDtos,
@@ -100,7 +122,8 @@ export class DiagramViewProvider implements vscode.WebviewViewProvider {
             view.webview.html = renderFlowHtml(flow, {
                 nonce: crypto.randomBytes(16).toString("hex"),
                 includeInfra: config.get<boolean>("includeInfra", false),
-                openInEditor: true,
+                // el botón Editor solo tiene sentido con un endpoint concreto
+                openInEditor: ep !== undefined,
                 depth: this.lastDepth,
                 includeDtos: this.lastDtos,
             });
@@ -117,14 +140,16 @@ export class DiagramViewProvider implements vscode.WebviewViewProvider {
             body{background:var(--vscode-sideBar-background,#181818);color:var(--vscode-sideBar-foreground,#bbb);
             font-family:"Segoe UI",sans-serif;font-size:12px;display:grid;place-items:center;height:100vh;margin:0;
             text-align:center;line-height:1.6;padding:0 18px;box-sizing:border-box}</style></head>
-            <body><div>⚡ Clic en un endpoint del árbol<br>para ver su flujo aquí.</div></body></html>`;
+            <body><div>⚡ Clic en un endpoint del árbol para ver SU flujo.<br>
+            <span style="color:var(--vscode-descriptionForeground,#888);font-size:11px">
+            Clic en el nombre de un controlador = flujo completo.</span></div></body></html>`;
     }
 
-    private loadingHtml(ep: EndpointItem): string {
+    private loadingHtml(title: string): string {
         return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
             body{background:var(--vscode-sideBar-background,#181818);color:var(--vscode-sideBar-foreground,#bbb);
             font-family:"Segoe UI",sans-serif;font-size:12px;display:grid;place-items:center;height:100vh;margin:0}</style></head>
-            <body><div>⚡ Generando ${ep.verb} ${ep.route}…</div></body></html>`;
+            <body><div>⚡ Generando ${title}…</div></body></html>`;
     }
 
     private errorHtml(message: string): string {
