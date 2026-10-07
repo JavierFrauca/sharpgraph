@@ -562,6 +562,20 @@ public sealed partial class TypeReferenceVisitor : CSharpSyntaxWalker
 
     private void DetectEndpoint(MethodDeclarationSyntax node)
     {
+        // plantilla de ruta en un [Route("…")] de la ACCIÓN, separado del [HttpX]:
+        //   [HttpGet] + [Route("sectors")]  ⇒  /api/geroas/sectors
+        // (sin esto, todas las acciones de un controller colapsan a la ruta base)
+        var actionRouteOverride = node.AttributeLists
+            .SelectMany(static al => al.Attributes)
+            .Where(static attr =>
+            {
+                var name = attr.Name.ToString();
+                var simple = (name.Contains('.') ? name.Split('.').Last() : name).Replace("Attribute", "");
+                return simple == "Route";
+            })
+            .Select(ExtractRouteArg)
+            .FirstOrDefault(static t => !string.IsNullOrWhiteSpace(t));
+
         foreach (var attrList in node.AttributeLists)
         foreach (var attr in attrList.Attributes)
         {
@@ -573,6 +587,8 @@ public sealed partial class TypeReferenceVisitor : CSharpSyntaxWalker
 
             var verb = simpleName.Replace("Http", "").ToUpperInvariant();
             var actionRoute = ExtractRouteArg(attr);
+            if (string.IsNullOrWhiteSpace(actionRoute) && !string.IsNullOrWhiteSpace(actionRouteOverride))
+                actionRoute = actionRouteOverride;
             var route = CombineRoute(_routePrefixStack.Count > 0 ? _routePrefixStack.Peek() : null, actionRoute, node.Identifier.Text);
             _fragment.Endpoints.Add(new EndpointDef(CurrentType!, verb, route, node.Identifier.Text, LineOf(node)));
         }

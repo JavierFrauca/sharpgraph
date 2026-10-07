@@ -25,7 +25,9 @@ public sealed class GraphStore
     /// v8: FileFragment gana Literals (search_literals).
     /// v9: minimal APIs tipadas por grupos (groupBuilder.MapGet(Metodo[, "ruta"])).
     /// </summary>
-    private const int ParserVersion = 9;
+    // 10 — rutas de endpoints compuestas también con [Route] de la acción
+    // (antes colapsaban al prefijo del controller); invalida cachés antiguas
+    private const int ParserVersion = 10;
 
     /// <summary>
     /// Tope de cachés de soluciones distintas conservadas en disco: al superarlo
