@@ -83,11 +83,14 @@ public sealed partial class GraphEngine
     /// acepta "VERB /ruta" ("POST /api/orders"), "/ruta" (substring) o el nombre
     /// del controlador (todas sus rutas). Cada nodo lleva kind (endpoint,
     /// controller, command/query, handler, interface, implementation, validator,
-    /// class, external), file:line y el flag infra (ruido ocultable); cada arista
-    /// lleva relation, línea de la primera referencia y back=true si su destino ya
-    /// estaba dibujado (dependencia compartida/ciclo: no se re-expande).
+    /// dto, class, external), file:line y el flag infra (ruido ocultable); cada
+    /// arista lleva relation, línea de la primera referencia y back=true si su
+    /// destino ya estaba dibujado (dependencia compartida o ciclo: no se
+    /// re-expande). Con <paramref name="includeDtos"/> entran además los
+    /// CONTRATOS de entrada/salida (aristas ParamType/ReturnType → nodos kind
+    /// "dto", hojas): el nivel 4 del diagrama de la extensión.
     /// </summary>
-    public string EndpointFlow(string endpoint, int maxDepth = 8, int maxNodes = 80)
+    public string EndpointFlow(string endpoint, int maxDepth = 8, int maxNodes = 80, bool includeDtos = false)
     {
         lock (_lock)
         {
@@ -106,6 +109,7 @@ public sealed partial class GraphEngine
             var indexOf = new Dictionary<string, int>(Cmp);
             var edges = new List<FlowEdge>();
             var edgeKeys = new HashSet<string>(Cmp);
+            var dtoNodes = new HashSet<string>(Cmp);
             var omitted = 0;
 
             bool TryAddNode(string key)
@@ -132,11 +136,15 @@ public sealed partial class GraphEngine
                 foreach (var current in frontier)
                 {
                     if (!_out.TryGetValue(current, out var outEdges)) continue;
-                    foreach (var g in outEdges.Where(e => IsStructuralRelation(e.Relation)).GroupBy(e => e.To, Cmp))
+                    foreach (var g in outEdges
+                        .Where(e => IsStructuralRelation(e.Relation) ||
+                                    (includeDtos && e.Relation is EdgeRelation.ParamType or EdgeRelation.ReturnType))
+                        .GroupBy(e => e.To, Cmp))
                     {
                         var to = g.Key;
                         if (IsDiagramNoise(to)) continue;
                         var rel = g.Select(e => e.Relation).OrderByDescending(RelationRank).First();
+                        var isDtoEdge = rel is EdgeRelation.ParamType or EdgeRelation.ReturnType;
                         if (IsMediatRArtifact(current, to, rel)) continue;
                         // la impl ⇒ interfaz ya dibujada por di-bound es el MISMO binding
                         // en sentido contrario (como IsMediatRArtifact, pero con DI): fuera
@@ -151,10 +159,11 @@ public sealed partial class GraphEngine
                             edgeKeys.Remove(current + "|" + to);
                             continue; // presupuesto agotado (ya contado en TryAddNode)
                         }
+                        if (isNew && isDtoEdge) dtoNodes.Add(to);
                         var lines = g.Select(e => e.Line).Where(l => l > 0).ToList();
                         edges.Add(new FlowEdge(current, to, rel, lines.Count > 0 ? lines.Min() : 0, Back: !isNew));
-                        // los externos (ILogger…) entran como hojas: no hay _out que expandir
-                        if (isNew && _nodes.ContainsKey(to)) next.Add(to);
+                        // los externos (ILogger…) y los DTOs son hojas: no se expanden
+                        if (isNew && !isDtoEdge && _nodes.ContainsKey(to)) next.Add(to);
                     }
                 }
                 frontier = next;
@@ -164,7 +173,7 @@ public sealed partial class GraphEngine
             var nodesJson = new JsonArray();
             foreach (var key in nodes)
             {
-                var (kind, infra) = ClassifyNode(key, labels);
+                var (kind, infra) = ClassifyNode(key, labels, dtoNodes, includeDtos);
                 var isEp = epMeta.TryGetValue(key, out var meta);
                 var node = _nodes.GetValueOrDefault(key);
                 nodesJson.Add(new JsonObject
@@ -269,8 +278,12 @@ public sealed partial class GraphEngine
 
     /// <summary>Clasifica un nodo por capa para el render de la extensión. Los nodos
     /// $ep: son el propio endpoint HTTP; los externos son infra si son BCL/logging
-    /// (el cliente los oculta con el toggle) y "external" si son NuGet de dominio.</summary>
-    private (string Kind, bool Infra) ClassifyNode(string key, Dictionary<string, string> labels)
+    /// (el cliente los oculta con el toggle) y "external" si son NuGet de dominio.
+    /// Los contratos ("dto") solo se clasifican cuando se piden (includeDtos):
+    /// descubiertos solo por ParamType/ReturnType, o por nombre — los
+    /// `new XxxResponse()` generan arista New que domina sobre ReturnType.</summary>
+    private (string Kind, bool Infra) ClassifyNode(string key, Dictionary<string, string> labels,
+        HashSet<string>? dtoNodes = null, bool includeDtos = false)
     {
         if (labels.ContainsKey(key)) return ("endpoint", false);
 
@@ -297,6 +310,16 @@ public sealed partial class GraphEngine
         if (node.Kind == NodeKind.Interface) return ("interface", false);
         if (simple.EndsWith("Validator", StringComparison.Ordinal)) return ("validator", false);
         if (_diByImpl.ContainsKey(key)) return ("implementation", false);
+        // contrato de entrada/salida SOLO cuando se piden DTOs: descubierto solo
+        // por param/return, o por nombre (los `new XxxResponse()` generan arista
+        // New que domina sobre ReturnType); sin el flag es un "class" más
+        if (includeDtos &&
+            (dtoNodes?.Contains(key) == true ||
+             simple.EndsWith("Dto", StringComparison.OrdinalIgnoreCase) ||
+             simple.EndsWith("Request", StringComparison.OrdinalIgnoreCase) ||
+             simple.EndsWith("Response", StringComparison.OrdinalIgnoreCase) ||
+             simple.EndsWith("Result", StringComparison.OrdinalIgnoreCase)))
+            return ("dto", false);
         return ("class", false);
     }
 

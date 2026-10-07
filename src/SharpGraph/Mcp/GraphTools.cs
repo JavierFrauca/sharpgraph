@@ -554,9 +554,10 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
         """)]
     public string EndpointFlow(
         [Description("Endpoint: \"POST /api/orders\", \"/api/orders\" o nombre del controlador.")] string endpoint,
-        [Description("Profundidad máxima del BFS descendente (1-12, defecto 8).")] int maxDepth = 8,
-        [Description("Tope de nodos del subgrafo (5-200, defecto 80).")] int maxNodes = 80)
-        => graph.EndpointFlow(endpoint, maxDepth, maxNodes);
+        [Description("Profundidad máxima del BFS descendente (1-12, defecto 8). Nivel 1 = mediator (command/query), nivel 2 = dependencias de primer nivel, nivel 3 = dependencias de las dependencias…")] int maxDepth = 8,
+        [Description("Tope de nodos del subgrafo (5-200, defecto 80).")] int maxNodes = 80,
+        [Description("Incluir contratos de entrada/salida (DTOs: parámetros y retornos de métodos como nodos hoja kind=dto). Defecto false.")] bool includeDtos = false)
+        => graph.EndpointFlow(endpoint, maxDepth, maxNodes, includeDtos);
 
     [McpServerTool(Title = "Estadísticas del grafo", ReadOnly = true, Idempotent = true), Description("""
         Estadísticas del grafo: tipos definidos, aristas, endpoints HTTP, call-sites

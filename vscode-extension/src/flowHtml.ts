@@ -47,6 +47,10 @@ export interface RenderOptions {
     includeInfra: boolean;
     /** muestra el botón "Abrir en editor" (modo embebido en la barra lateral) */
     openInEditor?: boolean;
+    /** nivel de profundidad inicial del slider (re-consulta por postMessage) */
+    depth: number;
+    /** contratos (DTOs) visibles inicialmente */
+    includeDtos: boolean;
 }
 
 // geometría del layout (px de diseño; el canvas se escala para caber)
@@ -64,6 +68,7 @@ const KIND_CLASS: Record<string, string> = {
     interface: "k-interface",
     implementation: "k-impl",
     validator: "k-validator",
+    dto: "k-dto",
     class: "k-class",
     external: "k-infra",
     infra: "k-infra",
@@ -263,12 +268,16 @@ export function renderFlowHtml(data: FlowData, opts: RenderOptions): string {
   #mmd{display:none;margin:8px 14px;padding:10px;background:var(--vscode-textCodeBlock-background,#1b1b1b);
     border:1px solid var(--vscode-panel-border,#2b2b2b);border-radius:5px;overflow:auto;max-height:40vh;
     font-family:Consolas,monospace;font-size:11.5px;white-space:pre}
-  .canvasOuter{flex:1;overflow:auto;position:relative;background:var(--vscode-editor-background,#1f1f1f)}
+  .canvasOuter{flex:1;overflow:auto;position:relative;background:var(--vscode-editor-background,#1f1f1f);cursor:grab}
+  .canvasOuter:active{cursor:grabbing}
   #sizer{position:relative;margin:0 auto}
   #canvas{position:absolute;left:0;top:0;transform-origin:0 0}
   .zoom{display:flex;gap:4px;align-items:center;margin-left:auto}
   .zoom button{min-width:28px;padding:3px 7px}
   #pct{font-size:11px}
+  .lvl{font-size:11.5px;display:flex;align-items:center;gap:5px;color:var(--vscode-descriptionForeground,#9a9a9a)}
+  .lvl b{color:var(--vscode-sideBar-foreground,#ccc);min-width:12px;text-align:center}
+  input[type=range]{accent-color:var(--vscode-focusBorder,#0078d4);width:90px;cursor:pointer}
   svg.edges{position:absolute;left:0;top:0;pointer-events:none}
   .node{position:absolute;border-radius:8px;padding:5px 11px 6px;cursor:pointer;border:1.5px solid;
     background:rgba(30,30,30,.94);box-sizing:border-box;height:${NODE_H}px;width:${NODE_W}px;overflow:hidden}
@@ -283,6 +292,7 @@ export function renderFlowHtml(data: FlowData, opts: RenderOptions): string {
   .k-interface{border-color:#4ec9b0;background:rgba(78,201,176,.08)} .k-interface .kind{color:#4ec9b0}
   .k-impl{border-color:#6a9955;background:rgba(106,153,85,.08)} .k-impl .kind{color:#6a9955}
   .k-validator{border-color:#9cdcfe;background:rgba(156,220,254,.07)} .k-validator .kind{color:#9cdcfe}
+  .k-dto{border-color:#4fc1ff;background:rgba(79,193,255,.08)} .k-dto .kind{color:#4fc1ff}
   .k-class{border-color:#9aa4af;background:rgba(154,164,175,.07)} .k-class .kind{color:#9aa4af}
   .k-infra{border-color:#6e7a8a;border-style:dashed;background:rgba(110,122,138,.06)}
   .k-infra .name{color:#9aa4af} .k-infra .kind{color:#6e7a8a}
@@ -305,10 +315,16 @@ export function renderFlowHtml(data: FlowData, opts: RenderOptions): string {
       <span class="chip"><i style="border-color:#d7ba7d"></i>handler</span>
       <span class="chip"><i style="border-color:#4ec9b0"></i>interfaz (DI)</span>
       <span class="chip"><i style="border-color:#6a9955"></i>implementación</span>
+      <span class="chip"><i style="border-color:#4fc1ff"></i>dto</span>
       <span class="chip"><i style="border-color:#6e7a8a;border-style:dashed"></i>infra / externo</span>
       <span class="chip"><i style="border-color:#f14c4c;border-style:dashed"></i>↺ back-edge</span>
     </div>
     <label class="tgl"><input type="checkbox" id="infraChk" ${opts.includeInfra ? "checked" : ""}> infraestructura</label>
+    <span class="lvl">Nivel
+      <input type="range" id="depth" min="1" max="8" step="1" value="${opts.depth}" title="1 = mediator · 2 = dependencias 1er nivel · 3 = dependencias de las dependencias · con contratos si está marcado">
+      <b id="depthVal">${opts.depth}</b>
+    </span>
+    <label class="tgl"><input type="checkbox" id="dtosChk" ${opts.includeDtos ? "checked" : ""} title="Nivel 4: contratos de entrada/salida (DTOs)"> contratos</label>
     ${mermaid ? '<button id="mmdBtn" title="Copiar/ver el Mermaid equivalente">Ver Mermaid</button>' : ""}
     ${opts.openInEditor ? '<button id="popOut" title="Abrir el diagrama grande en el editor">⤢ Editor</button>' : ""}
     <div class="zoom">
@@ -390,7 +406,46 @@ export function renderFlowHtml(data: FlowData, opts: RenderOptions): string {
     outer.scrollTop = 0;
     outer.scrollLeft = 0;
   }
+
+  // ── arrastre para desplazarse (grab) ──
+  var dragStart = null, dragged = false;
+  outer.addEventListener("mousedown", function(e) {
+    if (e.button !== 0) return;
+    dragStart = { x: e.clientX, y: e.clientY, sl: outer.scrollLeft, st: outer.scrollTop };
+    dragged = false;
+  });
+  window.addEventListener("mousemove", function(e) {
+    if (!dragStart) return;
+    var dx = e.clientX - dragStart.x, dy = e.clientY - dragStart.y;
+    if (Math.abs(dx) + Math.abs(dy) > 4) dragged = true;
+    if (dragged) {
+      outer.scrollLeft = dragStart.sl - dx;
+      outer.scrollTop = dragStart.st - dy;
+    }
+  });
+  window.addEventListener("mouseup", function() { dragStart = null; });
+
+  // ── niveles y contratos: re-consulta al host (con debounce) ──
+  var paramsTimer;
+  function postParams() {
+    if (!vsc) return;
+    clearTimeout(paramsTimer);
+    paramsTimer = setTimeout(function() {
+      vsc.postMessage({
+        type: "params",
+        depth: parseInt(document.getElementById("depth").value, 10),
+        dtos: document.getElementById("dtosChk").checked
+      });
+    }, 350);
+  }
+  var depthInput = document.getElementById("depth");
+  depthInput.addEventListener("input", function() {
+    document.getElementById("depthVal").textContent = this.value;
+  });
+  depthInput.addEventListener("change", postParams);
+  document.getElementById("dtosChk").addEventListener("change", postParams);
   document.body.addEventListener("click", function(ev) {
+    if (dragged) { dragged = false; return; } // era un arrastre, no un clic
     var node = ev.target.closest ? ev.target.closest(".node") : null;
     if (node) {
       var file = node.getAttribute("data-file");

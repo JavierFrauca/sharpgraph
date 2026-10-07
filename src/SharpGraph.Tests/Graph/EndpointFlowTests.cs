@@ -27,6 +27,8 @@ public class EndpointFlowTests
 
         public record CreateOrderCommand(string Sku) : IRequest<int>;
 
+        public sealed record CreateOrderResponse(int Id);
+
         public interface IUnitOfWork { int Save(); }
 
         public interface IOrderRepository { int Create(string sku); }
@@ -61,12 +63,12 @@ public class EndpointFlowTests
                 ILogger<CreateOrderCommandHandler> logger)
                 => (_repo, _email, _logger) = (repo, email, logger);
 
-            public int Handle(CreateOrderCommand cmd)
+            public CreateOrderResponse Handle(CreateOrderCommand cmd)
             {
                 _logger.LogInformation("creating {Sku}", cmd.Sku);
                 var id = _repo.Create(cmd.Sku);
                 _email.Send("client@corp.test");
-                return id;
+                return new CreateOrderResponse(id);
             }
         }
 
@@ -241,5 +243,26 @@ public class EndpointFlowTests
         var json = JsonDocument.Parse(result).RootElement;
         Assert.True(json.TryGetProperty("error", out var error));
         Assert.Contains("list_endpoints", error.GetString());
+    }
+
+    [Fact]
+    public void Flow_WithDtosFlag_IncludesContractsAsLeafNodes()
+    {
+        var graph = BuildApp();
+
+        // por defecto los contratos (ParamType/ReturnType) están fuera
+        var without = JsonDocument.Parse(graph.EndpointFlow("POST /api/orders")).RootElement;
+        Assert.DoesNotContain(without.GetProperty("nodes").EnumerateArray(),
+            n => n.GetProperty("kind").GetString() == "dto");
+
+        // con includeDtos el contrato de salida entra como nodo hoja kind=dto
+        var with = JsonDocument.Parse(graph.EndpointFlow("POST /api/orders", includeDtos: true)).RootElement;
+        var dto = with.GetProperty("nodes").EnumerateArray()
+            .First(n => n.GetProperty("name").GetString() == "CreateOrderResponse");
+        Assert.Equal("dto", dto.GetProperty("kind").GetString());
+        Assert.False(dto.GetProperty("infra").GetBoolean());
+        // y el comando SIGUE clasificándose como command (no lo pisa el dto)
+        Assert.Contains(with.GetProperty("nodes").EnumerateArray(),
+            n => n.GetProperty("kind").GetString() == "command" && n.GetProperty("name").GetString() == "CreateOrderCommand");
     }
 }
