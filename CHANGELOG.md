@@ -22,6 +22,21 @@ minor versions).
 
 ## [2.5.6] — extensión
 
+## [2.5.9] — extensión
+
+### Fixed
+- **"Ajustar" centra de verdad, en ambos ejes**: el lienzo medía solo las
+  columnas ocupadas mientras los niveles estrechos se centraban dentro de la
+  cuadrícula de 4 — el contenido se pintaba FUERA del lienzo calculado y
+  centrado/ajuste computaban sobre medidas mentirosas ("se queda de medio
+  lado"). La cuadrícula mide ahora SIEMPRE sus 4 columnas; el ajuste inicial se
+  reintenta hasta que el panel tiene tamaño real (webview recién montado) y el
+  centrado es horizontal Y vertical, mantenido por ResizeObserver.
+- Título completo (2.5.8): verb + ruta + controller.método en la vista
+  embebida, el panel grande y su pestaña.
+
+## [2.5.8] — extensión
+
 ## [2.5.7] — extensión
 
 ### Fixed
