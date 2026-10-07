@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (with the caveat that, during beta, the MCP tool surface may change between
 minor versions).
 
+## [2.4.2] - 2026-10-07
+
+### Added
+- **Extensión SharpGraph Flow — zoom del diagrama**: ruleta del ratón (zoom
+  anclado al cursor; Shift+ruleta = scroll horizontal) y botones +/−/100%/Ajustar
+  en la barra del webview, con el porcentaje visible. Por defecto el diagrama
+  arranca a escala LEGIBLE (mínimo umbral de 65%: por debajo, se abre al 90%
+  sobre la raíz y se recorre con la ruleta/scroll) — un árbol ancho ya no se
+  aplasta en una tira horizontal: se ve vertical y navegable.
+
+### Fixed
+- Orden de hermanos en el layout: el último hijo se colocaba antes que los
+  intermedios (los slots se asignaban en dos pasadas), dejando los nodos de un
+  mismo nivel desordenados respecto al orden de descubrimiento.
+
 ## [2.4.1] - 2026-10-07
 
 ### Added
