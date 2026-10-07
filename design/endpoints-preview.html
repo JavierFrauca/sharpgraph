@@ -44,24 +44,28 @@
 <body>
   <div class="filterbar">
     <input id="filter" type="text" placeholder="Filtrar: controlador, ruta, método, verbo…" spellcheck="false">
-    <button class="mini" id="expandAll" title="Expandir todo">▾▾</button>
-    <button class="mini" id="collapseAll" title="Contraer todo">▸▸</button>
+    <button class="mini" id="expandAll" data-action="expandAll" title="Expandir todo">▾▾</button>
+    <button class="mini" id="collapseAll" data-action="collapseAll" title="Contraer todo">▸▸</button>
   </div>
   <div class="count" id="count"></div>
   <div class="tree" id="tree"></div>
 <script nonce="preview">
 (function(){
   "use strict";
-  var state = { data: [{"controller":"MyApp.Controllers.OrdersController","controllerName":"OrdersController","verb":"POST","route":"/api/orders","method":"Create","file":"C:/demo/OrdersController.cs","line":20},{"controller":"MyApp.Controllers.OrdersController","controllerName":"OrdersController","verb":"GET","route":"/api/orders/{id}","method":"GetById","file":"C:/demo/OrdersController.cs","line":20},{"controller":"MyApp.Controllers.OrdersController","controllerName":"OrdersController","verb":"GET","route":"/api/orders","method":"List","file":"C:/demo/OrdersController.cs","line":20},{"controller":"MyApp.Controllers.EmployeesController","controllerName":"EmployeesController","verb":"GET","route":"/api/employees/{id}","method":"GetById","file":"C:/demo/EmployeesController.cs","line":20},{"controller":"GET /users","controllerName":"GET /users","verb":"GET","route":"/users","method":"(minimal-api)","file":"C:/demo/Program.cs","line":11}], status: { kind: "ok" }, filter: "", expanded: {} };
+  var state = { data: [{"controller":"MyApp.Controllers.OrdersController","controllerName":"OrdersController","verb":"POST","route":"/api/orders","method":"Create","file":"C:/demo/OrdersController.cs","line":20},{"controller":"MyApp.Controllers.OrdersController","controllerName":"OrdersController","verb":"GET","route":"/api/orders","method":"List","file":"C:/demo/OrdersController.cs","line":20},{"controller":"MyApp.Controllers.EmployeesController","controllerName":"EmployeesController","verb":"GET","route":"/api/employees/{id}","method":"GetById","file":"C:/demo/EmployeesController.cs","line":20},{"controller":"GET /users","controllerName":"GET /users","verb":"GET","route":"/users","method":"(minimal-api)","file":"C:/demo/Program.cs","line":11}], status: { kind: "ok" }, filter: "", expanded: {} };
   var vsc = null;
   try { vsc = acquireVsCodeApi(); } catch (e) { /* preview standalone */ }
 
   function esc(s){ return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 
+  function keyOf(ep) {
+    return /^[A-Z]+ \//.test(ep.controller) ? ep.controller : ep.controllerName;
+  }
+
   function groups() {
     var all = {};
     (state.data || []).forEach(function(ep){
-      var key = /^[A-Z]+ \//.test(ep.controller) ? ep.controller : ep.controllerName;
+      var key = keyOf(ep);
       (all[key] = all[key] || []).push(ep);
     });
     var q = state.filter.toLowerCase();
@@ -100,8 +104,7 @@
     var gs = groups();
     if (!gs.length) {
       count.textContent = "";
-      tree.innerHTML = '<div class="empty-filter">Sin coincidencias para <b>' + esc(state.filter) + '</b>. <a id="clearF">Quitar filtro</a></div>';
-      document.getElementById("clearF").onclick = function(){ input.value = ""; state.filter = ""; render(); };
+      tree.innerHTML = '<div class="empty-filter">Sin coincidencias para <b>' + esc(state.filter) + '</b>. <a data-action="clearFilter" id="clearF">Quitar filtro</a></div>';
       return;
     }
     var visible = 0;
@@ -136,23 +139,47 @@
     return null;
   }
 
-  document.getElementById("tree").addEventListener("click", function(ev) {
+  // ── delegación ÚNICA de clicks en document: inmune a re-render y a órdenes
+  // de registro (los botones/estados se resuelven por data-*, no por listener) ──
+  document.addEventListener("click", function(ev) {
     var t = ev.target;
-    var cmdEl = t.closest ? t.closest("[data-cmd]") : null;
+    if (!t || !t.closest) return;
+    var action = t.closest("[data-action]");
+    if (action) {
+      var kind = action.getAttribute("data-action");
+      if (kind === "expandAll" || kind === "collapseAll") {
+        var open = kind === "expandAll";
+        groups().forEach(function(g){ state.expanded[g.key] = open; });
+        render();
+      } else if (kind === "clearFilter") {
+        input.value = ""; state.filter = ""; render();
+      }
+      return;
+    }
+    var cmdEl = t.closest("[data-cmd]");
     if (cmdEl) { if (vsc) vsc.postMessage({ type: "cmd", cmd: cmdEl.getAttribute("data-cmd") }); return; }
-    var pop = t.closest ? t.closest(".pop") : null;
+    var pop = t.closest(".pop");
     if (pop) {
       var epPop = epFromRow(pop.closest(".ep"));
       if (epPop && vsc) vsc.postMessage({ type: "openInEditor", ep: epPop });
       return;
     }
-    var head = t.closest ? t.closest(".grp-h") : null;
+    var head = t.closest(".grp-h");
     if (head) {
       var grp = head.parentElement;
-      state.expanded[grp.getAttribute("data-k")] = grp.classList.toggle("closed");
+      var wasClosed = grp.classList.contains("closed");
+      var nowClosed = grp.classList.toggle("closed");
+      var key = grp.getAttribute("data-k");
+      state.expanded[key] = !nowClosed;
+      // expandir (o re-expandir tras contraer) refresca los endpoints del grupo
+      if (wasClosed && !nowClosed && vsc) {
+        var cnt = head.querySelector(".cnt");
+        if (cnt) cnt.textContent = "…";
+        vsc.postMessage({ type: "refreshGroup", key: key });
+      }
       return;
     }
-    var row = t.closest ? t.closest(".ep") : null;
+    var row = t.closest(".ep");
     if (row) {
       var ep = epFromRow(row);
       if (ep && vsc) vsc.postMessage({ type: "select", ep: ep });
@@ -165,20 +192,35 @@
     clearTimeout(filterTimer);
     filterTimer = setTimeout(function(){ state.filter = input.value.trim(); render(); }, 120);
   });
-  document.getElementById("expandAll").addEventListener("click", function(){
-    groups().forEach(function(g){ state.expanded[g.key] = true; }); render();
-  });
-  document.getElementById("collapseAll").addEventListener("click", function(){
-    groups().forEach(function(g){ state.expanded[g.key] = false; }); render();
-  });
 
   window.addEventListener("message", function(e) {
     var m = e.data;
-    if (m.type === "data") { state.data = m.items || []; state.status = { kind: "ok" }; render(); }
-    else if (m.type === "status") { state.status = m.status; if (m.status.kind !== "ok") render(); }
+    if (m.type === "data") {
+      var sc = document.getElementById("tree").scrollTop;
+      state.data = m.items || [];
+      state.status = { kind: "ok" };
+      render();
+      document.getElementById("tree").scrollTop = sc;
+    } else if (m.type === "groupData") {
+      // sustituye SOLO los endpoints de ese grupo (refresco al expandir)
+      var others = (state.data || []).filter(function(ep){ return keyOf(ep) !== m.key; });
+      state.data = others.concat(m.items || []);
+      var cntEl = document.querySelector('.grp[data-k="' + m.key.replace(/"/g, '\"') + '"] .grp-h .cnt');
+      if (cntEl) cntEl.textContent = (m.items || []).length;
+    } else if (m.type === "status") { state.status = m.status; if (m.status.kind !== "ok") render(); }
   });
 
-  render();
+  // telemetría: cualquier error JS del webview llega al host (canal de salida)
+  window.addEventListener("error", function(e) {
+    if (vsc) vsc.postMessage({ type: "webviewError", message: String((e && e.error && e.error.stack) || e.message || e) });
+  });
+
+  try {
+    render();
+  } catch (err) {
+    if (vsc) vsc.postMessage({ type: "webviewError", message: String((err && err.stack) || err) });
+    document.getElementById("tree").innerHTML = '<div class="state err">Error en la vista: ' + esc(String(err)) + '</div>';
+  }
 })();
 </script>
 </body>

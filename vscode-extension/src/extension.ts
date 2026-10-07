@@ -19,6 +19,8 @@ export function activate(context: vscode.ExtensionContext): void {
         (cmd) => void (cmd === "scan" ? scanRepo() : configureServer()),
         // expandir un grupo → refresco parcial de sus endpoints
         (key) => void refreshGroup(key),
+        // errores JS del webview → canal de salida (diagnóstico)
+        (message) => log(`error en la vista Endpoints: ${message}`),
     );
 
     context.subscriptions.push(
