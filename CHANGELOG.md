@@ -22,6 +22,19 @@ minor versions).
 
 ## [2.5.6] — extensión
 
+## [2.5.7] — extensión
+
+### Fixed
+- **El indexado ya no es un hoyo negro**: el scan de primera carga (tras una
+  invalidación de caché: minutos en soluciones grandes) muestra notificación de
+  progreso; si clicas en un endpoint DURANTE el indexado, el diagrama responde
+  "Estoy indexando… espera a la notificación" en vez del error "No encuentro el
+  endpoint" (el catálogo aún estaba vacío).
+- **Auto-reinicio por exe nuevo**: si el ejecutable del motor en disco es más
+  nuevo que el proceso vivo (actualización instalada con la ventana abierta),
+  el siguiente refresco reinicia el servidor solo — adiós motores viejos
+  sirviendo grafo viejo tras instalar sin recargar.
+
 ### Fixed
 - **EL CUELLO DE BOTELLA que lo lentificaba todo**: los refrescos del watcher
   lanzaban el `scan` incremental, que re-hashea TODA la solución (medido en
