@@ -1,7 +1,7 @@
 import * as path from "path";
 import * as vscode from "vscode";
 import { SharpGraphClient } from "./mcp";
-import { EndpointsWebviewProvider, type EndpointItem } from "./endpoints";
+import { EndpointsWebviewProvider, groupKeyOf, type EndpointItem } from "./endpoints";
 import { FlowPanelManager } from "./flowPanel";
 import { DiagramViewProvider } from "./diagramView";
 
@@ -17,6 +17,8 @@ export function activate(context: vscode.ExtensionContext): void {
         // ⤢ en la fila → panel grande del editor
         (ep) => void panels.open(ep),
         (cmd) => void (cmd === "scan" ? scanRepo() : configureServer()),
+        // expandir un grupo → refresco parcial de sus endpoints
+        (key) => void refreshGroup(key),
     );
 
     context.subscriptions.push(
@@ -112,14 +114,27 @@ export function activate(context: vscode.ExtensionContext): void {
                 });
                 return;
             }
-            await client.start(
-                vscode.workspace.getConfiguration("sharpgraphFlow").get<string>("serverPath", "SharpGraph"),
-                solution,
-            );
+            // 1) siembra instantánea desde la caché local de la última vez:
+            //    la lista pinta YA, antes de hablar con el motor
+            const cacheKey = "endpoints:" + solution;
+            const cached = context.workspaceState.get<EndpointItem[] | undefined>(cacheKey);
+            if (cached?.length && !provider.hasData) {
+                provider.setData(cached);
+                log(`sembrado desde caché local: ${cached.length} endpoints`);
+            }
+            // 2) servidor vivo: solo se arranca si no lo hay — y SIN path, para que
+            //    initialize sea instantáneo (nada de recargar la caché del motor aquí)
+            if (!client.isRunning || currentSolution !== solution) {
+                await client.start(
+                    vscode.workspace.getConfiguration("sharpgraphFlow").get<string>("serverPath", "SharpGraph"));
+                currentSolution = solution;
+            }
+            // 3) scan incremental (con caché caliente es casi gratis) + catálogo
+            await client.callTool("scan", { path: solution });
             const json = await client.callTool("list_endpoints");
             const items = (JSON.parse(json).endpoints ?? []) as EndpointItem[];
             provider.setData(items);
-            currentSolution = solution;
+            await context.workspaceState.update(cacheKey, items);
             log(`refresco de ${path.basename(solution)}: ${items.length} endpoints en ${Date.now() - t0} ms`);
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
@@ -139,6 +154,21 @@ export function activate(context: vscode.ExtensionContext): void {
                 refreshQueued = false;
                 void refreshTree();
             }
+        }
+    }
+
+    /** refresco parcial al expandir un grupo: lista fresca de ese controlador
+     * (contraer+expandir = actualizar, sin recargar el resto) */
+    async function refreshGroup(key: string): Promise<void> {
+        if (!client.isRunning) {
+            return;
+        }
+        try {
+            const json = await client.callTool("list_endpoints");
+            const items = (JSON.parse(json).endpoints ?? []) as EndpointItem[];
+            provider.updateGroup(key, items.filter((ep) => groupKeyOf(ep) === key));
+        } catch {
+            // silencioso: el grupo se queda con lo que tenía
         }
     }
 
@@ -166,7 +196,6 @@ export function activate(context: vscode.ExtensionContext): void {
             return;
         }
 
-        const serverPath = vscode.workspace.getConfiguration("sharpgraphFlow").get<string>("serverPath", "SharpGraph");
         const name = path.basename(target);
         try {
             await vscode.window.withProgress(
@@ -176,10 +205,11 @@ export function activate(context: vscode.ExtensionContext): void {
                     cancellable: false,
                 },
                 async () => {
-                    // el exe pre-escanea al arrancar con un path; si ya corre con el
-                    // mismo repo basta el scan incremental explícito
+                    // el servidor corre sin path (init instantáneo); el scan
+                    // incremental va como tool — si ya está caliente, casi gratis
                     if (!client.isRunning || currentSolution !== target) {
-                        await client.start(serverPath, target);
+                        await client.start(
+                            vscode.workspace.getConfiguration("sharpgraphFlow").get<string>("serverPath", "SharpGraph"));
                         currentSolution = target;
                     }
                     const stats = await client.callTool("scan", { path: target });
