@@ -122,16 +122,29 @@ export class EndpointsProvider implements vscode.TreeDataProvider<TreeNode> {
         return (element.endpoints ?? []).map((ep) => ({ controller: ep }));
     }
 
-    /** Mensaje vacío/error para el welcome/content del tree view. */
-    get message(): string | undefined {
+    /** Mensaje vacío/error para el content del tree view, con botón de acción
+     * (command links) según el estado. */
+    get message(): string | vscode.MarkdownString | undefined {
         if (this.status.kind === "loading") {
             return "$(sync~spinner) Escaneando solución con SharpGraph…";
         }
         if (this.status.kind === "error") {
-            return `$(error) ${this.status.message}${this.status.hint ? `\n\n${this.status.hint}` : ""}`;
+            const md = new vscode.MarkdownString(`$(error) ${this.status.message}\n\n`);
+            if (this.status.hint) {
+                md.appendMarkdown(`${this.status.hint}\n\n`);
+                md.appendMarkdown(`[$(gear) Configurar ruta del motor](command:sharpgraphFlow.configureServer "SharpGraph Flow")`);
+            } else {
+                md.appendMarkdown(`[$(database) Indexar / actualizar repo](command:sharpgraphFlow.scanRepo "SharpGraph Flow")`);
+            }
+            md.isTrusted = true;
+            return md;
         }
         if (this.data.length === 0) {
-            return "Sin endpoints indexados. Comprueba que el proyecto expone controllers/minimal APIs y pulsa $(refresh) Reindexar.";
+            const md = new vscode.MarkdownString(
+                "Sin endpoints indexados todavía.\n\n" +
+                `[$(database) Indexar / actualizar este repo](command:sharpgraphFlow.scanRepo "SharpGraph Flow")`);
+            md.isTrusted = true;
+            return md;
         }
         return undefined;
     }

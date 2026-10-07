@@ -30,8 +30,12 @@ stdio y consume `list_endpoints` + `endpoint_flow`. Un motor, dos consumidores
 
 | Comando | Qué hace |
 |---|---|
-| `SharpGraph Flow: Reindexar` | re-escanea la solución (el watcher de VS Code también lo hace al guardar .cs) |
+| `SharpGraph Flow: Indexar / actualizar repo (scan)` | escanea el repo abierto AHORA (incremental, con progreso); en multi-root pregunta qué carpeta y qué .sln/.csproj |
+| `SharpGraph Flow: Recargar catálogo desde caché` | re-arranca el motor y recarga la lista de endpoints sin re-escanear |
 | `SharpGraph Flow: Configurar ruta de SharpGraph` | apunta al ejecutable del motor |
+
+El estado vacío del árbol y los errores ofrecen estos botones directamente. Al
+guardar cualquier `.cs`, el watcher re-escanea con debounce de 2 s.
 
 ## Configuración
 
