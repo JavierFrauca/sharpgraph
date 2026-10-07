@@ -27,3 +27,20 @@ jobs:
 
       - name: Test
         run: dotnet test --no-build --configuration Release --logger "console;verbosity=normal"
+
+  extension:
+    # la extensión VS Code (vscode-extension/): type-check + bundle esbuild
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build extensión
+        working-directory: vscode-extension
+        run: |
+          npm ci
+          npx tsc --noEmit
+          node esbuild.js --production
