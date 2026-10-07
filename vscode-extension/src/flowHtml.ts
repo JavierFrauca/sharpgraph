@@ -148,12 +148,20 @@ function layout(data: FlowData): { pos: Map<string, Placed>; width: number; heig
     const pos = new Map<string, Placed>();
     const colW = NODE_W + GAP_X;
     const rowH = NODE_H + GAP_Y;
+
+    // la cuadrícula mide las columnas del nivel MÁS ANCHO (cap MAX_COLS); los
+    // niveles estrechos se centran dentro de ese ancho real — ni lienzos
+    // inflados con columnas vacías (diagrama a la derecha) ni contenido fuera
+    let maxColsUsed = 1;
+    for (const l of [...byLevel.keys()].sort((a, b) => a - b)) {
+        maxColsUsed = Math.max(maxColsUsed, Math.min(byLevel.get(l)!.length, MAX_COLS));
+    }
+
     let y = 0;
     for (const l of [...byLevel.keys()].sort((a, b) => a - b)) {
         const list = byLevel.get(l)!;
         const cols = Math.min(list.length, MAX_COLS);
-        // centra los niveles estrechos dentro de la cuadrícula completa
-        const offset = ((MAX_COLS - cols) * colW) / 2;
+        const offset = ((maxColsUsed - cols) * colW) / 2;
         list.forEach((n, i) => {
             pos.set(n.id, {
                 x: offset + (i % MAX_COLS) * colW,
@@ -163,12 +171,10 @@ function layout(data: FlowData): { pos: Map<string, Placed>; width: number; heig
         y += Math.ceil(list.length / MAX_COLS) * rowH;
     }
 
-    // la cuadrícula SIEMPRE mide MAX_COLS columnas (los niveles estrechos se
-    // centran dentro) — si el lienzo midiera solo lo ocupado, el centrado y el
-    // ajuste computarían sobre un lienzo que no coincide con el contenido
     return {
         pos,
-        width: MAX_COLS * colW - GAP_X + 4,
+        // +50px de aire para las curvas de back-edge que sobresalen a la derecha
+        width: maxColsUsed * colW - GAP_X + 50,
         height: y + 4,
     };
 }

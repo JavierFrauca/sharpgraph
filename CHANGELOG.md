@@ -22,6 +22,14 @@ minor versions).
 
 ## [2.5.6] — extensión
 
+## [2.5.10] — extensión
+
+### Fixed
+- **El diagrama ya no sale desplazado a la derecha**: el lienzo se inflaba con
+  las columnas vacías de la cuadrícula (siempre 4) y el contenido real quedaba
+  empujado al lado derecho del panel. El lienzo mide ahora las columnas del
+  nivel MÁS ANCHO real y los niveles estrechos se centran dentro de ese ancho.
+
 ## [2.5.9] — extensión
 
 ### Fixed
