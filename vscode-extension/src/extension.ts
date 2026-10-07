@@ -1,30 +1,33 @@
 import * as path from "path";
 import * as vscode from "vscode";
 import { SharpGraphClient } from "./mcp";
-import { EndpointsProvider, type EndpointItem, type TreeNode } from "./endpoints";
+import { EndpointsWebviewProvider, type EndpointItem } from "./endpoints";
 import { FlowPanelManager } from "./flowPanel";
 import { DiagramViewProvider } from "./diagramView";
 
 export function activate(context: vscode.ExtensionContext): void {
     const client = new SharpGraphClient();
-    const provider = new EndpointsProvider(client, () =>
-        vscode.Uri.joinPath(context.extensionUri, "media", "verbs"));
     const panels = new FlowPanelManager(client, context.extensionUri);
     const diagram = new DiagramViewProvider(client, (ep) => {
         void panels.open(ep);
     });
-
-    const treeView = vscode.window.createTreeView("sharpgraphFlow.endpoints", {
-        treeDataProvider: provider,
-    });
-    treeView.badge = undefined;
+    const provider = new EndpointsWebviewProvider(
+        // clic en una fila → diagrama embebido en la zona inferior
+        (ep) => void diagram.show(ep),
+        // ⤢ en la fila → panel grande del editor
+        (ep) => void panels.open(ep),
+        (cmd) => void (cmd === "scan" ? scanRepo() : configureServer()),
+    );
 
     context.subscriptions.push(
         client,
         panels,
-        treeView,
         diagram,
+        provider,
         vscode.window.registerWebviewViewProvider(DiagramViewProvider.viewId, diagram, {
+            webviewOptions: { retainContextWhenHidden: true },
+        }),
+        vscode.window.registerWebviewViewProvider(EndpointsWebviewProvider.viewId, provider, {
             webviewOptions: { retainContextWhenHidden: true },
         }),
     );
@@ -87,8 +90,7 @@ export function activate(context: vscode.ExtensionContext): void {
         return picked?.uri.fsPath;
     }
 
-    /** mutex de refresco: el watcher, el arranque y "Recargar" no pueden pisarse
-     * (un start() matando el proceso de otro refresh dejaba el árbol colgado);
+    /** mutex de refresco: el watcher, el arranque y "Recargar" no pueden pisarse;
      * si llega una petición durante un refresco, se encola. */
     let refreshing = false;
     let refreshQueued = false;
@@ -103,19 +105,34 @@ export function activate(context: vscode.ExtensionContext): void {
             const solution = await resolveSolution();
             if (!solution) {
                 log("sin solución que indexar (ni .sln/.csproj ni solutionPath)");
-                provider.setStatus({ kind: "error", message: "No hay ningún workspace con .sln/.csproj.", hint: "Configura sharpgraphFlow.solutionPath." });
-                provider.invalidate();
+                provider.setStatus({
+                    kind: "error",
+                    message: "No hay ningún workspace con .sln/.csproj.",
+                    hint: "Configura sharpgraphFlow.solutionPath.",
+                });
                 return;
             }
-            await provider.refresh(solution);
+            await client.start(
+                vscode.workspace.getConfiguration("sharpgraphFlow").get<string>("serverPath", "SharpGraph"),
+                solution,
+            );
+            const json = await client.callTool("list_endpoints");
+            const items = (JSON.parse(json).endpoints ?? []) as EndpointItem[];
+            provider.setData(items);
             currentSolution = solution;
-            treeView.badge = provider.totalCount > 0
-                ? { value: provider.totalCount, tooltip: `${provider.totalCount} endpoints indexados` }
-                : undefined;
-            treeView.description = provider.totalCount > 0 ? path.basename(solution) : undefined;
-            log(`refresco de ${path.basename(solution)}: ${provider.totalCount} endpoints en ${Date.now() - t0} ms`);
+            log(`refresco de ${path.basename(solution)}: ${items.length} endpoints en ${Date.now() - t0} ms`);
         } catch (err) {
-            log(`refresco falló: ${err instanceof Error ? err.stack ?? err.message : String(err)}`);
+            const message = err instanceof Error ? err.message : String(err);
+            log(`refresco falló: ${message}`);
+            provider.setStatus({
+                kind: "error",
+                message: message.includes("ENOENT")
+                    ? "No encuentro el ejecutable de SharpGraph."
+                    : message,
+                hint: message.includes("ENOENT")
+                    ? "Configura sharpgraphFlow.serverPath (publica el motor con publish.ps1)."
+                    : undefined,
+            });
         } finally {
             refreshing = false;
             if (refreshQueued) {
@@ -173,11 +190,23 @@ export function activate(context: vscode.ExtensionContext): void {
             const message = err instanceof Error ? err.message : String(err);
             vscode.window.showErrorMessage(`SharpGraph Flow: no pude indexar ${name}. ${message}`);
             provider.setStatus({ kind: "error", message });
-            provider.invalidate();
             return;
         }
         vscode.window.showInformationMessage(`SharpGraph: índice actualizado (${name}).`);
         await refreshTree();
+    }
+
+    async function configureServer(): Promise<void> {
+        const exe = await vscode.window.showInputBox({
+            prompt: "Ruta al ejecutable SharpGraph (publicado con publish.ps1)",
+            value: vscode.workspace.getConfiguration("sharpgraphFlow").get<string>("serverPath", "SharpGraph"),
+        });
+        if (exe) {
+            await vscode.workspace.getConfiguration("sharpgraphFlow").update(
+                "serverPath", exe, vscode.ConfigurationTarget.Workspace);
+            client.stop();
+            void refreshTree();
+        }
     }
 
     // arranque perezoso: al abrir la vista (el propio onView ya activa la extensión)
@@ -205,64 +234,8 @@ export function activate(context: vscode.ExtensionContext): void {
             client.stop();
             void refreshTree();
         }),
-        vscode.commands.registerCommand("sharpgraphFlow.openEndpoint", (ep: EndpointItem) => {
-            // clic en la fila: diagrama embebido en la barra lateral (sin robar foco)
-            void diagram.show(ep);
-        }),
-        vscode.commands.registerCommand("sharpgraphFlow.openInEditor", (node?: TreeNode) => {
-            const ep = node?.controller ?? diagram.current;
-            if (ep) {
-                void panels.open(ep);
-            }
-        }),
-        vscode.commands.registerCommand("sharpgraphFlow.expandAll", () => {
-            provider.expandAll();
-        }),
-        vscode.commands.registerCommand("sharpgraphFlow.collapseAll", () => {
-            provider.collapseAll();
-        }),
-        vscode.commands.registerCommand("sharpgraphFlow.filterEndpoints", () => {
-            const box = vscode.window.createInputBox();
-            box.value = provider.filter;
-            box.title = "SharpGraph Flow — filtrar endpoints";
-            box.prompt = "Controlador, ruta, método o verbo (GET, POST…). Vacío = sin filtro. Filtra mientras escribes.";
-            let timer: NodeJS.Timeout | undefined;
-            box.onDidChangeValue((value) => {
-                if (timer) {
-                    clearTimeout(timer);
-                }
-                timer = setTimeout(() => {
-                    provider.setFilter(value);
-                    void setFilterContext();
-                }, 150);
-            });
-            box.onDidAccept(() => {
-                provider.setFilter(box.value);
-                void setFilterContext();
-                box.hide();
-            });
-            box.show();
-        }),
-        vscode.commands.registerCommand("sharpgraphFlow.clearFilter", () => {
-            provider.setFilter("");
-            void setFilterContext();
-        }),
-        vscode.commands.registerCommand("sharpgraphFlow.configureServer", async () => {
-            const exe = await vscode.window.showInputBox({
-                prompt: "Ruta al ejecutable SharpGraph (publicado con publish.ps1)",
-                value: vscode.workspace.getConfiguration("sharpgraphFlow").get<string>("serverPath", "SharpGraph"),
-            });
-            if (exe) {
-                await vscode.workspace.getConfiguration("sharpgraphFlow").update(
-                    "serverPath", exe, vscode.ConfigurationTarget.Workspace);
-                client.stop();
-                void refreshTree();
-            }
+        vscode.commands.registerCommand("sharpgraphFlow.configureServer", () => {
+            void configureServer();
         }),
     );
-
-    function setFilterContext(): Thenable<unknown> {
-        return vscode.commands.executeCommand(
-            "setContext", "sharpgraphFlow.filterActive", provider.filter.length > 0);
-    }
 }

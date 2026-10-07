@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (with the caveat that, during beta, the MCP tool surface may change between
 minor versions).
 
+## [2.4.6] - 2026-10-07
+
+### Added
+- **Extensión SharpGraph Flow — campo de filtro FIJO sobre la lista**: la vista
+  "Endpoints" deja de ser un TreeView nativo y pasa a ser un webview (como ya
+  hicimos con el diagrama), lo que permite incrustar el input de filtro SIEMPRE
+  visible encima del árbol — filtrado instantáneo y en local (sin quick-input
+  central ni round-trips). Expandir/contraer todo pasan a botones junto al
+  filtro; los chips de verbo son CSS (adiós SVGs); el contador ("N endpoints" /
+  "N de M con filtro") vive en la vista. Estados loading/error/vacío con sus
+  acciones embebidas.
+- **Trade-off asumido**: sin TreeView nativo no hay API de badge en el icono del
+  ActivityBar; el nº de endpoints se muestra en la propia vista. Los botones de
+  título (indexar, recargar, configurar) siguen siendo nativos.
+
 ## [2.4.5] - 2026-10-07
 
 ### Fixed
