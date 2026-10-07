@@ -22,4 +22,9 @@
     <PackageReference Include="ModelContextProtocol" Version="1.3.0" />
   </ItemGroup>
 
+  <!-- Los tests verifican internals de la CLI (p.ej. la línea cmd.exe de install vscode). -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="SharpGraph.Tests" />
+  </ItemGroup>
+
 </Project>

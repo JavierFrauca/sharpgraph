@@ -1,4 +1,5 @@
 using System.Text.Json;
+using SharpGraph.Cli;
 using SharpGraph.Update;
 using Xunit;
 
@@ -71,5 +72,28 @@ public class InstallCommandTests
         // "no está en la lista" de "hash no coincide"
         var sums = "abc123  SharpGraph-win-x64.zip\n";
         Assert.False(UpdateChecker.TryGetExpectedSha256(sums, Path.Combine("tmp", "sharpgraph-flow-2.5.6.vsix"), out _));
+    }
+
+    // ─────────────────────── línea cmd.exe en Windows ───────────────────────
+
+    [Fact]
+    public void BuildWindowsCmdLine_WrapsEverythingInAnExtraQuotePair()
+    {
+        // Regresión: citando cada ruta por separado (ArgumentList), cmd /c con más
+        // de dos comillas se come la primera y la última y trocea la orden cuando
+        // la ruta tiene espacios (VS Code en Program Files).
+        var line = InstallCommand.BuildWindowsCmdLine(
+            @"C:\Program Files\Microsoft VS Code\bin\code.cmd",
+            @"C:\Users\alguien con espacio\AppData\Local\Temp\x\sharpgraph-flow-2.5.6.vsix");
+
+        // La forma correcta abre y cierra con un par EXTRA de comillas: cmd las
+        // desmonta y queda una orden cuyas dos rutas siguen citadas (6 comillas).
+        Assert.Equal(
+            "/c \"\"C:\\Program Files\\Microsoft VS Code\\bin\\code.cmd\"" +
+            " --install-extension \"C:\\Users\\alguien con espacio\\AppData\\Local\\Temp\\x\\sharpgraph-flow-2.5.6.vsix\" --force\"",
+            line);
+        Assert.StartsWith("/c \"\"", line);
+        Assert.EndsWith("\"", line);
+        Assert.Equal(6, line.Count(c => c == '"'));
     }
 }
