@@ -89,10 +89,14 @@ function shell(nonce: string, seed: EndpointItem[]): string {
 
   function esc(s){ return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 
+  function keyOf(ep) {
+    return /^[A-Z]+ \\//.test(ep.controller) ? ep.controller : ep.controllerName;
+  }
+
   function groups() {
     var all = {};
     (state.data || []).forEach(function(ep){
-      var key = /^[A-Z]+ \\//.test(ep.controller) ? ep.controller : ep.controllerName;
+      var key = keyOf(ep);
       (all[key] = all[key] || []).push(ep);
     });
     var q = state.filter.toLowerCase();
@@ -180,7 +184,16 @@ function shell(nonce: string, seed: EndpointItem[]): string {
     var head = t.closest ? t.closest(".grp-h") : null;
     if (head) {
       var grp = head.parentElement;
-      state.expanded[grp.getAttribute("data-k")] = grp.classList.toggle("closed");
+      var wasClosed = grp.classList.contains("closed");
+      var nowClosed = grp.classList.toggle("closed");
+      var key = grp.getAttribute("data-k");
+      state.expanded[key] = !nowClosed;
+      // expandir (o re-expandir tras contraer) refresca los endpoints del grupo
+      if (wasClosed && !nowClosed && vsc) {
+        var cnt = head.querySelector(".cnt");
+        if (cnt) cnt.textContent = "…";
+        vsc.postMessage({ type: "refreshGroup", key: key });
+      }
       return;
     }
     var row = t.closest ? t.closest(".ep") : null;
@@ -205,8 +218,19 @@ function shell(nonce: string, seed: EndpointItem[]): string {
 
   window.addEventListener("message", function(e) {
     var m = e.data;
-    if (m.type === "data") { state.data = m.items || []; state.status = { kind: "ok" }; render(); }
-    else if (m.type === "status") { state.status = m.status; if (m.status.kind !== "ok") render(); }
+    if (m.type === "data") {
+      var sc = document.getElementById("tree").scrollTop;
+      state.data = m.items || [];
+      state.status = { kind: "ok" };
+      render();
+      document.getElementById("tree").scrollTop = sc;
+    } else if (m.type === "groupData") {
+      // sustituye SOLO los endpoints de ese grupo (refresco al expandir)
+      var others = (state.data || []).filter(function(ep){ return keyOf(ep) !== m.key; });
+      state.data = others.concat(m.items || []);
+      var cntEl = document.querySelector('.grp[data-k="' + m.key.replace(/"/g, '\\"') + '"] .grp-h .cnt');
+      if (cntEl) cntEl.textContent = (m.items || []).length;
+    } else if (m.type === "status") { state.status = m.status; if (m.status.kind !== "ok") render(); }
   });
 
   render();

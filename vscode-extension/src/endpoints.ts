@@ -5,6 +5,13 @@ import { renderEndpointsShell } from "./endpointsHtml";
 export type { EndpointItem } from "./endpointsHtml";
 import type { EndpointItem } from "./endpointsHtml";
 
+/** Clave de agrupación de un endpoint: controlador, o el endpoint suelto para
+ * minimal APIs planos (clave sintética "GET /users"). Debe coincidir con la
+ * misma regla en el JS del webview. */
+export function groupKeyOf(ep: EndpointItem): string {
+    return /^[A-Z]+ \//.test(ep.controller) ? ep.controller : ep.controllerName;
+}
+
 type Status =
     | { kind: "ok" }
     | { kind: "error"; message: string; hint?: string }
@@ -29,6 +36,7 @@ export class EndpointsWebviewProvider implements vscode.WebviewViewProvider {
         private readonly onSelect: (ep: EndpointItem) => void,
         private readonly onOpenInEditor: (ep: EndpointItem) => void,
         private readonly onCommand: (cmd: "scan" | "configure") => void,
+        private readonly onRefreshGroup: (key: string) => void,
     ) {}
 
     resolveWebviewView(view: vscode.WebviewView): void {
@@ -47,6 +55,8 @@ export class EndpointsWebviewProvider implements vscode.WebviewViewProvider {
                 this.onOpenInEditor(msg.ep as EndpointItem);
             } else if (msg?.type === "cmd") {
                 this.onCommand(msg.cmd === "configure" ? "configure" : "scan");
+            } else if (msg?.type === "refreshGroup" && typeof msg.key === "string") {
+                this.onRefreshGroup(msg.key);
             }
         });
         if (this.status.kind !== "loading") {
@@ -64,6 +74,15 @@ export class EndpointsWebviewProvider implements vscode.WebviewViewProvider {
         if (this.view) {
             this.pushData();
         }
+    }
+
+    /** Refresco parcial: sustituye solo los endpoints de un grupo (al expandir). */
+    updateGroup(key: string, items: EndpointItem[]): void {
+        void this.view?.webview.postMessage({ type: "groupData", key, items });
+    }
+
+    get hasData(): boolean {
+        return this.data.length > 0;
     }
 
     setStatus(status: Status): void {

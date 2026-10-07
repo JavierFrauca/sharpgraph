@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (with the caveat that, during beta, the MCP tool surface may change between
 minor versions).
 
+## [2.4.7] - 2026-10-07
+
+### Changed
+- **Carga rápida de la vista de endpoints** (queja: "tarda mucho cargando"):
+  - El servidor ya NO se arranca con la solución delante (eso recargaba TODA la
+    caché binaria del motor — 13,6 MB / 5.137 fragmentos en Payroll — en cada
+    refresco). Ahora el initialize es instantáneo y el scan incremental va como
+    tool, en background, con la lista ya pintada.
+  - La última lista conocida se siembra desde `workspaceState`: al abrir la
+    ventana la vista pinta AL INSTANTE con los endpoints de la sesión anterior
+    y se actualiza cuando el scan termina.
+  - **Expandir un grupo refresca SUS endpoints** (contraer + expandir =
+    actualizar): el contador del grupo muestra "…" mientras, la sustitución es
+    parcial (solo ese controlador) y no mueve el scroll ni colapsa nada.
+- Motor intacto: todo es reutilización del servidor vivo + scan incremental.
+
 ## [2.4.6] - 2026-10-07
 
 ### Added

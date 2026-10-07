@@ -25,7 +25,10 @@ export class SharpGraphClient implements vscode.Disposable {
         return this.proc !== undefined && this.proc.exitCode === null;
     }
 
-    async start(serverPath: string, solutionPath: string): Promise<void> {
+    /** Arranca el servidor. SIN solutionPath el initialize es instantáneo (el
+     * motor arranca en modo "llama a scan()"): el scan incremental se pide
+     * después como tool, en background, sin bloquear la vista. */
+    async start(serverPath: string, solutionPath?: string): Promise<void> {
         const old = this.proc;
         this.stop();
         // espera a que el proceso anterior muera del todo antes de spawnear:
@@ -40,7 +43,7 @@ export class SharpGraphClient implements vscode.Disposable {
             });
         }
         this.startedAt = Date.now();
-        const proc = cp.spawn(serverPath, [solutionPath], {
+        const proc = cp.spawn(serverPath, solutionPath ? [solutionPath] : [], {
             stdio: ["pipe", "pipe", "pipe"],
             windowsHide: true,
         });
@@ -82,7 +85,7 @@ export class SharpGraphClient implements vscode.Disposable {
         await this.request("initialize", {
             protocolVersion: "2024-11-05",
             capabilities: {},
-            clientInfo: { name: "sharpgraph-flow", version: "2.4.6" },
+            clientInfo: { name: "sharpgraph-flow", version: "2.4.7" },
         });
         this.notify("notifications/initialized");
     }
