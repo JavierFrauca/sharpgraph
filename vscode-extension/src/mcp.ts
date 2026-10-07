@@ -82,7 +82,7 @@ export class SharpGraphClient implements vscode.Disposable {
         await this.request("initialize", {
             protocolVersion: "2024-11-05",
             capabilities: {},
-            clientInfo: { name: "sharpgraph-flow", version: "2.4.5" },
+            clientInfo: { name: "sharpgraph-flow", version: "2.4.6" },
         });
         this.notify("notifications/initialized");
     }
