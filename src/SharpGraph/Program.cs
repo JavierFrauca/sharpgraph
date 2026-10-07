@@ -1,12 +1,18 @@
+using SharpGraph;
 using SharpGraph.Cli;
 using SharpGraph.Graph;
 using SharpGraph.Mcp;
 using SharpGraph.Persistence;
 using SharpGraph.Scanner;
+using SharpGraph.Update;
 using SharpGraph.Watcher;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+
+// Limpieza del binario .old que dejó una actualización anterior: en este
+// arranque el proceso ya nació del fichero nuevo, así que el .old está libre.
+SelfUpdater.CleanupStaleOldBinary();
 
 var graph = new GraphEngine();
 var store = new GraphStore();
@@ -60,7 +66,7 @@ builder.Services.AddMcpServer(options =>
         Name = "SharpGraph",
         Title = "SharpGraph — grafo de código C#",
         Description = "Indexa proyectos C# en un grafo de dependencias. Responde quién llama a quién, qué implementa cada interfaz (DI), desde qué endpoint HTTP se llega y cómo funciona un flujo — y devuelve código fuente puntual, todo en texto compacto para gastar los mínimos tokens.",
-        Version = "2.3.0",
+        Version = VersionInfo.Current,
         WebsiteUrl = "https://github.com/JavierFrauca/sharpgraph",
     };
     options.ServerInstructions = """

@@ -221,6 +221,14 @@ internal static class CliCommands
         return 0;
     }
 
+    // ────────────────────────── MANTENIMIENTO ──────────────────────────
+
+    public static async Task<int> Update(string[] args)
+    {
+        var checkOnly = args.Any(a => a.Equals("--check", StringComparison.OrdinalIgnoreCase));
+        return await SharpGraph.Update.SelfUpdater.Run(checkOnly);
+    }
+
     // ────────────────────────── HELP ──────────────────────────
 
     public static int Help(string[] args)

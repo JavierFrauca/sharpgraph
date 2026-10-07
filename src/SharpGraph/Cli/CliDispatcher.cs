@@ -25,7 +25,8 @@ internal static class CliDispatcher
         "read-file", "read-file", "readfile", "semantic",
         "search-semantic", "literals", "search-literals", "explore",
         "explore-context", "mermaid", "mermaid-context", "mermaid-seq",
-        "mermaid-sequence", "mermaid-overview", "setup", "help",
+        "mermaid-sequence", "mermaid-overview", "update", "self-update",
+        "setup", "help",
     };
 
     public static bool IsCliCommand(string arg)
@@ -36,11 +37,19 @@ internal static class CliDispatcher
         var cmd = args[0].ToLowerInvariant();
         var rest = args.Skip(1).ToArray();
 
-        // El grafo necesita un path cargado para casi todo excepto scan/help/setup.
+        // El grafo necesita un path cargado para casi todo excepto scan/help/setup/update.
         // Si no hay path cargado y el comando lo necesita, intentamos cargar el cwd.
-        if (cmd is not ("scan" or "setup" or "help"))
+        if (cmd is not ("scan" or "setup" or "help" or "update"))
         {
             EnsureGraphLoaded(graph, store, watcher);
+        }
+
+        // Aviso de versión nueva (cacheado 24 h, fail-silent, opt-out con
+        // SHARPGRAPH_NO_UPDATE_CHECK). 'update' hace su propio check con force;
+        // 'setup' es un menú interactivo donde el ruido estorba.
+        if (cmd is not ("update" or "setup"))
+        {
+            SharpGraph.Update.UpdateChecker.PrintNoticeToConsole();
         }
 
         return cmd switch
@@ -65,6 +74,7 @@ internal static class CliDispatcher
             "mermaid" or "mermaid-context" => CliCommands.Mermaid(rest, graph),
             "mermaid-seq" or "mermaid-sequence" => CliCommands.MermaidSeq(rest, graph),
             "mermaid-overview" => CliCommands.MermaidOverview(rest, graph),
+            "update" or "self-update" => await CliCommands.Update(rest),
             "setup" => await SetupWizard.Run(rest),
             "help" => CliCommands.Help(rest),
             _ => PrintUnknown(cmd),
