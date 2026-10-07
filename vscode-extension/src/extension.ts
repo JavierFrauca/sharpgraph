@@ -12,8 +12,10 @@ export function activate(context: vscode.ExtensionContext): void {
         void panels.open(ep);
     });
     const provider = new EndpointsWebviewProvider(
-        // clic en una fila → diagrama embebido en la zona inferior
+        // clic en una fila → SOLO ese endpoint (del controller sale su método)
         (ep) => void diagram.show(ep),
+        // clic en el NOMBRE del controlador → flujo completo del controlador
+        (name) => void diagram.showController(name),
         // ⤢ en la fila → panel grande del editor
         (ep) => void panels.open(ep),
         (cmd) => void (cmd === "scan" ? scanRepo() : configureServer()),

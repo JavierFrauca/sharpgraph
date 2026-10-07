@@ -52,6 +52,7 @@ function shell(nonce: string, seed: EndpointItem[]): string {
   .grp-h .chev{font-size:9px;color:var(--vscode-descriptionForeground,#8a8a8a);width:10px;transition:transform .1s;flex-shrink:0}
   .grp.closed .chev{transform:rotate(-90deg)}
   .grp-h .name{font-weight:600;overflow:hidden;text-overflow:ellipsis}
+  .grp-h:hover .name{text-decoration:underline dotted}
   .grp-h .cnt{margin-left:auto;color:var(--vscode-descriptionForeground,#777);font-size:11px}
   .grp.closed .kids{display:none}
   .ep{display:flex;align-items:center;gap:7px;padding:2px 10px 2px 27px;cursor:pointer;white-space:nowrap;overflow:hidden}
@@ -198,16 +199,21 @@ function shell(nonce: string, seed: EndpointItem[]): string {
     var head = t.closest(".grp-h");
     if (head) {
       var grp = head.parentElement;
-      var wasClosed = grp.classList.contains("closed");
-      var nowClosed = grp.classList.toggle("closed");
       var key = grp.getAttribute("data-k");
-      state.expanded[key] = !nowClosed;
-      // expandir (o re-expandir tras contraer) refresca los endpoints del grupo
-      if (wasClosed && !nowClosed && vsc) {
-        var cnt = head.querySelector(".cnt");
-        if (cnt) cnt.textContent = "…";
-        vsc.postMessage({ type: "refreshGroup", key: key });
+      // clic en el CHEVRON: plegar/desplegar (y refrescar el grupo al expandir)
+      if (t.closest(".chev")) {
+        var wasClosed = grp.classList.contains("closed");
+        var nowClosed = grp.classList.toggle("closed");
+        state.expanded[key] = !nowClosed;
+        if (wasClosed && !nowClosed && vsc) {
+          var cnt = head.querySelector(".cnt");
+          if (cnt) cnt.textContent = "…";
+          vsc.postMessage({ type: "refreshGroup", key: key });
+        }
+        return;
       }
+      // clic en el NOMBRE del controlador: flujo completo del controlador
+      if (vsc) vsc.postMessage({ type: "selectController", name: key });
       return;
     }
     var row = t.closest(".ep");

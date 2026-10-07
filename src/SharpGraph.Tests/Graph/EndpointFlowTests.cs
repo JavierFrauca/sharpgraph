@@ -29,6 +29,8 @@ public class EndpointFlowTests
 
         public sealed record CreateOrderResponse(int Id);
 
+        public record UpdateOrderCommand(int Id, string Sku) : IRequest<int>;
+
         public interface IUnitOfWork { int Save(); }
 
         public interface IOrderRepository { int Create(string sku); }
@@ -84,6 +86,13 @@ public class EndpointFlowTests
             {
                 var id = _mediator.Send(cmd);
                 return Ok(id);
+            }
+
+            [HttpPut("{id}")]
+            public IActionResult Update(int id, UpdateOrderCommand cmd)
+            {
+                _mediator.Send(cmd);
+                return NoContent();
             }
         }
 
@@ -219,7 +228,7 @@ public class EndpointFlowTests
     public void Flow_ResolvesByControllerName_AndByRoute()
     {
         var byName = Flow(BuildApp(), "OrdersController");
-        Assert.Equal(1, byName.GetProperty("matchedEndpoints").GetInt32());
+        Assert.Equal(2, byName.GetProperty("matchedEndpoints").GetInt32()); // POST + PUT
 
         var byRoute = Flow(BuildApp(), "/api/orders");
         Assert.Equal("POST /api/orders", byRoute.GetProperty("endpoint").GetString());
@@ -233,6 +242,33 @@ public class EndpointFlowTests
         Assert.True(flow.GetProperty("truncated").GetBoolean());
         Assert.True(flow.GetProperty("omitted").GetInt32() > 0);
         Assert.Equal(5, flow.GetProperty("nodeCount").GetInt32());
+    }
+
+    [Fact]
+    public void Flow_SingleEndpointMode_ExcludesOtherActionsOfSameController()
+    {
+        // clic en UN endpoint: del controller solo sale SU método de acción —
+        // no los commands de las demás acciones del mismo controller
+        var flow = JsonDocument.Parse(BuildApp().EndpointFlow("POST /api/orders")).RootElement;
+
+        Assert.Equal("POST /api/orders", flow.GetProperty("endpoint").GetString());
+        Assert.DoesNotContain(flow.GetProperty("nodes").EnumerateArray(),
+            n => n.GetProperty("name").GetString() == "UpdateOrderCommand");
+        Assert.Contains(flow.GetProperty("nodes").EnumerateArray(),
+            n => n.GetProperty("name").GetString() == "CreateOrderCommand");
+    }
+
+    [Fact]
+    public void Flow_FromControllerName_IncludesAllItsActions()
+    {
+        // clic en el CONTROLADOR (nombre): el batiburrido completo — todas sus acciones
+        var flow = JsonDocument.Parse(BuildApp().EndpointFlow("OrdersController")).RootElement;
+
+        var names = flow.GetProperty("nodes").EnumerateArray()
+            .Select(n => n.GetProperty("name").GetString()).ToHashSet();
+        Assert.Contains("CreateOrderCommand", names);
+        Assert.Contains("UpdateOrderCommand", names);
+        Assert.Equal(2, flow.GetProperty("matchedEndpoints").GetInt32());
     }
 
     [Fact]

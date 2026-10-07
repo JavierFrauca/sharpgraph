@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (with the caveat that, during beta, the MCP tool surface may change between
 minor versions).
 
+## [2.5.4] - 2026-10-07
+
+### Added
+- **Extensión SharpGraph Flow — UN endpoint de uno en uno**: clic en una FILA
+  → diagrama de SOLO ese endpoint (el motor 2.5.1 filtra por el método de
+  acción: nada de los hermanos del controller); clic en el NOMBRE del
+  controlador (subrayado punteado al hover) → flujo completo del controlador
+  con TODAS sus acciones. El chevron sigue plegando/desplegando el grupo.
+  Requiere motor 2.5.1.
+
 ## [2.5.3] - 2026-10-07
 
 ### Fixed
@@ -40,6 +50,19 @@ minor versions).
   "Quitar filtro" es una acción local del webview (antes colgaba del comando
   de host equivocado) y cualquier error JS de la vista se reporta al canal
   "SharpGraph Flow" para diagnóstico.
+
+## [2.5.1] - 2026-10-07
+
+### Fixed
+- **`endpoint_flow` — MODO ENDPOINT-CONCRETO**: la traza desde "VERB /ruta"
+  expandía el controlador ENTERO (los commands de TODAS sus acciones = el
+  "batiburrido"). Ahora, del controller SOLO se expanden las aristas de SU
+  método de acción (filtro por `FromMember` en el primer nivel de BFS; si el
+  método no genera aristas resueltas, fallback al expansionado completo para
+  minimal APIs). Por nombre de controlador se sigue viendo TODO (las dos cosas
+  que pide la extensión: clic en endpoint = solo ese endpoint; clic en el
+  nombre del controlador = el controlador entero). 9 tests de endpoint_flow.
+  **Requiere motor 2.5.1** para el checkbox/slider de la extensión 2.5.4+.
 
 ## [2.5.0] - 2026-10-07
 
