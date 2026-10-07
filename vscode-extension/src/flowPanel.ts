@@ -95,10 +95,14 @@ export class FlowPanelManager implements vscode.Disposable {
     }
 }
 
-export async function openAtLine(uri: vscode.Uri, line: number): Promise<void> {
+export async function openAtLine(
+    uri: vscode.Uri,
+    line: number,
+    column: vscode.ViewColumn = vscode.ViewColumn.Beside,
+): Promise<void> {
     const editor = await vscode.window.showTextDocument(uri, {
-        preview: false,
-        viewColumn: vscode.ViewColumn.Beside,
+        preview: true,
+        viewColumn: column,
     });
     if (line > 0 && line <= editor.document.lineCount) {
         const range = new vscode.Range(line - 1, 0, line - 1, 0);
