@@ -30,3 +30,9 @@ test_nopath.txt
 # ZCode CLI (archivos locales del agente, no del proyecto)
 .zcode/
 .simplecode/
+
+# Extensión VS Code (artefactos de build)
+vscode-extension/node_modules/
+vscode-extension/dist/
+vscode-extension/*.vsix
+design/flow-preview.html

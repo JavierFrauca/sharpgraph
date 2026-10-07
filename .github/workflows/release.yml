@@ -87,9 +87,31 @@ jobs:
           name: SharpGraph-${{ matrix.rid }}
           path: dist/SharpGraph-${{ matrix.rid }}.*
 
+  vsix:
+    # la extensión SharpGraph Flow: VSIX para el release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Package VSIX
+        working-directory: vscode-extension
+        run: |
+          npm ci
+          npx @vscode/vsce package --no-dependencies
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sharpgraph-flow-vsix
+          path: vscode-extension/*.vsix
+
   release:
     name: github release
-    needs: build
+    needs: [build, vsix]
     runs-on: ubuntu-latest
     # solo crea release en tags (no en disparos manuales de prueba)
     if: startsWith(github.ref, 'refs/tags/v')
@@ -118,3 +140,4 @@ jobs:
             artifacts/SharpGraph-osx-arm64.zip
             artifacts/SharpGraph-osx-arm64.tar.gz
             artifacts/SHA256SUMS.txt
+            artifacts/sharpgraph-flow-*.vsix
