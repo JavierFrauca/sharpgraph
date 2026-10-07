@@ -49,6 +49,12 @@ internal static class CliHelp
           hubs                Tipos más centrales (PageRank).
                               Flags: -n <topK> (defecto 15).
           di <tipo>           Resuelve inyección de dependencias (IFoo → Foo).
+          endpoints           Catálogo JSON de endpoints HTTP (verb, route, file:line).
+          endpoint-flow <ep>  Subgrafo DESCENDENTE desde un endpoint en JSON
+                              (controller → command → handler → servicios), con
+                              back-edges y file:line por nodo. Es el motor de la
+                              extensión SharpGraph Flow (VS Code).
+                              Flags: -d <profundidad> (defecto 8), -n <nodos> (80).
 
         ── DIAGRAMAS MERMAID ─────────────────────────────────────────
           mermaid <tipo>      Diagrama bidireccional (callers + deps) como bloque
@@ -121,6 +127,11 @@ internal static class CliHelp
           sharpgraph mermaid-seq IGrossService -p 2
           sharpgraph mermaid-overview -a Billing
 
+          # Endpoints y flujo descendente (extensión VS Code)
+          sharpgraph endpoints
+          sharpgraph endpoint-flow "POST /api/orders"
+          sharpgraph endpoint-flow OrdersController -n 120
+
           # Mantenerse al día
           sharpgraph update --check
           sharpgraph update
@@ -162,6 +173,8 @@ internal static class CliHelp
         "mermaid" or "mermaid-context" or "mermaid_context" => CmdMermaid,
         "mermaid-seq" or "mermaid-sequence" or "mermaid_sequence" => CmdMermaidSeq,
         "mermaid-overview" or "mermaid_overview" => CmdMermaidOverview,
+        "endpoints" or "list-endpoints" => CmdEndpoints,
+        "endpoint-flow" or "endpoint_flow" => CmdEndpointFlow,
         "update" or "self-update" => CmdUpdate,
         "setup" => CmdSetup,
         "help" => CmdHelp,
@@ -169,9 +182,9 @@ internal static class CliHelp
             Comando desconocido: '{command}'
 
             Comandos disponibles: scan, stats, search, callers, usages, callsites,
-            trace, impact, flow, hubs, di, source, understand, read-file,
-            semantic, literals, explore, mermaid, mermaid-seq, mermaid-overview,
-            update, setup, help.
+            trace, impact, flow, hubs, di, endpoints, endpoint-flow, source,
+            understand, read-file, semantic, literals, explore, mermaid,
+            mermaid-seq, mermaid-overview, update, setup, help.
 
             Ejecuta 'sharpgraph help' para la lista completa.
             """
@@ -615,6 +628,47 @@ internal static class CliHelp
           EQUIVALENTE MCP: mermaid_overview(area, depsDepth, maxNodes)
         """;
 
+    private const string CmdEndpoints = """
+        sharpgraph endpoints — Catálogo de endpoints HTTP
+
+          Lista TODOS los endpoints indexados (controllers + minimal APIs) en JSON:
+          controlador, verbo, ruta, método y file:line. El punto de partida para
+          endpoint_flow.
+
+          USO:
+            sharpgraph endpoints
+
+          EQUIVALENTE MCP: list_endpoints()
+        """;
+
+    private const string CmdEndpointFlow = """
+        sharpgraph endpoint-flow — Subgrafo descendente desde un endpoint
+
+          Dibuja (en JSON) TODO lo que toca un endpoint de arriba abajo:
+          controller → command/query → handler → servicios → implementaciones DI.
+          Cada nodo lleva kind, file y line (click-to-open); las dependencias
+          compartidas o cíclicas aparecen como back-edges (back=true) sin
+          re-expandirse. Incluye el bloque ```mermaid``` equivalente.
+
+          USO:
+            sharpgraph endpoint-flow <endpoint> [-d <depth>] [-n <nodos>]
+
+          ARGUMENTOS:
+            endpoint           "POST /api/orders" (verbo+ruta), "/api/orders"
+                               (ruta, substring si hay varios) u OrdersController
+                               (todas sus rutas).
+
+          FLAGS:
+            -d <depth>         Profundidad del BFS descendente (1-12, defecto 8).
+            -n <nodos>         Tope de nodos (5-200, defecto 80).
+
+          EJEMPLOS:
+            sharpgraph endpoint-flow "POST /api/orders"
+            sharpgraph endpoint-flow OrdersController -n 120
+
+          EQUIVALENTE MCP: endpoint_flow(endpoint, maxDepth, maxNodes)
+        """;
+
     private const string CmdUpdate = """
         sharpgraph update — Auto-actualización explícita
 
@@ -687,8 +741,9 @@ internal static class CliHelp
 
           COMANDOS DISPONIBLES:
             scan, stats, search, callers, usages, callsites, trace, impact,
-            flow, hubs, di, source, understand, read-file, semantic, literals,
-            explore, mermaid, mermaid-seq, mermaid-overview, update, setup, help
+            flow, hubs, di, endpoints, endpoint-flow, source, understand,
+            read-file, semantic, literals, explore, mermaid, mermaid-seq,
+            mermaid-overview, update, setup, help
 
           EJEMPLOS:
             sharpgraph help flow         # ayuda del comando flow
