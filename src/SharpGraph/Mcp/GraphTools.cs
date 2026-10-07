@@ -519,6 +519,14 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
         Estadísticas del grafo: tipos definidos, aristas, endpoints HTTP, call-sites
         (invocaciones reales), bindings DI, ficheros y ruta actual.
         0 tipos = grafo vacío → llama a scan().
+        Si hay una versión nueva de SharpGraph publicada, la última línea del
+        resultado lo avisa: comunícaselo al usuario.
         """)]
-    public string Stats() => graph.Stats();
+    public string Stats()
+    {
+        // El refresco de versión va en background (no paga la latencia de la tool)
+        // y el aviso se lee SOLO de la caché: stats() nunca bloquea por red.
+        SharpGraph.Update.UpdateChecker.RefreshInBackground();
+        return graph.Stats() + SharpGraph.Update.UpdateChecker.CachedNotice();
+    }
 }

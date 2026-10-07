@@ -8,7 +8,9 @@ namespace SharpGraph.Cli;
 /// </summary>
 internal static class CliHelp
 {
-    public const string Version = "2.3.0";
+    /// <summary>Versión mostrada en el banner: única fuente de verdad en
+    /// <see cref="VersionInfo"/> (la misma que ServerInfo y el update-checker).</summary>
+    public static string Version => VersionInfo.Current;
 
     // ────────────────────────── HELP GENERAL ──────────────────────────
 
@@ -77,6 +79,11 @@ internal static class CliHelp
                               Flags: -d <depth> (defecto 2), -l <limit> (defecto 8).
 
         ── INSTALACIÓN Y CONFIGURACIÓN ───────────────────────────────
+          update [--check]    Comprueba si hay versión nueva en GitHub Releases y
+                              actualiza el binario en sitio (descarga + SHA-256 +
+                              swap con rollback). --check solo informa.
+                              SHARPGRAPH_NO_UPDATE_CHECK=1 desactiva el aviso
+                              automático (no afecta al comando manual).
           setup               Menú interactivo: registra SharpGraph en tu
                               cliente MCP (Claude Code, Cursor, Cline,
                               Continue, VS Code, Zed, OpenCode, Crush, genérico).
@@ -113,6 +120,10 @@ internal static class CliHelp
           sharpgraph mermaid CreateOrderCommandHandler
           sharpgraph mermaid-seq IGrossService -p 2
           sharpgraph mermaid-overview -a Billing
+
+          # Mantenerse al día
+          sharpgraph update --check
+          sharpgraph update
 
           # Instalar en tu cliente MCP
           sharpgraph setup
@@ -151,6 +162,7 @@ internal static class CliHelp
         "mermaid" or "mermaid-context" or "mermaid_context" => CmdMermaid,
         "mermaid-seq" or "mermaid-sequence" or "mermaid_sequence" => CmdMermaidSeq,
         "mermaid-overview" or "mermaid_overview" => CmdMermaidOverview,
+        "update" or "self-update" => CmdUpdate,
         "setup" => CmdSetup,
         "help" => CmdHelp,
         _ => $"""
@@ -159,7 +171,7 @@ internal static class CliHelp
             Comandos disponibles: scan, stats, search, callers, usages, callsites,
             trace, impact, flow, hubs, di, source, understand, read-file,
             semantic, literals, explore, mermaid, mermaid-seq, mermaid-overview,
-            setup, help.
+            update, setup, help.
 
             Ejecuta 'sharpgraph help' para la lista completa.
             """
@@ -603,6 +615,34 @@ internal static class CliHelp
           EQUIVALENTE MCP: mermaid_overview(area, depsDepth, maxNodes)
         """;
 
+    private const string CmdUpdate = """
+        sharpgraph update — Auto-actualización explícita
+
+          Comprueba el último release de GitHub y, si hay uno posterior al actual,
+          descarga el paquete de tu plataforma, verifica su SHA-256 contra el
+          SHA256SUMS.txt del release y sustituye el binario EN SITU (con rollback
+          si algo falla). Nunca actualiza sin que tú lo pidas.
+
+          Tras actualizar, reinicia tu cliente MCP: la sesión viva sigue con el
+          binario viejo hasta que el cliente rearraque el servidor.
+
+          USO:
+            sharpgraph update [--check]
+
+          FLAGS:
+            --check        Solo informa si hay versión nueva; no descarga nada.
+
+          NOTAS:
+            - El aviso automático (en 'help' y en stats() del modo MCP) puede
+              desactivarse con la variable SHARPGRAPH_NO_UPDATE_CHECK=1;
+              el comando manual no se ve afectado.
+            - Si corres desde un árbol fuente (hay .git cerca), el comando se
+              niega: ahí el camino es git pull + publish.ps1.
+
+          EQUIVALENTE MCP: ninguno (deliberado — el servidor no se actualiza a
+          sí mismo durante una sesión del LLM).
+        """;
+
     private const string CmdSetup = """
         sharpgraph setup — Instalación interactiva
 
@@ -648,7 +688,7 @@ internal static class CliHelp
           COMANDOS DISPONIBLES:
             scan, stats, search, callers, usages, callsites, trace, impact,
             flow, hubs, di, source, understand, read-file, semantic, literals,
-            explore, mermaid, mermaid-seq, mermaid-overview, setup, help
+            explore, mermaid, mermaid-seq, mermaid-overview, update, setup, help
 
           EJEMPLOS:
             sharpgraph help flow         # ayuda del comando flow
