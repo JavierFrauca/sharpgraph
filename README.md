@@ -296,3 +296,15 @@ Requiere .NET 10 SDK. Para auto-escaneo al cambiar de proyecto, Claude Code inst
 - **Windows**: `install.ps1` (ver [docs/INSTALL.md](docs/INSTALL.md))
 - **macOS / Linux**: `install.sh`
 - **Registro en cada cliente MCP** (Claude Code, Cursor, Cline, Continue, Zed…): [docs/CLIENTS.md](docs/CLIENTS.md)
+
+### Mantenerse al día
+
+SharpGraph avisa solo cuando hay versión nueva (una comprobación diaria, silenciable
+con `SHARPGRAPH_NO_UPDATE_CHECK=1`) y se actualiza cuando TÚ lo pides — nunca solo:
+
+```
+sharpgraph update --check   # ¿hay versión nueva?
+sharpgraph update           # descarga + verifica SHA-256 + sustituye el binario
+```
+
+Tras actualizar, reinicia tu cliente MCP para que recargue el servidor.
