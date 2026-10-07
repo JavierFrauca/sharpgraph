@@ -30,6 +30,7 @@ export class DiagramViewProvider implements vscode.WebviewViewProvider {
     constructor(
         private readonly client: SharpGraphClient,
         private readonly onOpenInEditor: (ep: EndpointItem) => void,
+        private readonly onLog: (msg: string) => void = () => {},
     ) {}
 
     get current(): EndpointItem | undefined {
@@ -114,10 +115,13 @@ export class DiagramViewProvider implements vscode.WebviewViewProvider {
                 maxNodes,
                 includeDtos: this.lastDtos,
             });
-            const flow = JSON.parse(json) as FlowData;
+            const flow = JSON.parse(json) as FlowData & { mode?: string; controllerEdges?: { total?: number; matched?: number } };
             // mientras esperábamos al motor cambió la selección o la vista murió
             if (this.gen !== myGen || this.view !== view) {
                 return;
+            }
+            if (flow.mode) {
+                this.onLog(`endpoint_flow ${expression} → modo ${flow.mode} · aristas controller ${flow.controllerEdges?.matched ?? "?"}/${flow.controllerEdges?.total ?? "?"} · profundidad ${this.lastDepth}`);
             }
             view.webview.html = renderFlowHtml(flow, {
                 nonce: crypto.randomBytes(16).toString("hex"),

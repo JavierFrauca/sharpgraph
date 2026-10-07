@@ -139,6 +139,8 @@ public sealed partial class GraphEngine
 
             var frontier = roots.Select(r => r.Ctrl).Distinct(Cmp).ToList();
             var firstLevel = true;
+            var controllerEdgesTotal = 0;
+            var controllerEdgesMatched = 0;
             for (var depth = 0; depth < maxDepth && frontier.Count > 0; depth++)
             {
                 var next = new List<string>();
@@ -147,13 +149,26 @@ public sealed partial class GraphEngine
                     if (!_out.TryGetValue(current, out var outEdges)) continue;
 
                     // primer nivel en modo endpoint-concreto: solo las aristas que
-                    // salen del método de acción de ESTE endpoint (si su método no
-                    // genera aristas resueltas, fallback al expansionado completo)
+                    // salen del método de acción de ESTE endpoint. Tres señales, por
+                    // orden: 1) FromMember == método; 2) línea de la arista dentro del
+                    // SPAN del método (wrappers que pierden FromMember); 3) fallback
+                    // al expansionado completo (minimal APIs y similares)
                     if (single && firstLevel && methodName is not null && Cmp.Equals(current, rootCtrl))
                     {
+                        controllerEdgesTotal = outEdges.Count;
                         var mine = outEdges
                             .Where(e => e.FromMember is not null && Cmp.Equals(e.FromMember, methodName))
                             .ToList();
+                        if (mine.Count == 0)
+                        {
+                            var span = _members.GetValueOrDefault(rootCtrl)
+                                ?.FirstOrDefault(m => Cmp.Equals(m.MemberName, methodName));
+                            if (span is not null)
+                                mine = outEdges
+                                    .Where(e => e.Line >= span.StartLine && e.Line <= span.EndLine)
+                                    .ToList();
+                        }
+                        controllerEdgesMatched = mine.Count;
                         if (mine.Count > 0) outEdges = mine;
                     }
 
@@ -230,6 +245,12 @@ public sealed partial class GraphEngine
             {
                 ["endpoint"] = labels[roots[0].EpKey],
                 ["matchedEndpoints"] = roots.Count,
+                ["mode"] = single ? "endpoint" : "controller",
+                ["controllerEdges"] = new JsonObject
+                {
+                    ["total"] = controllerEdgesTotal,
+                    ["matched"] = controllerEdgesMatched,
+                },
                 ["root"] = rootId,
                 ["nodeCount"] = nodes.Count,
                 ["edgeCount"] = edges.Count,
