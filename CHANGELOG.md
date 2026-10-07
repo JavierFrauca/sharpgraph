@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (with the caveat that, during beta, the MCP tool surface may change between
 minor versions).
 
+## [2.5.3] - 2026-10-07
+
+### Fixed
+- **Extensión SharpGraph Flow — el diagrama por fin SIEMPRE vertical**: los
+  niveles se dibujan ahora en CUADRÍCULA de máx 4 columnas — lo que excede
+  ENVUELVE a filas extra, así un nivel con 10 commands no se derrama en una
+  tira horizontal (a nivel 2 con fan-out de 10: 4 columnas × 5 bandas). Los
+  niveles estrechos se CENTRAN (vuelve la columna del prototipo); los hermanos
+  van juntos en orden de descubrimiento.
+- **El slider arranca por defecto en el nivel 2** (mediator + dependencias de
+  primer nivel): `sharpgraphFlow.defaultDepth` pasa de 4 a 2.
+
 ## [2.5.2] - 2026-10-07
 
 ### Fixed

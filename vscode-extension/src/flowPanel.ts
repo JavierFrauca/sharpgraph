@@ -47,7 +47,7 @@ export class FlowPanelManager implements vscode.Disposable {
 
         const cfg = vscode.workspace.getConfiguration("sharpgraphFlow");
         await this.renderFlow(panel, key, ep,
-            Math.min(12, Math.max(1, cfg.get<number>("defaultDepth", 4))),
+            Math.min(12, Math.max(1, cfg.get<number>("defaultDepth", 2))),
             cfg.get<boolean>("includeDtos", false));
     }
 
