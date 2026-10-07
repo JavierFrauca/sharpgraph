@@ -74,9 +74,13 @@ export class EndpointsProvider implements vscode.TreeDataProvider<TreeNode> {
         this.invalidate();
     }
 
-    /** Reconsulta el catálogo al motor (scan + list_endpoints). */
+    /** Reconsulta el catálogo al motor (scan + list_endpoints). Si ya hay datos,
+     * no entra en estado "loading": el árbol no se vacía durante los re-escaneos
+     * del watcher (solo se vacía la primera vez o tras un error). */
     async refresh(solutionPath: string): Promise<void> {
-        this.setStatus({ kind: "loading" });
+        if (this.data.length === 0) {
+            this.setStatus({ kind: "loading" });
+        }
         try {
             await this.client.start(
                 vscode.workspace.getConfiguration("sharpgraphFlow").get<string>("serverPath", "SharpGraph"),

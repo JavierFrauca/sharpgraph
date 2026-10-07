@@ -26,7 +26,19 @@ export class SharpGraphClient implements vscode.Disposable {
     }
 
     async start(serverPath: string, solutionPath: string): Promise<void> {
+        const old = this.proc;
         this.stop();
+        // espera a que el proceso anterior muera del todo antes de spawnear:
+        // evita contención con la caché en disco y stdout entremezclado
+        if (old && old.exitCode === null) {
+            await new Promise<void>((resolve) => {
+                const timer = setTimeout(resolve, 1500);
+                old.once("exit", () => {
+                    clearTimeout(timer);
+                    resolve();
+                });
+            });
+        }
         this.startedAt = Date.now();
         const proc = cp.spawn(serverPath, [solutionPath], {
             stdio: ["pipe", "pipe", "pipe"],
@@ -70,7 +82,7 @@ export class SharpGraphClient implements vscode.Disposable {
         await this.request("initialize", {
             protocolVersion: "2024-11-05",
             capabilities: {},
-            clientInfo: { name: "sharpgraph-flow", version: "2.4.4" },
+            clientInfo: { name: "sharpgraph-flow", version: "2.4.5" },
         });
         this.notify("notifications/initialized");
     }
@@ -134,6 +146,12 @@ export class SharpGraphClient implements vscode.Disposable {
             } catch {
                 // ya estaba muerto: nada que hacer
             }
+        }
+        // rechazar las llamadas pendientes ANTES de limpiar: si alguna queda en
+        // el mapa sin rechazar, su await se cuelga para siempre (bug del árbol
+        // "Escaneando…" eterno cuando el watcher pisaba un refresh en curso)
+        for (const p of this.pending.values()) {
+            p.reject(new Error("El servidor SharpGraph se ha reiniciado."));
         }
         this.pending.clear();
     }
