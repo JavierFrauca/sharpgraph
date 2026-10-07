@@ -24,7 +24,8 @@ internal static class CliDispatcher
         "di", "resolve-di", "source", "get-source", "understand",
         "read-file", "read-file", "readfile", "semantic",
         "search-semantic", "literals", "search-literals", "explore",
-        "explore-context", "setup", "help",
+        "explore-context", "mermaid", "mermaid-context", "mermaid-seq",
+        "mermaid-sequence", "mermaid-overview", "setup", "help",
     };
 
     public static bool IsCliCommand(string arg)
@@ -61,6 +62,9 @@ internal static class CliDispatcher
             "semantic" or "search-semantic" => CliCommands.Semantic(rest, graph),
             "literals" or "search-literals" => CliCommands.Literals(rest, graph),
             "explore" or "explore-context" => CliCommands.Explore(rest, graph),
+            "mermaid" or "mermaid-context" => CliCommands.Mermaid(rest, graph),
+            "mermaid-seq" or "mermaid-sequence" => CliCommands.MermaidSeq(rest, graph),
+            "mermaid-overview" => CliCommands.MermaidOverview(rest, graph),
             "setup" => await SetupWizard.Run(rest),
             "help" => CliCommands.Help(rest),
             _ => PrintUnknown(cmd),

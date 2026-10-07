@@ -435,6 +435,86 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
         [Description("Sensible a mayúsculas (defecto false).")] bool caseSensitive = false)
         => graph.SearchLiterals(pattern, limit, caseSensitive);
 
+    [McpServerTool(Title = "Diagrama Mermaid bidireccional", ReadOnly = true, Idempotent = true), Description("""
+        DIAGRAMA de contexto en Mermaid desde un tipo ancla, en UNA llamada: la cadena
+        de llamadores hacia arriba (hasta los endpoints HTTP) y el árbol de
+        dependencias hacia abajo, con la relación de cada flecha. Devuelve un bloque
+        ```mermaid``` pegable tal cual en Markdown (GitHub, Obsidian, mermaid.live lo
+        renderizan nativamente) — la forma barata de VER lo que el grafo describe.
+
+        "Enséñame gráficamente todo lo que toco desde aquí":
+          mermaid_context("CreateOrderCommandHandler")
+            → POST /api/orders --> OrdersController -.->|sends| CreateOrderCommand
+              -.->|handled-by| Handler (ancla, resaltada) -->|ctor-param| IOrderRepository
+              -.->|di-bound| OrderRepository
+
+        Los parámetros nombran SEMÁNTICA, no orientación visual:
+          callersDepth — niveles hacia los llamadores (0 desactiva; máx 6, defecto 3).
+          depsDepth    — niveles hacia las dependencias (0 desactiva; máx 6, defecto 3).
+        direction controla la orientación del dibujo: "TD" (defecto) o "LR".
+
+        Recorta ruido: tests/mocks fuera, ILogger y demás BCL fuera (includeExternal
+        para verlos), ParamType/ReturnType excluidos, y tope duro de maxNodes
+        (defecto 40) con aviso de truncado dentro del propio bloque.
+
+        Para documentación: pega el bloque tal cual en docs/**/*.md. Para la cadena
+        paso a paso usa mermaid_sequence; para el mapa general de la app,
+        mermaid_overview.
+        """)]
+    public string MermaidContext(
+        [Description("Nombre del tipo ancla (ej: CreateOrderCommandHandler).")] string typeName,
+        [Description("Niveles hacia los llamadores (0-6, defecto 3).")] int callersDepth = 3,
+        [Description("Niveles hacia las dependencias (0-6, defecto 3).")] int depsDepth = 3,
+        [Description("Tope de nodos del diagrama (5-100, defecto 40).")] int maxNodes = 40,
+        [Description("Orientación del diagrama: TD (defecto) o LR.")] string direction = "TD",
+        [Description("Incluir tipos externos/BCL (ILogger, IMediator…). Defecto false.")] bool includeExternal = false)
+        => graph.MermaidContext(typeName, callersDepth, depsDepth, maxNodes, direction, includeExternal);
+
+    [McpServerTool(Title = "Diagrama de secuencia ancla → endpoint", ReadOnly = true, Idempotent = true), Description("""
+        SEQUENCIADIAGRAM Mermaid de lo que pasa desde un tipo hasta los endpoints HTTP
+        que lo invocan: cada cadena estructural (Controller -sends-> Command
+        -handled-by-> Handler -...-> ancla) dibujada en orden de ejecución, seguida de
+        las llamadas salientes del ancla a nivel de método. Devuelve un bloque
+        ```mermaid``` pegable en Markdown.
+
+        "Enséñame el RECORRIDO completo de esta petición":
+          mermaid_sequence("CreateOrderCommandHandler")
+            → participant POST /api/orders ... → Controller->>Command: sends
+              → Command-->>Handler: handled-by → Handler->>IOrderRepository: Create()
+
+        Solo aristas reales del grafo (sin heurísticos). Cadena corta primero; hasta
+        maxPaths cadenas. Si el ancla no llega a ningún endpoint, dibuja igualmente
+        sus llamadas salientes. Para el grafo completo (no secuencial) usa
+        mermaid_context; para rutas con heurísticos, trace_to_endpoints.
+        """)]
+    public string MermaidSequence(
+        [Description("Nombre del tipo ancla (ej: CreateOrderCommandHandler).")] string typeName,
+        [Description("Método del ancla cuyas llamadas salientes mostrar; si se omite, los públicos.")] string? member = null,
+        [Description("Máximo de cadenas a endpoint (1-8, defecto 3).")] int maxPaths = 3,
+        [Description("Profundidad máxima de cada cadena (1-12, defecto 8).")] int maxDepth = 8)
+        => graph.MermaidSequence(typeName, member, maxPaths, maxDepth);
+
+    [McpServerTool(Title = "Mapa de arquitectura Mermaid", ReadOnly = true, Idempotent = true), Description("""
+        DIAGRAMA de arquitectura en Mermaid: BFS multi-fuente desde todos los endpoints
+        HTTP (o los de un área) hacia sus dependencias, agrupado en subgraphs por
+        namespace. Devuelve un bloque ```mermaid``` pegable — el de cabecera para
+        docs/architecture/overview.md.
+
+        mermaid_overview()              → mapa completo de la app
+        mermaid_overview("Billing")     → solo endpoints de Billing (tipo o namespace)
+        mermaid_overview(depsDepth: 3)  → mapa más profundo
+
+        Sin endpoints indexados (librerías) usa el top-5 por PageRank como semillas y
+        lo avisa en el propio bloque. Solo tipos de la solución (BCL fuera) y tope
+        duro de maxNodes (defecto 60) con aviso de truncado. Para el detalle desde un
+        tipo concreto usa mermaid_context.
+        """)]
+    public string MermaidOverview(
+        [Description("Filtra endpoints por substring de tipo o namespace (ej: \"Billing\").")] string? area = null,
+        [Description("Profundidad de dependencias (1-5, defecto 2).")] int depsDepth = 2,
+        [Description("Tope de nodos del diagrama (10-150, defecto 60).")] int maxNodes = 60)
+        => graph.MermaidOverview(area, depsDepth, maxNodes);
+
     [McpServerTool(Title = "Estadísticas del grafo", ReadOnly = true, Idempotent = true), Description("""
         Estadísticas del grafo: tipos definidos, aristas, endpoints HTTP, call-sites
         (invocaciones reales), bindings DI, ficheros y ruta actual.

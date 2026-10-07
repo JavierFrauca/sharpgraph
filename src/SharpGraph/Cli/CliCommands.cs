@@ -186,6 +186,41 @@ internal static class CliCommands
         return 0;
     }
 
+    // ────────────────────────── DIAGRAMAS ──────────────────────────
+
+    public static int Mermaid(string[] args, GraphEngine graph)
+    {
+        var type = GetPositional(args, 0);
+        if (type is null) { Console.Error.WriteLine("Uso: sharpgraph mermaid <tipo> [-u <callers>] [-d <deps>] [-n <nodos>] [--lr] [--external]"); return 1; }
+        var up = GetFlagInt(args, "-u", 3);
+        var down = GetFlagInt(args, "-d", 3);
+        var maxNodes = GetFlagInt(args, "-n", 40);
+        var dir = HasFlag(args, "--lr") ? "LR" : "TD";
+        var external = HasFlag(args, "--external");
+        Console.WriteLine(graph.MermaidContext(type, up, down, maxNodes, dir, external));
+        return 0;
+    }
+
+    public static int MermaidSeq(string[] args, GraphEngine graph)
+    {
+        var type = GetPositional(args, 0);
+        if (type is null) { Console.Error.WriteLine("Uso: sharpgraph mermaid-seq <tipo> [-m <miembro>] [-p <caminos>] [-d <depth>]"); return 1; }
+        var member = GetFlag(args, "-m");
+        var paths = GetFlagInt(args, "-p", 3);
+        var depth = GetFlagInt(args, "-d", 8);
+        Console.WriteLine(graph.MermaidSequence(type, member, paths, depth));
+        return 0;
+    }
+
+    public static int MermaidOverview(string[] args, GraphEngine graph)
+    {
+        var area = GetFlag(args, "-a");
+        var depth = GetFlagInt(args, "-d", 2);
+        var maxNodes = GetFlagInt(args, "-n", 60);
+        Console.WriteLine(graph.MermaidOverview(area, depth, maxNodes));
+        return 0;
+    }
+
     // ────────────────────────── HELP ──────────────────────────
 
     public static int Help(string[] args)
