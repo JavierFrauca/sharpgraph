@@ -45,6 +45,8 @@ export interface FlowData {
 export interface RenderOptions {
     nonce: string;
     includeInfra: boolean;
+    /** muestra el botón "Abrir en editor" (modo embebido en la barra lateral) */
+    openInEditor?: boolean;
 }
 
 // geometría del layout (px de diseño; el canvas se escala para caber)
@@ -308,6 +310,7 @@ export function renderFlowHtml(data: FlowData, opts: RenderOptions): string {
     </div>
     <label class="tgl"><input type="checkbox" id="infraChk" ${opts.includeInfra ? "checked" : ""}> infraestructura</label>
     ${mermaid ? '<button id="mmdBtn" title="Copiar/ver el Mermaid equivalente">Ver Mermaid</button>' : ""}
+    ${opts.openInEditor ? '<button id="popOut" title="Abrir el diagrama grande en el editor">⤢ Editor</button>' : ""}
     <div class="zoom">
       <button id="zOut" title="Alejar (también con la ruleta del ratón)">−</button>
       <button id="zReset" title="Tamaño real"><span id="pct">100%</span></button>
@@ -398,6 +401,10 @@ export function renderFlowHtml(data: FlowData, opts: RenderOptions): string {
     if (ev.target.id === "mmdBtn") {
       var pre = document.getElementById("mmd");
       pre.style.display = pre.style.display === "block" ? "none" : "block";
+      return;
+    }
+    if (ev.target.id === "popOut" && vsc) {
+      vsc.postMessage({ type: "openInEditor" });
     }
   });
   var chk = document.getElementById("infraChk");

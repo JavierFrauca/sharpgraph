@@ -12,7 +12,7 @@ export interface EndpointItem {
     line: number;
 }
 
-interface TreeNode {
+export interface TreeNode {
     key?: string;
     controller?: EndpointItem;
     endpoints?: EndpointItem[];

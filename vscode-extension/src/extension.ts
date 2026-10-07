@@ -1,21 +1,33 @@
 import * as path from "path";
 import * as vscode from "vscode";
 import { SharpGraphClient } from "./mcp";
-import { EndpointsProvider, type EndpointItem } from "./endpoints";
+import { EndpointsProvider, type EndpointItem, type TreeNode } from "./endpoints";
 import { FlowPanelManager } from "./flowPanel";
+import { DiagramViewProvider } from "./diagramView";
 
 export function activate(context: vscode.ExtensionContext): void {
     const client = new SharpGraphClient();
     const provider = new EndpointsProvider(client, () =>
         vscode.Uri.joinPath(context.extensionUri, "media", "verbs"));
     const panels = new FlowPanelManager(client, context.extensionUri);
+    const diagram = new DiagramViewProvider(client, (ep) => {
+        void panels.open(ep);
+    });
 
     const treeView = vscode.window.createTreeView("sharpgraphFlow.endpoints", {
         treeDataProvider: provider,
     });
     treeView.badge = undefined;
 
-    context.subscriptions.push(client, panels, treeView);
+    context.subscriptions.push(
+        client,
+        panels,
+        treeView,
+        diagram,
+        vscode.window.registerWebviewViewProvider(DiagramViewProvider.viewId, diagram, {
+            webviewOptions: { retainContextWhenHidden: true },
+        }),
+    );
 
     const output = vscode.window.createOutputChannel("SharpGraph Flow");
     context.subscriptions.push(output);
@@ -169,7 +181,14 @@ export function activate(context: vscode.ExtensionContext): void {
             void refreshTree();
         }),
         vscode.commands.registerCommand("sharpgraphFlow.openEndpoint", (ep: EndpointItem) => {
-            void panels.open(ep);
+            // clic en la fila: diagrama embebido en la barra lateral (sin robar foco)
+            void diagram.show(ep);
+        }),
+        vscode.commands.registerCommand("sharpgraphFlow.openInEditor", (node?: TreeNode) => {
+            const ep = node?.controller ?? diagram.current;
+            if (ep) {
+                void panels.open(ep);
+            }
         }),
         vscode.commands.registerCommand("sharpgraphFlow.expandAll", () => {
             provider.expandAll();
