@@ -32,6 +32,9 @@ stdio y consume `list_endpoints` + `endpoint_flow`. Un motor, dos consumidores
 |---|---|
 | `SharpGraph Flow: Indexar / actualizar repo (scan)` | escanea el repo abierto AHORA (incremental, con progreso); en multi-root pregunta qué carpeta y qué .sln/.csproj |
 | `SharpGraph Flow: Recargar catálogo desde caché` | re-arranca el motor y recarga la lista de endpoints sin re-escanear |
+| `SharpGraph Flow: Filtrar endpoints` | cuadro de texto que filtra en vivo mientras escribes (controlador, ruta, método o verbo) |
+| `SharpGraph Flow: Quitar filtro` | visible solo con filtro activo (también desde el mensaje "sin coincidencias") |
+| `SharpGraph Flow: Expandir todo / Contraer todo` | expande o colapsa todos los grupos de controladores |
 | `SharpGraph Flow: Configurar ruta de SharpGraph` | apunta al ejecutable del motor |
 
 El estado vacío del árbol y los errores ofrecen estos botones directamente. Al

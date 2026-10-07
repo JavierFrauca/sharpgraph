@@ -2,7 +2,7 @@
   "name": "sharpgraph-flow",
   "displayName": "SharpGraph Flow",
   "description": "Diagrama descendente desde cualquier endpoint HTTP: controller → command → handler → servicios. Clic en un bloque para abrir el fichero en su línea. Requiere el MCP server SharpGraph.",
-  "version": "2.4.2",
+  "version": "2.4.3",
   "publisher": "javierfrauca",
   "license": "MIT",
   "repository": {
@@ -63,6 +63,27 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "sharpgraphFlow.expandAll",
+        "title": "Expandir todo",
+        "icon": "$(expand-all)"
+      },
+      {
+        "command": "sharpgraphFlow.collapseAll",
+        "title": "Contraer todo",
+        "icon": "$(collapse-all)"
+      },
+      {
+        "command": "sharpgraphFlow.filterEndpoints",
+        "title": "Filtrar endpoints",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "sharpgraphFlow.clearFilter",
+        "title": "Quitar filtro",
+        "icon": "$(clear-all)",
+        "enablement": "sharpgraphFlow.filterActive"
+      },
+      {
         "command": "sharpgraphFlow.configureServer",
         "title": "Configurar ruta de SharpGraph",
         "icon": "$(gear)"
@@ -81,8 +102,28 @@
           "when": "view == sharpgraphFlow.endpoints"
         },
         {
-          "command": "sharpgraphFlow.configureServer",
+          "command": "sharpgraphFlow.filterEndpoints",
           "group": "navigation@3",
+          "when": "view == sharpgraphFlow.endpoints"
+        },
+        {
+          "command": "sharpgraphFlow.clearFilter",
+          "group": "navigation@4",
+          "when": "view == sharpgraphFlow.endpoints && sharpgraphFlow.filterActive"
+        },
+        {
+          "command": "sharpgraphFlow.expandAll",
+          "group": "navigation@5",
+          "when": "view == sharpgraphFlow.endpoints"
+        },
+        {
+          "command": "sharpgraphFlow.collapseAll",
+          "group": "navigation@6",
+          "when": "view == sharpgraphFlow.endpoints"
+        },
+        {
+          "command": "sharpgraphFlow.configureServer",
+          "group": "navigation@7",
           "when": "view == sharpgraphFlow.endpoints"
         }
       ],

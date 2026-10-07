@@ -13,14 +13,25 @@ export interface EndpointItem {
 }
 
 interface TreeNode {
+    key?: string;
     controller?: EndpointItem;
     endpoints?: EndpointItem[];
 }
 
+interface Group {
+    key: string;
+    endpoints: EndpointItem[];
+}
+
 /** Árbol del ActivityBar: agrupado por controlador (o origen minimal API), con
- * verbos de color. La fuente es list_endpoints() del motor SharpGraph. */
+ * verbos de color, filtrado en vivo y expansión/contracción global. La fuente
+ * es list_endpoints() del motor SharpGraph. El estado de expansión es propio:
+ * el collapse-all nativo está desactivado para que no se desincronice. */
 export class EndpointsProvider implements vscode.TreeDataProvider<TreeNode> {
     private data: EndpointItem[] = [];
+    private filterText = "";
+    /** clave de grupo → estado de expansión (ausente = defecto, expandido) */
+    private readonly expanded = new Map<string, vscode.TreeItemCollapsibleState>();
     private status: { kind: "ok" } | { kind: "error"; message: string; hint?: string } | { kind: "loading" } = { kind: "loading" };
 
     private readonly _onDidChange = new vscode.EventEmitter<TreeNode[] | undefined>();
@@ -37,6 +48,29 @@ export class EndpointsProvider implements vscode.TreeDataProvider<TreeNode> {
 
     setStatus(status: typeof this.status): void {
         this.status = status;
+        this.invalidate();
+    }
+
+    get filter(): string {
+        return this.filterText;
+    }
+
+    setFilter(text: string): void {
+        this.filterText = text.trim();
+        this.invalidate();
+    }
+
+    expandAll(): void {
+        for (const g of this.groups()) {
+            this.expanded.set(g.key, vscode.TreeItemCollapsibleState.Expanded);
+        }
+        this.invalidate();
+    }
+
+    collapseAll(): void {
+        for (const g of this.groups()) {
+            this.expanded.set(g.key, vscode.TreeItemCollapsibleState.Collapsed);
+        }
         this.invalidate();
     }
 
@@ -67,11 +101,47 @@ export class EndpointsProvider implements vscode.TreeDataProvider<TreeNode> {
         this.invalidate();
     }
 
+    /** Agrupa por controlador (minimal APIs planos van sueltos) y aplica el filtro:
+     * si el grupo coincide por nombre se muestran todos sus endpoints; si no, solo
+     * los que coinciden por ruta/método/verbo; grupos vacíos fuera. */
+    private groups(): Group[] {
+        const all = new Map<string, EndpointItem[]>();
+        for (const ep of this.data) {
+            const key = /^[A-Z]+ \//.test(ep.controller) ? ep.controller : ep.controllerName;
+            if (!all.has(key)) {
+                all.set(key, []);
+            }
+            all.get(key)!.push(ep);
+        }
+        const q = this.filterText.toLowerCase();
+        if (!q) {
+            return [...all.entries()]
+                .sort((a, b) => a[0].localeCompare(b[0]))
+                .map(([key, endpoints]) => ({ key, endpoints }));
+        }
+        const result: Group[] = [];
+        for (const [key, endpoints] of [...all.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+            if (key.toLowerCase().includes(q)) {
+                result.push({ key, endpoints });
+                continue;
+            }
+            const matched = endpoints.filter((ep) =>
+                ep.route.toLowerCase().includes(q) ||
+                ep.method.toLowerCase().includes(q) ||
+                ep.verb.toLowerCase() === q);
+            if (matched.length > 0) {
+                result.push({ key, endpoints: matched });
+            }
+        }
+        return result;
+    }
+
     getTreeItem(element: TreeNode): vscode.TreeItem {
         if (element.endpoints) {
+            const key = element.key!;
             const item = new vscode.TreeItem(
-                element.endpoints[0].controllerName,
-                vscode.TreeItemCollapsibleState.Expanded,
+                key,
+                this.expanded.get(key) ?? vscode.TreeItemCollapsibleState.Expanded,
             );
             item.description = `${element.endpoints.length} endpoint(s)`;
             item.contextValue = "controller";
@@ -99,25 +169,11 @@ export class EndpointsProvider implements vscode.TreeDataProvider<TreeNode> {
     }
 
     getChildren(element?: TreeNode): TreeNode[] {
-        if (this.status.kind === "error") {
-            return [];
-        }
-        if (this.status.kind === "loading") {
+        if (this.status.kind !== "ok") {
             return [];
         }
         if (!element) {
-            // agrupa por controlador; los minimal APIs planos (clave "GET /users") van sueltos
-            const groups = new Map<string, EndpointItem[]>();
-            for (const ep of this.data) {
-                const key = /^[A-Z]+ \//.test(ep.controller) ? ep.controller : ep.controllerName;
-                if (!groups.has(key)) {
-                    groups.set(key, []);
-                }
-                groups.get(key)!.push(ep);
-            }
-            return [...groups.entries()]
-                .sort((a, b) => a[0].localeCompare(b[0]))
-                .map(([_, endpoints]) => ({ endpoints }));
+            return this.groups().map((g) => ({ key: g.key, endpoints: g.endpoints }));
         }
         return (element.endpoints ?? []).map((ep) => ({ controller: ep }));
     }
@@ -146,11 +202,22 @@ export class EndpointsProvider implements vscode.TreeDataProvider<TreeNode> {
             md.isTrusted = true;
             return md;
         }
+        if (this.filterText && this.groups().length === 0) {
+            const md = new vscode.MarkdownString(
+                `Sin coincidencias para \`${this.filterText}\`.\n\n` +
+                `[$(clear-all) Quitar filtro](command:sharpgraphFlow.clearFilter "SharpGraph Flow")`);
+            md.isTrusted = true;
+            return md;
+        }
         return undefined;
     }
 
     get totalCount(): number {
         return this.data.length;
+    }
+
+    get visibleCount(): number {
+        return this.groups().reduce((n, g) => n + g.endpoints.length, 0);
     }
 
     /** Ruta corta (para el título del webview). */
