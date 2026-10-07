@@ -51,7 +51,18 @@ minor versions).
   de host equivocado) y cualquier error JS de la vista se reporta al canal
   "SharpGraph Flow" para diagnóstico.
 
-## [2.5.1] - 2026-10-07
+## [2.5.2] — motor
+
+### Fixed
+- **`endpoint_flow` — fallback por SPAN de líneas + diagnóstico**: si el filtro
+  por FromMember no encuentra aristas del método de acción (wrappers que pierden
+  el FromMember), se reintenta por SPAN (líneas de la arista dentro de
+  StartLine..EndLine del método); solo si tampoco, expansión completa. El JSON
+  incluye ahora `"mode"` (endpoint|controller) y `"controllerEdges"`
+  {total, matched} — la extensión 2.5.5 lo registra en su canal de salida al
+  pintar cada diagrama, para diagnosticar sin CLI.
+
+## [2.5.1] — motor
 
 ### Fixed
 - **`endpoint_flow` — MODO ENDPOINT-CONCRETO**: la traza desde "VERB /ruta"
