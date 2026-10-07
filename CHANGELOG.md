@@ -7,7 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (with the caveat that, during beta, the MCP tool surface may change between
 minor versions).
 
-## [2.5.4] - 2026-10-07
+## [2.5.6] — extensión
+
+### Fixed
+- **EL CUELLO DE BOTELLA que lo lentificaba todo**: los refrescos del watcher
+  lanzaban el `scan` incremental, que re-hashea TODA la solución (medido en
+  Payroll: 23-86 SEGUNDOS) bloqueando el único servidor — cualquier clic en un
+  endpoint se quedaba encolado detrás. Ahora el watcher SOLO recarga la lista
+  desde el servidor vivo (milisegundos): el motor se auto-vigila tras su primer
+  scan, así que el scan solo corre en la primera carga y en el botón
+  "Indexar / actualizar repo". Los listados vacíos no borran lo sembrado.
+
+## [2.5.4] — extensión
 
 ### Added
 - **Extensión SharpGraph Flow — UN endpoint de uno en uno**: clic en una FILA
