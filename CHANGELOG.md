@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (with the caveat that, during beta, the MCP tool surface may change between
 minor versions).
 
+## [2.4.5] - 2026-10-07
+
+### Fixed
+- **El árbol se quedaba en "Escaneando…" y no volvía a cargar los endpoints**:
+  tres causas encadenadas, todas del lado de la extensión (el motor quedó
+  descartado con una sonda MCP standalone):
+  - `stop()` del cliente MCP limpiaba el mapa de llamadas pendientes SIN
+    rechazarlas: cuando un refresco pisaba a otro (watcher + clic + botón), los
+    `await` quedaban colgados para siempre. Ahora se rechazan antes de limpiar
+    y `start()` espera a que el proceso anterior muera antes de spawnear.
+  - **Colisión de ids de webview**: el panel del editor usaba el viewType
+    `sharpgraphFlow.diagram`, el mismo que la nueva vista embebida de la barra
+    lateral. Renombrado a `sharpgraphFlow.editorPanel`.
+  - `refreshTree` sin mutex: el watcher podía pisar un refresco en curso; ahora
+    se encola. Además, si ya hay datos, los re-escaneos ya NO vacían el árbol
+    con "Escaneando…" (solo la primera carga o tras un error).
+- Diagnóstico: el canal de salida "SharpGraph Flow" registra ahora cada
+  refresco (solución, nº de endpoints, duración) y las caídas del servidor.
+
 ## [2.4.4] - 2026-10-07
 
 ### Added

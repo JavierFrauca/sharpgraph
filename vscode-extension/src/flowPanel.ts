@@ -25,7 +25,7 @@ export class FlowPanelManager implements vscode.Disposable {
 
         const config = vscode.workspace.getConfiguration("sharpgraphFlow");
         const panel = vscode.window.createWebviewPanel(
-            "sharpgraphFlow.diagram",
+            "sharpgraphFlow.editorPanel",
             `${ep.verb} ${ep.route}`,
             vscode.ViewColumn.Active,
             { enableScripts: true, retainContextWhenHidden: true },

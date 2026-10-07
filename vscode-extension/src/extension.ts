@@ -31,8 +31,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
     const output = vscode.window.createOutputChannel("SharpGraph Flow");
     context.subscriptions.push(output);
+    const log = (msg: string) => output.appendLine(`[${new Date().toLocaleTimeString()}] ${msg}`);
     client.onStderr((text) => output.append(text));
     client.onExit((code) => {
+        log(`el servidor terminó (código ${code})`);
         if (code !== null && code !== 0) {
             provider.setStatus({ kind: "error", message: `El servidor SharpGraph terminó (código ${code}).` });
         }
@@ -85,19 +87,42 @@ export function activate(context: vscode.ExtensionContext): void {
         return picked?.uri.fsPath;
     }
 
+    /** mutex de refresco: el watcher, el arranque y "Recargar" no pueden pisarse
+     * (un start() matando el proceso de otro refresh dejaba el árbol colgado);
+     * si llega una petición durante un refresco, se encola. */
+    let refreshing = false;
+    let refreshQueued = false;
     async function refreshTree(): Promise<void> {
-        const solution = await resolveSolution();
-        if (!solution) {
-            provider.setStatus({ kind: "error", message: "No hay ningún workspace con .sln/.csproj.", hint: "Configura sharpgraphFlow.solutionPath." });
-            provider.invalidate();
+        if (refreshing) {
+            refreshQueued = true;
             return;
         }
-        await provider.refresh(solution);
-        currentSolution = solution;
-        treeView.badge = provider.totalCount > 0
-            ? { value: provider.totalCount, tooltip: `${provider.totalCount} endpoints indexados` }
-            : undefined;
-        treeView.description = provider.totalCount > 0 ? path.basename(solution) : undefined;
+        refreshing = true;
+        const t0 = Date.now();
+        try {
+            const solution = await resolveSolution();
+            if (!solution) {
+                log("sin solución que indexar (ni .sln/.csproj ni solutionPath)");
+                provider.setStatus({ kind: "error", message: "No hay ningún workspace con .sln/.csproj.", hint: "Configura sharpgraphFlow.solutionPath." });
+                provider.invalidate();
+                return;
+            }
+            await provider.refresh(solution);
+            currentSolution = solution;
+            treeView.badge = provider.totalCount > 0
+                ? { value: provider.totalCount, tooltip: `${provider.totalCount} endpoints indexados` }
+                : undefined;
+            treeView.description = provider.totalCount > 0 ? path.basename(solution) : undefined;
+            log(`refresco de ${path.basename(solution)}: ${provider.totalCount} endpoints en ${Date.now() - t0} ms`);
+        } catch (err) {
+            log(`refresco falló: ${err instanceof Error ? err.stack ?? err.message : String(err)}`);
+        } finally {
+            refreshing = false;
+            if (refreshQueued) {
+                refreshQueued = false;
+                void refreshTree();
+            }
+        }
     }
 
     /** Acción del ActivityBar: indexar (primera vez) o actualizar (scan incremental)
