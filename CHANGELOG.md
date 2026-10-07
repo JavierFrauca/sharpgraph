@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (with the caveat that, during beta, the MCP tool surface may change between
 minor versions).
 
+## [2.5.2] - 2026-10-07
+
+### Fixed
+- **Extensión SharpGraph Flow — el código ya no parte la pantalla al abrirse
+  desde la barra lateral**: clic en un bloque del diagrama embebido abría el
+  fichero con `ViewColumn.Beside`, que dividía la zona central con la mitad
+  izquierda vacía cuando no había editor activo. Desde la barra lateral abre en
+  la columna ACTIVA (sin split); desde el panel grande se mantiene el split
+  (diagrama + código al lado). Los ficheros abren ahora como preview (pestaña
+  en cursiva que se reutiliza entre clics; doble clic en la pestaña para fijar).
+
+## [2.5.1] - 2026-10-07
+
+### Fixed
+- **Extensión SharpGraph Flow — expandir/contraer blindado**: los handlers de
+  los botones se registraban por elemento al cargar el script; si algo fallaba
+  antes en el entorno real, quedaban muertos en silencio. Ahora todos los
+  clicks delegan en un único listener de document (data-action/data-cmd),
+  "Quitar filtro" es una acción local del webview (antes colgaba del comando
+  de host equivocado) y cualquier error JS de la vista se reporta al canal
+  "SharpGraph Flow" para diagnóstico.
+
 ## [2.5.0] - 2026-10-07
 
 ### Added
