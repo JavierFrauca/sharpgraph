@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (with the caveat that, during beta, the MCP tool surface may change between
 minor versions).
 
+## [2.4.3] - 2026-10-07
+
+### Added
+- **Extensión SharpGraph Flow — árbol de endpoints: filtrar y expandir/contraer**:
+  botón de FILTRO con cuadro de texto que filtra en vivo mientras se escribe
+  (coincide por controlador, ruta, método o verbo; los grupos sin coincidencias
+  desaparecen, y si un controlador coincide por nombre se muestran todos sus
+  endpoints), botón "Quitar filtro" visible solo con filtro activo (contexto
+  `sharpgraphFlow.filterActive`), y botones EXPANDIR TODO / CONTRAER TODO para los
+  grupos. El estado de expansión es ahora propio del provider (se retira el
+  collapse-all nativo) para que los botones y los re-escaneos no lo desincronicen;
+  con filtro sin coincidencias el árbol ofrece quitarlo desde su propio mensaje.
+
 ## [2.4.2] - 2026-10-07
 
 ### Added

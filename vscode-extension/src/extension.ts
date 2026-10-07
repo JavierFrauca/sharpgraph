@@ -12,7 +12,6 @@ export function activate(context: vscode.ExtensionContext): void {
 
     const treeView = vscode.window.createTreeView("sharpgraphFlow.endpoints", {
         treeDataProvider: provider,
-        showCollapseAll: true,
     });
     treeView.badge = undefined;
 
@@ -172,6 +171,38 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand("sharpgraphFlow.openEndpoint", (ep: EndpointItem) => {
             void panels.open(ep);
         }),
+        vscode.commands.registerCommand("sharpgraphFlow.expandAll", () => {
+            provider.expandAll();
+        }),
+        vscode.commands.registerCommand("sharpgraphFlow.collapseAll", () => {
+            provider.collapseAll();
+        }),
+        vscode.commands.registerCommand("sharpgraphFlow.filterEndpoints", () => {
+            const box = vscode.window.createInputBox();
+            box.value = provider.filter;
+            box.title = "SharpGraph Flow — filtrar endpoints";
+            box.prompt = "Controlador, ruta, método o verbo (GET, POST…). Vacío = sin filtro. Filtra mientras escribes.";
+            let timer: NodeJS.Timeout | undefined;
+            box.onDidChangeValue((value) => {
+                if (timer) {
+                    clearTimeout(timer);
+                }
+                timer = setTimeout(() => {
+                    provider.setFilter(value);
+                    void setFilterContext();
+                }, 150);
+            });
+            box.onDidAccept(() => {
+                provider.setFilter(box.value);
+                void setFilterContext();
+                box.hide();
+            });
+            box.show();
+        }),
+        vscode.commands.registerCommand("sharpgraphFlow.clearFilter", () => {
+            provider.setFilter("");
+            void setFilterContext();
+        }),
         vscode.commands.registerCommand("sharpgraphFlow.configureServer", async () => {
             const exe = await vscode.window.showInputBox({
                 prompt: "Ruta al ejecutable SharpGraph (publicado con publish.ps1)",
@@ -185,4 +216,9 @@ export function activate(context: vscode.ExtensionContext): void {
             }
         }),
     );
+
+    function setFilterContext(): Thenable<unknown> {
+        return vscode.commands.executeCommand(
+            "setContext", "sharpgraphFlow.filterActive", provider.filter.length > 0);
+    }
 }
