@@ -36,7 +36,7 @@ public static class SelfUpdater
         }
 
         Console.WriteLine($"SharpGraph {VersionInfo.Current} — comprobando https://github.com/JavierFrauca/sharpgraph/releases …");
-        string tag;
+        string? tag;
         JsonElement assets;
         try
         {
