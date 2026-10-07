@@ -29,3 +29,4 @@ test_nopath.txt
 
 # ZCode CLI (archivos locales del agente, no del proyecto)
 .zcode/
+.simplecode/
