@@ -149,12 +149,10 @@ function layout(data: FlowData): { pos: Map<string, Placed>; width: number; heig
     const colW = NODE_W + GAP_X;
     const rowH = NODE_H + GAP_Y;
     let y = 0;
-    let maxColsUsed = 1;
     for (const l of [...byLevel.keys()].sort((a, b) => a - b)) {
         const list = byLevel.get(l)!;
         const cols = Math.min(list.length, MAX_COLS);
-        maxColsUsed = Math.max(maxColsUsed, cols);
-        // centra los niveles estrechos dentro del ancho máximo
+        // centra los niveles estrechos dentro de la cuadrícula completa
         const offset = ((MAX_COLS - cols) * colW) / 2;
         list.forEach((n, i) => {
             pos.set(n.id, {
@@ -165,9 +163,12 @@ function layout(data: FlowData): { pos: Map<string, Placed>; width: number; heig
         y += Math.ceil(list.length / MAX_COLS) * rowH;
     }
 
+    // la cuadrícula SIEMPRE mide MAX_COLS columnas (los niveles estrechos se
+    // centran dentro) — si el lienzo midiera solo lo ocupado, el centrado y el
+    // ajuste computarían sobre un lienzo que no coincide con el contenido
     return {
         pos,
-        width: Math.max(maxColsUsed * colW - GAP_X + 4, NODE_W),
+        width: MAX_COLS * colW - GAP_X + 4,
         height: y + 4,
     };
 }
@@ -277,7 +278,7 @@ export function renderFlowHtml(data: FlowData, opts: RenderOptions): string {
     font-family:Consolas,monospace;font-size:11.5px;white-space:pre}
   .canvasOuter{flex:1;overflow:auto;position:relative;background:var(--vscode-editor-background,#1f1f1f);cursor:grab}
   .canvasOuter:active{cursor:grabbing}
-  #sizer{position:relative;margin:0 auto}
+  #sizer{position:relative}
   #canvas{position:absolute;left:0;top:0;transform-origin:0 0}
   .zoom{display:flex;gap:4px;align-items:center;margin-left:auto}
   .zoom button{min-width:28px;padding:3px 7px}
@@ -361,12 +362,18 @@ export function renderFlowHtml(data: FlowData, opts: RenderOptions): string {
   var canvas = document.getElementById("canvas");
   var sizer = document.getElementById("sizer");
   var scale = 1;
+  var mL = 0, mT = 0; // márgenes de centrado (contenido menor que el panel)
   var MIN = 0.2, MAX = 3;
 
   function apply() {
     canvas.style.transform = "scale(" + scale + ")";
     sizer.style.width = Math.round(DATA.width * scale) + "px";
     sizer.style.height = Math.round(DATA.height * scale) + "px";
+    // centrado REAL en ambos ejes cuando el contenido cabe
+    mL = Math.max(0, (outer.clientWidth - DATA.width * scale) / 2);
+    mT = Math.max(0, (outer.clientHeight - DATA.height * scale) / 2);
+    sizer.style.marginLeft = mL + "px";
+    sizer.style.marginTop = mT + "px";
     var pct = document.getElementById("pct");
     if (pct) { pct.textContent = Math.round(scale * 100) + "%"; }
   }
@@ -375,18 +382,19 @@ export function renderFlowHtml(data: FlowData, opts: RenderOptions): string {
     var rect = outer.getBoundingClientRect();
     if (cx === undefined) { cx = rect.width / 2; }
     if (cy === undefined) { cy = rect.height / 2; }
-    var px = (outer.scrollLeft + cx) / scale;   // punto anclado, en coords de diseño
-    var py = (outer.scrollTop + cy) / scale;
+    var px = (outer.scrollLeft + cx - mL) / scale;   // punto anclado, en coords de diseño
+    var py = (outer.scrollTop + cy - mT) / scale;
     scale = ns;
     apply();
-    outer.scrollLeft = px * scale - cx;
-    outer.scrollTop = py * scale - cy;
+    outer.scrollLeft = Math.max(0, px * scale + mL - cx);
+    outer.scrollTop = Math.max(0, py * scale + mT - cy);
   }
   function fitAll() {
     scale = Math.min(1, outer.clientWidth / DATA.width, outer.clientHeight / DATA.height);
     apply();
+    // sobra horizontal → centrado por scroll; falta → ya lo centran los márgenes
     outer.scrollLeft = Math.max(0, (DATA.width * scale - outer.clientWidth) / 2);
-    outer.scrollTop = 0; // el flujo se lee de arriba a abajo
+    outer.scrollTop = Math.max(0, (DATA.height * scale - outer.clientHeight) / 2);
   }
   // ruleta = zoom anclado al cursor; Shift+ruleta = desplazamiento horizontal
   outer.addEventListener("wheel", function(e) {
@@ -405,14 +413,49 @@ export function renderFlowHtml(data: FlowData, opts: RenderOptions): string {
   // defecto: LEGIBLE antes que completo. Si el fit encoge demasiado (árboles
   // anchos o muy altos), arrancamos al 90% sobre la raíz y se recorre con la
   // ruleta/scroll: el diagrama se ve vertical, no como una tira aplastada.
-  var fitScale = Math.min(1, outer.clientWidth / DATA.width, outer.clientHeight / DATA.height);
-  if (fitScale >= 0.65) {
-    fitAll();
-  } else {
-    setScale(0.9, 0, 0);
-    outer.scrollTop = 0;
-    outer.scrollLeft = 0;
+  // OJO: se ejecuta tras el load del webview — en el primer frame el panel aún
+  // no tiene layout y clientWidth/Height darían 0 (el "se queda de medio lado").
+  function initialFit() {
+    var fitScale = Math.min(1, outer.clientWidth / DATA.width, outer.clientHeight / DATA.height);
+    if (fitScale >= 0.65) {
+      fitAll();
+    } else {
+      setScale(0.9, 0, 0);
+      outer.scrollTop = 0;
+      outer.scrollLeft = 0;
+    }
   }
+  if (document.readyState === "complete") {
+    initialFit();
+  } else {
+    window.addEventListener("load", initialFit);
+  }
+  // El panel puede tener tamaño 0 cuando corre el script (webview recién
+  // montado): reintentos hasta que haya tamaño real (el ResizeObserver mantiene
+  // los márgenes de centrado en cada redimensión posterior, divisor incluido).
+  var fittedOnce = false;
+  var intentos = 0;
+  var iv = setInterval(function() {
+    if (fittedOnce || intentos++ > 40) { clearInterval(iv); return; }
+    if (outer.clientWidth > 50) {
+      fittedOnce = true;
+      clearInterval(iv);
+      initialFit();
+    }
+  }, 100);
+  var ro = new ResizeObserver(function() {
+    apply();
+    if (!fittedOnce && outer.clientWidth > 50) {
+      fittedOnce = true;
+      clearInterval(iv);
+      initialFit();
+    }
+  });
+  ro.observe(outer);
+  window.__sgDebug = {
+    apply: apply, fitAll: fitAll, initialFit: initialFit,
+    dims: function() { return [outer.clientWidth, outer.clientHeight]; },
+  };
 
   // ── arrastre para desplazarse (grab) ──
   var dragStart = null, dragged = false;
