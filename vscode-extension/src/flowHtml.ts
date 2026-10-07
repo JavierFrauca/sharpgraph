@@ -134,12 +134,9 @@ function layout(data: FlowData): { pos: Map<string, Placed>; width: number; heig
         if (kids.length === 0) {
             x = nextSlot++;
         } else {
-            const first = place(kids[0]);
-            const last = kids.length > 1 ? place(kids[kids.length - 1]) : first;
-            for (const mid of kids.slice(1, -1)) {
-                place(mid);
-            }
-            x = (first + last) / 2;
+            // slots en orden natural de descubrimiento; el padre queda centrado
+            const xs = kids.map((k) => place(k));
+            x = (xs[0] + xs[xs.length - 1]) / 2;
         }
         pos.set(id, { x: x * (NODE_W + GAP_X), y: (levelOf.get(id) ?? 0) * (NODE_H + GAP_Y) });
         return x;
@@ -265,7 +262,11 @@ export function renderFlowHtml(data: FlowData, opts: RenderOptions): string {
     border:1px solid var(--vscode-panel-border,#2b2b2b);border-radius:5px;overflow:auto;max-height:40vh;
     font-family:Consolas,monospace;font-size:11.5px;white-space:pre}
   .canvasOuter{flex:1;overflow:auto;position:relative;background:var(--vscode-editor-background,#1f1f1f)}
+  #sizer{position:relative;margin:0 auto}
   #canvas{position:absolute;left:0;top:0;transform-origin:0 0}
+  .zoom{display:flex;gap:4px;align-items:center;margin-left:auto}
+  .zoom button{min-width:28px;padding:3px 7px}
+  #pct{font-size:11px}
   svg.edges{position:absolute;left:0;top:0;pointer-events:none}
   .node{position:absolute;border-radius:8px;padding:5px 11px 6px;cursor:pointer;border:1.5px solid;
     background:rgba(30,30,30,.94);box-sizing:border-box;height:${NODE_H}px;width:${NODE_W}px;overflow:hidden}
@@ -307,12 +308,20 @@ export function renderFlowHtml(data: FlowData, opts: RenderOptions): string {
     </div>
     <label class="tgl"><input type="checkbox" id="infraChk" ${opts.includeInfra ? "checked" : ""}> infraestructura</label>
     ${mermaid ? '<button id="mmdBtn" title="Copiar/ver el Mermaid equivalente">Ver Mermaid</button>' : ""}
+    <div class="zoom">
+      <button id="zOut" title="Alejar (también con la ruleta del ratón)">−</button>
+      <button id="zReset" title="Tamaño real"><span id="pct">100%</span></button>
+      <button id="zIn" title="Acercar (también con la ruleta del ratón)">+</button>
+      <button id="zFit" title="Ajustar al panel">Ajustar</button>
+    </div>
   </div>
   <pre id="mmd">${esc(mermaid)}</pre>
   <div class="canvasOuter" id="outer">
-    <div id="canvas">
-      <svg class="edges" width="${width}" height="${height}"><defs>${defs}</defs>${edgesSvg}</svg>
-      ${nodesHtml}
+    <div id="sizer">
+      <div id="canvas">
+        <svg class="edges" width="${width}" height="${height}"><defs>${defs}</defs>${edgesSvg}</svg>
+        ${nodesHtml}
+      </div>
     </div>
   </div>
 </div>
@@ -322,17 +331,62 @@ export function renderFlowHtml(data: FlowData, opts: RenderOptions): string {
   var DATA = ${jsonForScript(JSON.stringify({ width: width, height: height }))};
   var vsc = null;
   try { vsc = acquireVsCodeApi(); } catch (e) { /* preview standalone */ }
-  function fit() {
-    var outer = document.getElementById("outer");
-    var canvas = document.getElementById("canvas");
-    var s = Math.min(1, outer.clientWidth / DATA.width);
-    canvas.style.transform = "scale(" + s + ")";
-    canvas.style.width = DATA.width + "px";
-    canvas.style.height = DATA.height + "px";
-    canvas.style.left = Math.max(0, (outer.clientWidth - DATA.width * s) / 2) + "px";
+  var outer = document.getElementById("outer");
+  var canvas = document.getElementById("canvas");
+  var sizer = document.getElementById("sizer");
+  var scale = 1;
+  var MIN = 0.2, MAX = 3;
+
+  function apply() {
+    canvas.style.transform = "scale(" + scale + ")";
+    sizer.style.width = Math.round(DATA.width * scale) + "px";
+    sizer.style.height = Math.round(DATA.height * scale) + "px";
+    var pct = document.getElementById("pct");
+    if (pct) { pct.textContent = Math.round(scale * 100) + "%"; }
   }
-  window.addEventListener("resize", fit);
-  fit();
+  function setScale(ns, cx, cy) {
+    ns = Math.max(MIN, Math.min(MAX, ns));
+    var rect = outer.getBoundingClientRect();
+    if (cx === undefined) { cx = rect.width / 2; }
+    if (cy === undefined) { cy = rect.height / 2; }
+    var px = (outer.scrollLeft + cx) / scale;   // punto anclado, en coords de diseño
+    var py = (outer.scrollTop + cy) / scale;
+    scale = ns;
+    apply();
+    outer.scrollLeft = px * scale - cx;
+    outer.scrollTop = py * scale - cy;
+  }
+  function fitAll() {
+    scale = Math.min(1, outer.clientWidth / DATA.width, outer.clientHeight / DATA.height);
+    apply();
+    outer.scrollLeft = Math.max(0, (DATA.width * scale - outer.clientWidth) / 2);
+    outer.scrollTop = 0; // el flujo se lee de arriba a abajo
+  }
+  // ruleta = zoom anclado al cursor; Shift+ruleta = desplazamiento horizontal
+  outer.addEventListener("wheel", function(e) {
+    e.preventDefault();
+    if (e.shiftKey) { outer.scrollLeft += (e.deltaY || e.deltaX); return; }
+    var rect = outer.getBoundingClientRect();
+    var f = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+    setScale(scale * f, e.clientX - rect.left, e.clientY - rect.top);
+  }, { passive: false });
+  document.getElementById("zIn").addEventListener("click", function() { setScale(scale * 1.25); });
+  document.getElementById("zOut").addEventListener("click", function() { setScale(scale / 1.25); });
+  document.getElementById("zReset").addEventListener("click", function() { setScale(1); });
+  document.getElementById("zFit").addEventListener("click", function() { fitAll(); });
+  window.addEventListener("resize", apply);
+
+  // defecto: LEGIBLE antes que completo. Si el fit encoge demasiado (árboles
+  // anchos o muy altos), arrancamos al 90% sobre la raíz y se recorre con la
+  // ruleta/scroll: el diagrama se ve vertical, no como una tira aplastada.
+  var fitScale = Math.min(1, outer.clientWidth / DATA.width, outer.clientHeight / DATA.height);
+  if (fitScale >= 0.65) {
+    fitAll();
+  } else {
+    setScale(0.9, 0, 0);
+    outer.scrollTop = 0;
+    outer.scrollLeft = 0;
+  }
   document.body.addEventListener("click", function(ev) {
     var node = ev.target.closest ? ev.target.closest(".node") : null;
     if (node) {
