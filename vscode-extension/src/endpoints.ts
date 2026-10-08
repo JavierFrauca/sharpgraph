@@ -71,6 +71,7 @@ export class EndpointsWebviewProvider implements vscode.WebviewViewProvider {
         if (this.status.kind === "ok") {
             this.pushData();
         }
+        this.flushPendingSelect();
     }
 
     /** Catálogo nuevo del motor: estado ok + datos. */
@@ -89,6 +90,40 @@ export class EndpointsWebviewProvider implements vscode.WebviewViewProvider {
 
     get hasData(): boolean {
         return this.data.length > 0;
+    }
+
+    /** Busca un endpoint del catálogo por verbo+ruta (normalizando barras
+     * finales y mayúsculas): la ruta puede venir del trace del motor. */
+    findByRoute(verb: string, route: string): EndpointItem | undefined {
+        const norm = (s: string) => s.toLowerCase().replace(/\/+$/, "") || "/";
+        return this.data.find(
+            (ep) => ep.verb.toUpperCase() === verb.toUpperCase() && norm(ep.route) === norm(route),
+        );
+    }
+
+    /** Resalta un endpoint del árbol (fila + grupo expandido + scroll) y
+     * muestra la vista. Lo usa el clic derecho en command/query del diagrama. */
+    selectEndpoint(ep: EndpointItem): void {
+        this.pendingSelect = ep;
+        if (this.view) {
+            this.flushPendingSelect();
+        } else {
+            // la vista nunca se resolvió: forzarla y volcar la selección al abrir
+            void vscode.commands
+                .executeCommand(`${EndpointsWebviewProvider.viewId}.focus`)
+                .then(() => this.flushPendingSelect());
+        }
+    }
+
+    private pendingSelect?: EndpointItem;
+
+    private flushPendingSelect(): void {
+        if (this.view && this.pendingSelect) {
+            const ep = this.pendingSelect;
+            this.pendingSelect = undefined;
+            void this.view.show(true);
+            void this.view.webview.postMessage({ type: "selectEndpoint", ep });
+        }
     }
 
     setStatus(status: Status): void {
