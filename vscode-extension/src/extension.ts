@@ -2,12 +2,12 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { SharpGraphClient } from "./mcp";
 import { EndpointsWebviewProvider, groupKeyOf, type EndpointItem } from "./endpoints";
-import { FlowPanelManager } from "./flowPanel";
+import { FlowPanelManager, panelRequestFor } from "./flowPanel";
 import { DiagramViewProvider } from "./diagramView";
+import { parseTraceEndpoint } from "./trace";
 
 export function activate(context: vscode.ExtensionContext): void {
     const client = new SharpGraphClient();
-    const panels = new FlowPanelManager(client, context.extensionUri);
 
     const output = vscode.window.createOutputChannel("SharpGraph Flow");
     context.subscriptions.push(output);
@@ -17,22 +17,45 @@ export function activate(context: vscode.ExtensionContext): void {
     /** true mientras haya un scan en curso (los clics durante el indexado
      * reciben un mensaje honesto en vez de un error de catálogo vacío) */
     let indexing = false;
+    const indexingHint = () =>
+        indexing ? "Estoy indexando la solución — espera a que acabe la notificación de progreso y vuelve a clicar." : null;
 
+    const panels = new FlowPanelManager(
+        client,
+        context.extensionUri,
+        (msg) => log(msg),
+        // clic derecho en un command/query del panel grande → traza al endpoint
+        (name) => void traceToEndpoint(name),
+        indexingHint,
+    );
     const diagram = new DiagramViewProvider(
         client,
-        (ep) => {
-            void panels.open(ep);
+        // "Abrir" en el diagrama lateral → panel grande (con el flujo YA
+        // consultado: pinta sin re-llamar al motor)
+        (req) => {
+            void panels.open(req);
         },
         (msg) => log(msg),
-        () => (indexing ? "Estoy indexando la solución — espera a que acabe la notificación de progreso y vuelve a clicar." : null),
+        indexingHint,
+        // clic derecho en un command/query del diagrama lateral
+        (name) => void traceToEndpoint(name),
     );
     const provider = new EndpointsWebviewProvider(
         // clic en una fila → SOLO ese endpoint (del controller sale su método)
         (ep) => void diagram.show(ep),
         // clic en el NOMBRE del controlador → flujo completo del controlador
         (name) => void diagram.showController(name),
-        // ⤢ en la fila → panel grande del editor
-        (ep) => void panels.open(ep),
+        // ⤢ en la fila → panel grande del editor (consulta propia con timeout)
+        (ep) => {
+            const cfg = vscode.workspace.getConfiguration("sharpgraphFlow");
+            void panels.open(
+                panelRequestFor(
+                    ep,
+                    Math.min(12, Math.max(1, cfg.get<number>("defaultDepth", 2))),
+                    cfg.get<boolean>("includeDtos", false),
+                ),
+            );
+        },
         (cmd) => void (cmd === "scan" ? scanRepo() : configureServer()),
         // expandir un grupo → refresco parcial de sus endpoints
         (key) => void refreshGroup(key),
@@ -295,8 +318,45 @@ export function activate(context: vscode.ExtensionContext): void {
         await refreshTree();
     }
 
-    async function configureServer(): Promise<void> {
-        const exe = await vscode.window.showInputBox({
+    /** Clic derecho en un command/query del diagrama: traza (hacia atrás) el
+     * endpoint HTTP que lo invoca, selecciona su fila en el árbol de la barra
+     * lateral y carga su flujo en el diagrama. */
+    async function traceToEndpoint(name: string): Promise<void> {
+        if (!client.isRunning) {
+            void vscode.window.showWarningMessage("SharpGraph Flow: el motor no está arrancado todavía.");
+            return;
+        }
+        let text: string;
+        try {
+            text = await client.callTool("trace_to_endpoints", { typeName: name });
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            void vscode.window.showErrorMessage(`SharpGraph Flow: ${message}`);
+            return;
+        }
+        const hit = parseTraceEndpoint(text);
+        if (!hit) {
+            void vscode.window.showWarningMessage(
+                `SharpGraph Flow: «${name}» no desemboca en ningún endpoint HTTP indexado.`,
+            );
+            return;
+        }
+        log(`clic derecho en ${name} → ${hit.verb} ${hit.route} (${hit.controller}.${hit.method}, ${hit.label})`);
+        const ep: EndpointItem =
+            provider.findByRoute(hit.verb, hit.route) ?? {
+                controller: hit.controller,
+                controllerName: hit.controller.split(".").pop() ?? hit.controller,
+                verb: hit.verb,
+                route: hit.route,
+                method: hit.method,
+                file: null,
+                line: 0,
+            };
+        provider.selectEndpoint(ep);
+        await diagram.show(ep);
+    }
+
+    async function configureServer(): Promise<void> {        const exe = await vscode.window.showInputBox({
             prompt: "Ruta al ejecutable SharpGraph (publicado con publish.ps1)",
             value: vscode.workspace.getConfiguration("sharpgraphFlow").get<string>("serverPath", "SharpGraph"),
         });

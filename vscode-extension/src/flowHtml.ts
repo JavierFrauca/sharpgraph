@@ -45,7 +45,7 @@ export interface FlowData {
 export interface RenderOptions {
     nonce: string;
     includeInfra: boolean;
-    /** muestra el botón "Abrir en editor" (modo embebido en la barra lateral) */
+    /** muestra el botón "Abrir" (modo embebido en la barra lateral) */
     openInEditor?: boolean;
     /** nivel de profundidad inicial del slider (re-consulta por postMessage) */
     depth: number;
@@ -238,8 +238,11 @@ export function renderFlowHtml(data: FlowData, opts: RenderOptions): string {
         }
         const cls = KIND_CLASS[n.kind] ?? "k-class";
         const fileLine = n.file ? `${shortFile(n.file)} : ${n.line ?? 0}` : "(externo)";
-        const title = `${n.fqn ?? n.name}\n${n.file ? `${n.file}:${n.line} — clic para abrir` : "sin fichero local"}`;
+        const traceable = n.kind === "command" || n.kind === "query";
+        const title = `${n.fqn ?? n.name}\n${n.file ? `${n.file}:${n.line} — clic para abrir` : "sin fichero local"}` +
+            (traceable ? "\nClic derecho: ir al endpoint que lo invoca" : "");
         return `<div class="node ${cls}" id="node-${esc(n.id)}" data-id="${esc(n.id)}"
+            data-kind="${esc(n.kind)}" data-name="${esc(n.name)}"
             data-infra="${n.infra ? 1 : 0}" data-file="${esc(n.file ?? "")}" data-line="${n.line ?? 0}"
             style="left:${Math.round(p.x)}px;top:${Math.round(p.y)}px" title="${esc(title)}">
             <div class="kind">${esc(n.kind.toUpperCase())}</div>
@@ -340,7 +343,7 @@ export function renderFlowHtml(data: FlowData, opts: RenderOptions): string {
     </span>
     <label class="tgl"><input type="checkbox" id="dtosChk" ${opts.includeDtos ? "checked" : ""} title="Nivel 4: contratos de entrada/salida (DTOs)"> contratos</label>
     ${mermaid ? '<button id="mmdBtn" title="Copiar/ver el Mermaid equivalente">Ver Mermaid</button>' : ""}
-    ${opts.openInEditor ? '<button id="popOut" title="Abrir el diagrama grande en el editor">⤢ Editor</button>' : ""}
+    ${opts.openInEditor ? '<button id="popOut" title="Abrir el diagrama completo en una pestaña de editor">Abrir</button>' : ""}
     <div class="zoom">
       <button id="zOut" title="Alejar (también con la ruleta del ratón)">−</button>
       <button id="zReset" title="Tamaño real"><span id="pct">100%</span></button>
@@ -518,6 +521,19 @@ export function renderFlowHtml(data: FlowData, opts: RenderOptions): string {
       vsc.postMessage({ type: "openInEditor" });
     }
   });
+  // ── clic derecho en un command/query: trazar (hacia atrás) hasta el
+  // endpoint HTTP que lo invoca — el host selecciona la fila en el árbol y
+  // carga su flujo en el diagrama ──
+  document.body.addEventListener("contextmenu", function(ev) {
+    var node = ev.target.closest ? ev.target.closest(".node") : null;
+    if (!node) return;
+    var kind = node.getAttribute("data-kind") || "";
+    if (kind !== "command" && kind !== "query") return;
+    ev.preventDefault();
+    var name = node.getAttribute("data-name") || "";
+    if (name && vsc) vsc.postMessage({ type: "traceEndpoint", name: name });
+  });
+
   var chk = document.getElementById("infraChk");
   if (chk) {
     chk.addEventListener("change", function() {

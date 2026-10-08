@@ -3,7 +3,7 @@ import * as vscode from "vscode";
 import { renderFlowHtml, type FlowData } from "./flowHtml";
 import type { EndpointItem } from "./endpoints";
 import type { SharpGraphClient } from "./mcp";
-import { openAtLine } from "./flowPanel";
+import { openAtLine, type FlowPanelRequest } from "./flowPanel";
 
 /**
  * Zona inferior del contenedor en la barra lateral: webview embebido con el
@@ -21,6 +21,10 @@ export class DiagramViewProvider implements vscode.WebviewViewProvider {
     private lastEndpoint?: EndpointItem;
     private lastExpression?: string;
     private lastTitle?: string;
+    /** último flujo resuelto: se pasa al panel grande para pintarlo SIN
+     * re-consultar al motor (la segunda consulta es la que dejaba el panel
+     * grande sin cargar) */
+    private lastFlow?: FlowData;
     /** niveles/contratos vigentes (los cambia el slider del propio diagrama) */
     private lastDepth = 2;
     private lastDtos = false;
@@ -29,11 +33,13 @@ export class DiagramViewProvider implements vscode.WebviewViewProvider {
 
     constructor(
         private readonly client: SharpGraphClient,
-        private readonly onOpenInEditor: (ep: EndpointItem) => void,
+        private readonly onOpenInEditor: (req: FlowPanelRequest) => void,
         private readonly onLog: (msg: string) => void = () => {},
         /** texto si hay un indexado en curso (clic durante el indexado = mensaje
          * honesto en vez de un error de catálogo vacío) */
         private readonly isIndexing: () => string | null = () => null,
+        /** clic derecho en un nodo command/query del diagrama */
+        private readonly onTraceEndpoint: (name: string) => void = () => {},
     ) {}
 
     get current(): EndpointItem | undefined {
@@ -48,8 +54,17 @@ export class DiagramViewProvider implements vscode.WebviewViewProvider {
             if (msg?.type === "open" && typeof msg.file === "string" && msg.file.length > 0) {
                 // desde la barra lateral: columna ACTIVA, sin partir la pantalla
                 void openAtLine(vscode.Uri.file(msg.file), Number(msg.line) || 0, vscode.ViewColumn.Active);
-            } else if (msg?.type === "openInEditor" && this.lastEndpoint) {
-                this.onOpenInEditor(this.lastEndpoint);
+            } else if (msg?.type === "openInEditor" && this.lastExpression) {
+                this.onOpenInEditor({
+                    expression: this.lastExpression,
+                    title: this.lastTitle ?? this.lastExpression,
+                    ep: this.lastEndpoint,
+                    flow: this.lastFlow,
+                    depth: this.lastDepth,
+                    dtos: this.lastDtos,
+                });
+            } else if (msg?.type === "traceEndpoint" && typeof msg.name === "string" && msg.name.length > 0) {
+                this.onTraceEndpoint(msg.name);
             } else if (msg?.type === "params") {
                 this.lastDepth = Math.min(12, Math.max(1, Number(msg.depth) || 2));
                 this.lastDtos = !!msg.dtos;
@@ -128,24 +143,29 @@ export class DiagramViewProvider implements vscode.WebviewViewProvider {
                 this.onLog(`endpoint_flow ${expression} → modo ${flow.mode} · aristas controller ${flow.controllerEdges?.matched ?? "?"}/${flow.controllerEdges?.total ?? "?"} · profundidad ${this.lastDepth}`);
             }
             if (flow.error) {
+                this.lastFlow = undefined;
                 // clic durante el indexado (catálogo aún vacío): mensaje honesto
                 const indexing = this.isIndexing();
                 if (indexing) {
                     view.webview.html = this.loadingHtml(`${title} — ${indexing}`);
                     return;
                 }
+            } else {
+                this.lastFlow = flow;
             }
             view.webview.html = renderFlowHtml(flow, {
                 nonce: crypto.randomBytes(16).toString("hex"),
                 includeInfra: config.get<boolean>("includeInfra", false),
-                // el botón Editor solo tiene sentido con un endpoint concreto
-                openInEditor: ep !== undefined,
+                // "Abrir" SIEMPRE: también en flujo de controlador (el panel
+                // grande pinta por expression, no necesita endpoint concreto)
+                openInEditor: true,
                 depth: this.lastDepth,
                 includeDtos: this.lastDtos,
                 title,
             });
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
+            this.lastFlow = undefined;
             if (this.gen === myGen && this.view === view) {
                 view.webview.html = this.errorHtml(message);
             }

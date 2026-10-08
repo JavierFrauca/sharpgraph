@@ -20,6 +20,35 @@ minor versions).
 - El release ahora incluye el `.vsix` en `SHA256SUMS.txt` (antes solo los
   zips del binario), para que `install vscode` pueda verificarlo.
 
+## [2.5.11] — extensión
+
+### Fixed
+- **El panel grande ya no se queda sin cargar**: al pulsar «Abrir» (antes
+  «⤢ Editor») el panel se pintaba tras una SEGUNDA consulta al motor que, si
+  fallaba o se demoraba, dejaba el spinner eterno sin ningún error visible.
+  Ahora el panel se pinta con el flujo que el diagrama lateral YA consultó
+  (cero round-trips), y cuando consulta por sí mismo (⤢ del árbol, slider de
+  niveles) tiene timeout de 120 s y deja el error en el canal de salida.
+
+### Changed
+- **El botón se llama «Abrir» y está SIEMPRE visible**, junto a «Ver Mermaid»
+  — antes era «⤢ Editor» y desaparecía en el flujo de un controlador (solo
+  se pintaba con endpoint concreto). El panel grande también funciona en modo
+  controlador (pinta por expresión, no por endpoint).
+- **Clic derecho sobre un nodo command/query del diagrama** → traza (hacia
+  atrás) el endpoint HTTP que lo invoca, resalta su fila en el árbol de la
+  barra lateral (grupo expandido + scroll) y carga su flujo en el diagrama.
+  La traza usa `trace_to_endpoints` del motor y prefiere las cadenas
+  estructurales (`direct`/`exact-mediatr`) sobre las heurísticas.
+
+## [2.5.4] — motor
+
+### Changed
+- Las instrucciones del servidor MCP piden ahora al agente que, si el repo
+  aún no está inicializado (`stats()` con 0 tipos), ejecute `scan(path)`
+  AUTOMÁTICAMENTE sin pedir permiso al usuario — también en la descripción de
+  la propia tool `scan`.
+
 ## [2.5.6] — extensión
 
 ## [2.5.10] — extensión

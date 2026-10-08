@@ -57,6 +57,9 @@ function shell(nonce: string, seed: EndpointItem[]): string {
   .grp.closed .kids{display:none}
   .ep{display:flex;align-items:center;gap:7px;padding:2px 10px 2px 27px;cursor:pointer;white-space:nowrap;overflow:hidden}
   .ep:hover{background:var(--vscode-list-hoverBackground,#2a2d2e)}
+  .ep.sel{background:var(--vscode-list-inactiveSelectionBackground,#37373d);
+    box-shadow:inset 2px 0 0 var(--vscode-focusBorder,#0078d4)}
+  .ep.sel .route{color:var(--vscode-list-activeSelectionForeground,#fff);font-weight:600}
   .verb{font-size:9px;font-weight:800;color:#fff;border-radius:3px;padding:1px 5px;width:34px;text-align:center;flex-shrink:0;letter-spacing:.03em}
   .v-GET{background:#61affe}.v-POST{background:#49cc90}.v-PUT{background:#fca130}
   .v-DELETE{background:#f93e3e}.v-PATCH{background:#50e3c2}
@@ -84,7 +87,7 @@ function shell(nonce: string, seed: EndpointItem[]): string {
 <script nonce="${nonce}">
 (function(){
   "use strict";
-  var state = { data: ${jsonForScript(JSON.stringify(seed))}, status: { kind: ${seed.length ? '"ok"' : '"loading"'} }, filter: "", expanded: {} };
+  var state = { data: ${jsonForScript(JSON.stringify(seed))}, status: { kind: ${seed.length ? '"ok"' : '"loading"'} }, filter: "", expanded: {}, selected: "" };
   var vsc = null;
   try { vsc = acquireVsCodeApi(); } catch (e) { /* preview standalone */ }
 
@@ -148,15 +151,19 @@ function shell(nonce: string, seed: EndpointItem[]): string {
         '<div class="grp-h"><span class="chev">▼</span><span class="name">' + esc(g.key) + '</span><span class="cnt">' + g.endpoints.length + '</span></div>' +
         '<div class="kids">';
       g.endpoints.forEach(function(ep){
-        html += '<div class="ep" data-k="' + esc(ep.controller + "|" + ep.verb + "|" + ep.route) + '">' +
+        var k = ep.controller + "|" + ep.verb + "|" + ep.route;
+        html += '<div class="ep' + (k === state.selected ? " sel" : "") + '" data-k="' + esc(k) + '">' +
           '<span class="verb v-' + esc(ep.verb) + '">' + esc(ep.verb) + '</span>' +
           '<span class="route">' + esc(ep.route || "/") + '</span>' +
           '<span class="mname">' + esc(ep.method || "") + '</span>' +
-          '<button class="pop" title="Abrir diagrama en el editor">⤢</button></div>';
+          '<button class="pop" title="Abrir diagrama completo">⤢</button></div>';
       });
       html += '</div></div>';
     });
     tree.innerHTML = html;
+    // la selección (propia o pedida por el host) queda a la vista
+    var selEl = tree.querySelector(".ep.sel");
+    if (selEl) selEl.scrollIntoView({ block: "center" });
     count.textContent = visible === (state.data || []).length
       ? (state.data || []).length + " endpoints"
       : visible + " de " + (state.data || []).length + " endpoints (filtro)";
@@ -219,7 +226,11 @@ function shell(nonce: string, seed: EndpointItem[]): string {
     var row = t.closest(".ep");
     if (row) {
       var ep = epFromRow(row);
-      if (ep && vsc) vsc.postMessage({ type: "select", ep: ep });
+      if (ep) {
+        state.selected = row.getAttribute("data-k") || "";
+        render();
+        if (vsc) vsc.postMessage({ type: "select", ep: ep });
+      }
     }
   });
 
@@ -244,6 +255,16 @@ function shell(nonce: string, seed: EndpointItem[]): string {
       state.data = others.concat(m.items || []);
       var cntEl = document.querySelector('.grp[data-k="' + m.key.replace(/"/g, '\\"') + '"] .grp-h .cnt');
       if (cntEl) cntEl.textContent = (m.items || []).length;
+    } else if (m.type === "selectEndpoint") {
+      // el host pide resaltar un endpoint (p.ej. tras trazar un command/query
+      // hasta el endpoint que lo invoca): expande su grupo y lo deja a la vista
+      if (m.ep) {
+        state.selected = m.ep.controller + "|" + m.ep.verb + "|" + m.ep.route;
+        state.expanded[keyOf(m.ep)] = true;
+      } else {
+        state.selected = "";
+      }
+      render();
     } else if (m.type === "status") { state.status = m.status; if (m.status.kind !== "ok") render(); }
   });
 
