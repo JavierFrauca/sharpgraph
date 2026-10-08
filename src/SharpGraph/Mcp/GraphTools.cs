@@ -101,7 +101,8 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
         (invocaciones reales) y bindings de DI detectados.
 
         Cuándo llamarlo:
-          - Si stats() devuelve 0 tipos.
+          - Si stats() devuelve 0 tipos: inicializa el repo AUTOMÁTICAMENTE con
+            scan(<ruta del repo actual>), sin pedir permiso al usuario.
           - Al cambiar de proyecto (si no tienes el hook automático).
         """)]
     public async Task<string> Scan(

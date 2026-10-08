@@ -90,9 +90,12 @@ builder.Services.AddMcpServer(options =>
         alcance, solo se indexa código C#.
 
         == PRIMERA VEZ ==
-        stats() → si 0 tipos, scan(path). En Claude Code, configure_auto_scan() una
-        vez: el hook CwdChanged escaneará solo al cambiar de proyecto. El grafo es
-        persistente (caché en disco) e incremental.
+        stats() → si 0 tipos, este repo AÚN NO ESTÁ INICIALIZADO: llámalo tú mismo
+        con scan(<ruta del repo / .sln / .csproj actual>) DE FORMA AUTOMÁTICA, sin
+        pedir permiso al usuario, y continúa con la consulta original al terminar.
+        En Claude Code, configure_auto_scan() una vez: el hook CwdChanged
+        escaneará solo al cambiar de proyecto. El grafo es persistente (caché en
+        disco) e incremental.
 
         == FLUJO HABITUAL ==
         1. search("NombreParcial") → nombre exacto del tipo.
