@@ -97,6 +97,12 @@ builder.Services.AddMcpServer(options =>
         escaneará solo al cambiar de proyecto. El grafo es persistente (caché en
         disco) e incremental.
 
+        == EXTENSIÓN VS CODE (opcional) ==
+        Si el usuario quiere ver los endpoints y sus flujos como diagramas en su
+        editor, instala la extensión «SharpGraph Flow» tú mismo:
+        install_vscode_extension() — descarga el .vsix del último release y lo
+        instala en VS Code/Cursor/Codium (vsixPath opcional para uno local).
+
         == FLUJO HABITUAL ==
         1. search("NombreParcial") → nombre exacto del tipo.
         2. ¿Quién depende de X?           → find_callers(X, depth)

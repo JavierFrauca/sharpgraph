@@ -21,14 +21,23 @@ internal static class InstallCommand
     /// <summary>CLIs de editores aceptadas, por orden de preferencia.</summary>
     private static readonly string[] CliNames = ["code", "code-insiders", "codium"];
 
-    public static async Task<int> Run(string[] args)
+    /// <summary>
+    /// Ejecuta la instalación. Los writers de salida son inyectables: la CLI pasa
+    /// la consola, pero la tool MCP <c>install_vscode_extension</c> pasa StringWriters
+    /// — en modo servidor MCP el stdout ES el transporte JSON-RPC y no puede
+    /// mezclarse con texto de progreso.
+    /// </summary>
+    public static async Task<int> Run(string[] args, TextWriter? stdout = null, TextWriter? stderr = null)
     {
+        var @out = stdout ?? Console.Out;
+        var err = stderr ?? Console.Error;
+
         var target = args.FirstOrDefault();
         if (target is null || !Targets.Contains(target))
         {
             if (target is not null)
-                Console.Error.WriteLine($"Objetivo desconocido: '{target}'. Hoy solo hay: vscode (extensión SharpGraph Flow).");
-            Console.Error.WriteLine("USO: sharpgraph install vscode [--vsix <ruta>]");
+                err.WriteLine($"Objetivo desconocido: '{target}'. Hoy solo hay: vscode (extensión SharpGraph Flow).");
+            err.WriteLine("USO: sharpgraph install vscode [--vsix <ruta>]");
             return 1;
         }
 
@@ -37,9 +46,9 @@ internal static class InstallCommand
         var codeCli = LocateCodeCli();
         if (codeCli is null)
         {
-            Console.Error.WriteLine("No encuentro la CLI de VS Code ('code') en el PATH ni en las rutas de instalación habituales.");
-            Console.Error.WriteLine("Instala VS Code o añade su carpeta 'bin' al PATH. También puedes instalar a mano:");
-            Console.Error.WriteLine("  code --install-extension <sharpgraph-flow-x.y.z.vsix>");
+            err.WriteLine("No encuentro la CLI de VS Code ('code') en el PATH ni en las rutas de instalación habituales.");
+            err.WriteLine("Instala VS Code o añade su carpeta 'bin' al PATH. También puedes instalar a mano:");
+            err.WriteLine("  code --install-extension <sharpgraph-flow-x.y.z.vsix>");
             return 1;
         }
 
@@ -48,16 +57,16 @@ internal static class InstallCommand
         {
             if (vsixPath is null)
             {
-                vsixPath = await DownloadVsixFromRelease(tempDir);
+                vsixPath = await DownloadVsixFromRelease(tempDir, @out, err);
                 if (vsixPath is null) return 1;
             }
             else if (!File.Exists(vsixPath))
             {
-                Console.Error.WriteLine($"No existe el fichero: {vsixPath}");
+                err.WriteLine($"No existe el fichero: {vsixPath}");
                 return 1;
             }
 
-            return await RunCodeInstall(codeCli, vsixPath);
+            return await RunCodeInstall(codeCli, vsixPath, @out, err);
         }
         finally
         {
@@ -66,9 +75,9 @@ internal static class InstallCommand
     }
 
     /// <summary>Descarga el .vsix del último release a tempDir. null = fallo (ya informado).</summary>
-    private static async Task<string?> DownloadVsixFromRelease(string tempDir)
+    private static async Task<string?> DownloadVsixFromRelease(string tempDir, TextWriter @out, TextWriter err)
     {
-        Console.WriteLine($"SharpGraph {VersionInfo.Current} — buscando el .vsix de la extensión en GitHub Releases …");
+        @out.WriteLine($"SharpGraph {VersionInfo.Current} — buscando el .vsix de la extensión en GitHub Releases …");
         string? tag;
         System.Text.Json.JsonElement assets;
         try
@@ -77,38 +86,38 @@ internal static class InstallCommand
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"No se pudo consultar el último release ({ex.Message}). ¿Sin conexión?");
+            err.WriteLine($"No se pudo consultar el último release ({ex.Message}). ¿Sin conexión?");
             return null;
         }
         if (tag is null)
         {
-            Console.Error.WriteLine("No se pudo leer el último release (rate-limit de la API o release inexistente).");
+            err.WriteLine("No se pudo leer el último release (rate-limit de la API o release inexistente).");
             return null;
         }
 
         var vsix = UpdateChecker.PickVsixAsset(assets);
         if (vsix is null)
         {
-            Console.Error.WriteLine($"El release {tag} no trae sharpgraph-flow-*.vsix.");
-            Console.Error.WriteLine("Descárgalo a mano: https://github.com/JavierFrauca/sharpgraph/releases");
+            err.WriteLine($"El release {tag} no trae sharpgraph-flow-*.vsix.");
+            err.WriteLine("Descárgalo a mano: https://github.com/JavierFrauca/sharpgraph/releases");
             return null;
         }
 
-        WarnIfVersionMismatch(vsix.Value.Name);
+        WarnIfVersionMismatch(vsix.Value.Name, @out);
 
         Directory.CreateDirectory(tempDir);
         var downloaded = Path.Combine(tempDir, vsix.Value.Name);
-        Console.WriteLine($"Descargando {vsix.Value.Name} …");
+        @out.WriteLine($"Descargando {vsix.Value.Name} …");
         await SelfUpdater.DownloadToAsync(vsix.Value.Url, downloaded);
 
         var sums = await SelfUpdater.TryDownloadSumsAsync(vsix.Value.Url);
         if (sums is null || !UpdateChecker.TryGetExpectedSha256(sums, downloaded, out _))
-            Console.WriteLine("Aviso: este release no suma el .vsix en SHA256SUMS.txt; verificación solo por HTTPS.");
+            @out.WriteLine("Aviso: este release no suma el .vsix en SHA256SUMS.txt; verificación solo por HTTPS.");
         else if (UpdateChecker.VerifySha256(downloaded, sums))
-            Console.WriteLine("SHA-256 verificado.");
+            @out.WriteLine("SHA-256 verificado.");
         else
         {
-            Console.Error.WriteLine("El SHA-256 del .vsix descargado NO coincide con SHA256SUMS.txt: instalación abortada.");
+            err.WriteLine("El SHA-256 del .vsix descargado NO coincide con SHA256SUMS.txt: instalación abortada.");
             return null;
         }
 
@@ -117,25 +126,25 @@ internal static class InstallCommand
 
     /// <summary>Motor y extensión evolucionan en pareja: avisa (sin bloquear) si el
     /// .vsix del release no coincide con la versión del binario en ejecución.</summary>
-    private static void WarnIfVersionMismatch(string vsixName)
+    private static void WarnIfVersionMismatch(string vsixName, TextWriter @out)
     {
         var stem = vsixName["sharpgraph-flow-".Length..^".vsix".Length];
         if (!Version.TryParse(stem, out var vsix)) return;
         if (!Version.TryParse(VersionInfo.Current, out var engine)) return;
 
         if (vsix > engine)
-            Console.WriteLine($"Nota: la extensión ({vsix}) es más nueva que tu binario ({VersionInfo.Current}). " +
-                              "Considera 'sharpgraph update' para alinear motor y extensión.");
+            @out.WriteLine($"Nota: la extensión ({vsix}) es más nueva que tu binario ({VersionInfo.Current}). " +
+                           "Considera 'sharpgraph update' para alinear motor y extensión.");
         else if (vsix < engine)
-            Console.WriteLine($"Nota: el release aún no trae la extensión al nivel de tu binario ({VersionInfo.Current} > {vsix}). " +
-                              "Si compilas desde fuente: cd vscode-extension && npm run package.");
+            @out.WriteLine($"Nota: el release aún no trae la extensión al nivel de tu binario ({VersionInfo.Current} > {vsix}). " +
+                           "Si compilas desde fuente: cd vscode-extension && npm run package.");
     }
 
     /// <summary>`code --install-extension <vsix> --force`. En Windows los .cmd no son
     /// ejecutables PE: hay que pasar por cmd.exe /c.</summary>
-    private static async Task<int> RunCodeInstall(string codeCli, string vsixPath)
+    private static async Task<int> RunCodeInstall(string codeCli, string vsixPath, TextWriter @out, TextWriter err)
     {
-        Console.WriteLine($"Instalando en VS Code vía {Path.GetFileName(codeCli)} …");
+        @out.WriteLine($"Instalando en VS Code vía {Path.GetFileName(codeCli)} …");
         var psi = new ProcessStartInfo
         {
             UseShellExecute = false,
@@ -165,17 +174,17 @@ internal static class InstallCommand
         var stderr = await process.StandardError.ReadToEndAsync();
         await process.WaitForExitAsync();
 
-        if (stdout.Trim().Length > 0) Console.WriteLine(stdout.TrimEnd());
-        if (stderr.Trim().Length > 0) Console.Error.WriteLine(stderr.TrimEnd());
+        if (stdout.Trim().Length > 0) @out.WriteLine(stdout.TrimEnd());
+        if (stderr.Trim().Length > 0) err.WriteLine(stderr.TrimEnd());
 
         if (process.ExitCode != 0)
         {
-            Console.Error.WriteLine("La instalación de la extensión devolvió un error.");
+            err.WriteLine("La instalación de la extensión devolvió un error.");
             return process.ExitCode;
         }
 
-        Console.WriteLine();
-        Console.WriteLine("Extensión SharpGraph Flow instalada. Abre (o recarga) VS Code para verla.");
+        @out.WriteLine();
+        @out.WriteLine("Extensión SharpGraph Flow instalada. Abre (o recarga) VS Code para verla.");
         return 0;
     }
 

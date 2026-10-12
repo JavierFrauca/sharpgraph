@@ -7,9 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (with the caveat that, during beta, the MCP tool surface may change between
 minor versions).
 
-## [Unreleased]
+## [2.6.0] — motor
 
 ### Added
+- **Tool MCP `install_vscode_extension`**: instala la extensión SharpGraph Flow
+  en VS Code/Cursor/Codium DESDE el propio LLM (p. ej. "instálame la extensión
+  de SharpGraph"), sin salir del chat. Reutiliza la maquinaria de
+  `sharpgraph install vscode` (descarga del release + SHA-256 +
+  `code --install-extension`); `vsixPath` opcional instala un `.vsix` local.
+  Todo el output queda en el resultado de la tool: en modo servidor el stdout
+  es el transporte JSON-RPC, así que `InstallCommand` ahora escribe en
+  `TextWriter` inyectables. Las instrucciones del servidor mencionan la tool.
 - **`sharpgraph install vscode`** — instala la extensión SharpGraph Flow en
   VS Code: descarga el `.vsix` del último release de GitHub (misma maquinaria
   que `update`, con verificación SHA-256 cuando SHA256SUMS.txt lo cubre) y

@@ -56,6 +56,31 @@ scan("C:\tu-proyecto\src")
 
 ---
 
+## Extensión de VS Code (opcional)
+
+SharpGraph Flow añade a VS Code (también Cursor/VSCodium) un panel con el
+catálogo de endpoints HTTP y diagramas descendentes de cada endpoint
+(controller → command → handler → servicios), clicable a `fichero:línea`.
+
+Dos formas de instalarla, idénticas por dentro (descarga del `.vsix` del
+último release con verificación SHA-256 + `code --install-extension`):
+
+```powershell
+# desde la terminal
+sharpgraph install vscode            # o: sharpgraph install vscode --vsix .\mi-vsix.vsix
+```
+
+```
+# sin salir del chat: pídeselo al LLM
+instálame la extensión de SharpGraph para VS Code   → usa install_vscode_extension()
+```
+
+Tras instalar, recarga la ventana de VS Code. La extensión lanza el mismo
+`SharpGraph` que registraste como servidor MCP; si no está en PATH,
+configura `sharpgraphFlow.serverPath` en VS Code.
+
+---
+
 ## Solución de problemas
 
 **`stats()` no responde**

@@ -10,5 +10,5 @@ namespace SharpGraph;
 /// </summary>
 public static class VersionInfo
 {
-    public const string Current = "2.5.4";
+    public const string Current = "2.6.0";
 }

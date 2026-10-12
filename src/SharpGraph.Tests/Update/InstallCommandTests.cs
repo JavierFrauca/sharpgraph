@@ -96,4 +96,23 @@ public class InstallCommandTests
         Assert.EndsWith("\"", line);
         Assert.Equal(6, line.Count(c => c == '"'));
     }
+
+    // ─────────────────── writers inyectables (tool MCP) ───────────────────
+
+    [Fact]
+    public async Task Run_WritesToGivenWriters_NotToConsole_WhenTargetUnknown()
+    {
+        // La tool MCP install_vscode_extension captura la salida en StringWriters:
+        // en modo servidor el stdout ES el transporte JSON-RPC y no puede mezclarse
+        // con texto de progreso. Este test fija el contrato sin tocar red ni CLI.
+        var stdout = new StringWriter();
+        var stderr = new StringWriter();
+
+        var exit = await InstallCommand.Run(["objetivo-inexistente"], stdout, stderr);
+
+        Assert.Equal(1, exit);
+        Assert.Equal(string.Empty, stdout.ToString());
+        Assert.Contains("Objetivo desconocido: 'objetivo-inexistente'", stderr.ToString());
+        Assert.Contains("USO: sharpgraph install vscode", stderr.ToString());
+    }
 }

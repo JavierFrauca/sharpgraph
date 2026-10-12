@@ -88,6 +88,7 @@ Un LLM que intente trazar esta ruta leyendo código necesitaría abrir varios fi
 | `mermaid_sequence(typeName)` | **Diagrama de secuencia** de las cadenas ancla → endpoint HTTP (MediatR exacto) + llamadas salientes del ancla a nivel de método. |
 | `mermaid_overview(area)` | **Mapa de arquitectura**: BFS desde todos los endpoints hacia sus dependencias, agrupado por namespace. Cabecera ideal de `docs/architecture/overview.md`. |
 | `stats()` | Tipos, aristas, endpoints, call-sites, bindings DI y ficheros. |
+| `install_vscode_extension([vsixPath])` | Instala la extensión VS Code «SharpGraph Flow» (diagramas de endpoints) desde el propio LLM: descarga el `.vsix` del último release (SHA-256 verificado) y ejecuta `code --install-extension`. |
 
 ### Ahorro de tokens
 
@@ -309,3 +310,6 @@ sharpgraph install vscode   # instala la extensión SharpGraph Flow (VS Code)
 ```
 
 Tras actualizar, reinicia tu cliente MCP para que recargue el servidor.
+
+La extensión también se puede instalar sin salir del chat: pide al LLM que use
+la tool `install_vscode_extension`.

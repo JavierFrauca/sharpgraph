@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using SharpGraph.Cli;
 using SharpGraph.Graph;
 using SharpGraph.Persistence;
 using SharpGraph.Scanner;
@@ -84,6 +85,51 @@ public class GraphTools(GraphEngine graph, GraphStore store, ProjectWatcher watc
 
         File.WriteAllText(settingsPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         return $"Hook configurado en {settingsPath}. Reinicia Claude Code para activarlo.";
+    }
+
+    [McpServerTool(Title = "Instalar extensión VS Code (SharpGraph Flow)", Idempotent = true), Description("""
+        Instala la extensión de VS Code «SharpGraph Flow» (panel de endpoints HTTP
+        y diagrama descendente controller → command → handler → servicios, clicable
+        a fichero:línea). Es para que el USUARIO la vea en su editor: no afecta a
+        este servidor MCP.
+
+        Qué hace: descarga el .vsix del último release de GitHub (verificación
+        SHA-256 contra SHA256SUMS.txt cuando el release lo cubre) y ejecuta
+        'code --install-extension --force'. Localiza la CLI de VS Code en PATH y
+        en las rutas habituales de Windows/macOS/Linux (code, code-insiders, codium).
+
+        vsixPath (opcional): ruta a un .vsix LOCAL (offline/desarrollo) en vez de
+        descargarlo del release.
+
+        Cuándo llamarla: cuando el usuario quiera la extensión en VS Code, Cursor o
+        VSCodium — p. ej. "instálame la extensión de SharpGraph". La extensión
+        ejecuta este mismo binario como motor: si no está en PATH, el resultado
+        indica cómo configurar sharpgraphFlow.serverPath. Tras instalar: recargar
+        la ventana de VS Code.
+        """)]
+    public async Task<string> InstallVscodeExtension(
+        [Description("Opcional: ruta a un .vsix local (offline/desarrollo). Si se omite, se descarga el del último release de GitHub.")] string? vsixPath = null)
+    {
+        string[] args = vsixPath is null ? ["vscode"] : ["vscode", "--vsix", vsixPath];
+
+        // El stdout del servidor MCP es el transporte JSON-RPC: todo el progreso
+        // de la instalación queda capturado en StringWriters, nunca en consola.
+        var stdout = new StringWriter();
+        var stderr = new StringWriter();
+        var exit = await InstallCommand.Run(args, stdout, stderr);
+
+        var result = exit == 0
+            ? "OK — extensión SharpGraph Flow instalada."
+            : $"FALLO — la instalación devolvió el código {exit}.";
+        var details = string.Join("\n", new[] { stdout.ToString(), stderr.ToString() }
+            .Where(t => t.Trim().Length > 0)).TrimEnd();
+        if (details.Length > 0)
+            result += "\n\n" + details;
+        if (exit == 0)
+            result += "\n\nAbre o recarga VS Code (Developer: Reload Window) para verla. " +
+                      $"La extensión lanza este mismo binario como motor: si VS Code no lo encuentra en PATH, " +
+                      $"configura sharpgraphFlow.serverPath con: {Environment.ProcessPath}";
+        return result;
     }
 
     [McpServerTool(Title = "Escanear proyecto C#", Idempotent = true), Description("""
