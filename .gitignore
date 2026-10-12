@@ -20,8 +20,10 @@ bench/RESULTS.md
 # Benchmark público: el repo externo a clonar para reproducir, nunca se commitea
 bench/_external/
 
-# Documento de comparativa interno (referencias a repos privados)
-docs/Comparativa_MCP_CodeGraph_vs_SharpGraph_vs_SinMCP.md
+# Documento de comparativa interno (referencias a repos privados).
+# Patrón por familia: la variante commiteada como "LocalGraph" escapó a la
+# regla anterior, que nombraba la variante "SharpGraph".
+docs/Comparativa_MCP_*
 
 # Logs sueltos de desarrollo
 scan_output.txt
